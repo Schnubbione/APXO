@@ -5,6 +5,7 @@ import { AdminLogin } from './AdminLogin';
 import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
 import Tutorial from './Tutorial';
+import AnalyticsPanel from './AnalyticsPanel';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
@@ -38,6 +39,7 @@ export const MultiUserApp: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   // Debug: Log state changes
   React.useEffect(() => {
@@ -133,6 +135,8 @@ export const MultiUserApp: React.FC = () => {
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
           setShowAdminPanel={setShowAdminPanel}
+          showAnalytics={showAnalytics}
+          setShowAnalytics={setShowAnalytics}
         />
 
         <RoundTimer
@@ -334,6 +338,8 @@ export const MultiUserApp: React.FC = () => {
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
           setShowAdminPanel={setShowAdminPanel}
+          showAnalytics={showAnalytics}
+          setShowAnalytics={setShowAnalytics}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -562,5 +568,20 @@ export const MultiUserApp: React.FC = () => {
     );
   }
 
+  // Analytics Panel (shown when admin opens analytics)
+  if (showAnalytics) {
+    return (
+      <AnalyticsPanel
+        showAnalytics={showAnalytics}
+        setShowAnalytics={setShowAnalytics}
+        gameState={gameState}
+        roundHistory={[]} // TODO: Get from server
+        leaderboard={leaderboard || []}
+      />
+    );
+  }
+
   return null;
 };
+
+export default MultiUserApp;

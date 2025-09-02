@@ -184,15 +184,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Get leaderboard
-  socket.on('getLeaderboard', () => {
-    const leaderboard = gameState.teams
-      .map(team => ({
-        name: team.name,
-        profit: team.totalProfit
-      }))
-      .sort((a, b) => b.profit - a.profit);
-    socket.emit('leaderboard', leaderboard);
+  // Get analytics data
+  socket.on('getAnalytics', () => {
+    socket.emit('analyticsData', {
+      roundHistory: roundHistory,
+      currentGameState: gameState,
+      leaderboard: gameState.teams
+        .map(team => ({
+          name: team.name,
+          profit: team.totalProfit
+        }))
+        .sort((a, b) => b.profit - a.profit)
+    });
   });
 
   socket.on('disconnect', () => {

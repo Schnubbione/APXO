@@ -56,6 +56,7 @@ interface GameContextType {
   startRound: () => void;
   endRound: () => void;
   getLeaderboard: () => void;
+  getAnalytics: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -226,6 +227,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('getLeaderboard');
   };
 
+  const getAnalytics = () => {
+    socket?.emit('getAnalytics');
+  };
+
   const value: GameContextType = {
     socket,
     gameState,
@@ -239,7 +244,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateTeamDecision,
     startRound,
     endRound,
-    getLeaderboard
+    getLeaderboard,
+    getAnalytics
   };
 
   return (

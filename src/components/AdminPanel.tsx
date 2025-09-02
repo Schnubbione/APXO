@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { BarChart3 } from "lucide-react";
 
 interface AdminPanelProps {
   numTeams: number;
@@ -27,13 +28,16 @@ interface AdminPanelProps {
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
   setShowAdminPanel: (value: boolean) => void;
+  showAnalytics: boolean;
+  setShowAnalytics: (value: boolean) => void;
 }
 
 export default function AdminPanel({
   numTeams, setNumTeams, rounds, setRounds, baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
-  isAdmin, setIsAdmin, showAdminPanel, setShowAdminPanel
+  isAdmin, setIsAdmin, showAdminPanel, setShowAdminPanel,
+  showAnalytics, setShowAnalytics
 }: AdminPanelProps) {
   if (!isAdmin || !showAdminPanel) {
     return null; // Don't render anything when not admin or panel is closed
@@ -151,6 +155,16 @@ export default function AdminPanel({
             </div>
           </div>
         </CardContent>
+
+        <div className="p-6 border-t border-slate-600">
+          <Button
+            onClick={() => setShowAnalytics(true)}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold px-6 py-3 rounded-lg shadow-lg transition-all duration-200"
+          >
+            <BarChart3 className="w-5 h-5 mr-2" />
+            View Analytics Dashboard
+          </Button>
+        </div>
       </Card>
     </div>
   );
