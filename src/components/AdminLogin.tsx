@@ -7,18 +7,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Shield } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
-  const { loginAsAdmin } = useGame();
+  const { loginAsAdmin, isAdmin } = useGame();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password.trim()) {
+      setLoading(true);
+      setError('');
       loginAsAdmin(password.trim());
       setPassword('');
-      setError('');
+      // Reset loading after a short delay
+      setTimeout(() => setLoading(false), 2000);
     }
   };
+
+  // If admin login was successful, this component won't be rendered anymore
+  // because the parent component will show the admin view instead
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center p-4">
@@ -44,12 +51,14 @@ export const AdminLogin: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="text-sm min-h-[44px]"
+                disabled={loading}
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
+              <p className="text-xs text-slate-500">Hint: admin123</p>
             </div>
 
-            <Button type="submit" className="w-full min-h-[44px]">
-              Login as Admin
+            <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login as Admin'}
             </Button>
           </form>
 

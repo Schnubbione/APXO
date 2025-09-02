@@ -96,18 +96,31 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newSocket = io('http://localhost:3001');
     setSocket(newSocket);
 
+    console.log('Connecting to server...');
+
+    newSocket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+
     // Listen for game state updates
     newSocket.on('gameState', (state: GameState) => {
+      console.log('Game state updated:', state);
       setGameState(state);
     });
 
     // Listen for registration success
     newSocket.on('registrationSuccess', (team: Team) => {
+      console.log('Team registered:', team);
       setCurrentTeam(team);
     });
 
     // Listen for admin login
     newSocket.on('adminLoginSuccess', () => {
+      console.log('Admin login successful');
       setIsAdmin(true);
     });
 

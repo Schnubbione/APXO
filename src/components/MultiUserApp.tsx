@@ -29,6 +29,11 @@ export const MultiUserApp: React.FC = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
+  // Debug: Log state changes
+  React.useEffect(() => {
+    console.log('App state:', { currentTeam: currentTeam?.name, isAdmin, showAdminLogin });
+  }, [currentTeam, isAdmin, showAdminLogin]);
+
   // Show tutorial on first visit
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
@@ -70,7 +75,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // Show admin login when requested
-  if (showAdminLogin) {
+  if (showAdminLogin && !isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         <div className="flex justify-center pt-8">
@@ -86,6 +91,13 @@ export const MultiUserApp: React.FC = () => {
       </div>
     );
   }
+
+  // If admin login was successful, reset showAdminLogin
+  React.useEffect(() => {
+    if (isAdmin && showAdminLogin) {
+      setShowAdminLogin(false);
+    }
+  }, [isAdmin, showAdminLogin]);
 
   // Admin view
   if (isAdmin) {
@@ -129,7 +141,10 @@ export const MultiUserApp: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowAdminLogin(false)} className="min-h-[44px]">
+              <Button variant="outline" size="sm" onClick={() => {
+                // Reset admin state and reload to go back to initial state
+                window.location.reload();
+              }} className="min-h-[44px]">
                 Logout
               </Button>
             </div>

@@ -50,7 +50,11 @@ export default function AdminPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsAdmin(false)}
+            onClick={() => {
+              setIsAdmin(false);
+              // Reset to initial state
+              window.location.reload();
+            }}
             className="absolute top-2 right-2 h-8 w-8 p-0"
           >
             ✕
