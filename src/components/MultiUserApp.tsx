@@ -9,7 +9,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Plane, Users, Award, Settings } from 'lucide-react';
+import { Users, Award, Settings, MapPin } from 'lucide-react';
 
 const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
@@ -122,8 +122,6 @@ export const MultiUserApp: React.FC = () => {
           setSharedMarket={(v) => updateGameSettings({ sharedMarket: v })}
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
-          onStartRound={startRound}
-          onEndRound={endRound}
           roundTime={roundTimeMinutes}
           setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           isAdmin={true}
@@ -142,10 +140,10 @@ export const MultiUserApp: React.FC = () => {
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                <Plane className="w-8 h-8 text-white" />
+                <MapPin className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Airline Procurement & Demand Simulation
+                Touristic Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-4 text-slate-400">
@@ -273,7 +271,7 @@ export const MultiUserApp: React.FC = () => {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        {/* Admin Login Button - always visible */}
+        {/* Admin Login Button - only visible if not registered as team or if admin */}
         <div className="fixed top-4 right-4 z-40 flex gap-2">
           {isAdmin && (
             <Button
@@ -284,14 +282,16 @@ export const MultiUserApp: React.FC = () => {
               Admin
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAdminLogin(true)}
-            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm"
-          >
-            Admin Login
-          </Button>
+          {!currentTeam && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdminLogin(true)}
+              className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm"
+            >
+              Admin Login
+            </Button>
+          )}
         </div>
 
         <RoundTimer
@@ -315,8 +315,6 @@ export const MultiUserApp: React.FC = () => {
           setSharedMarket={(v) => updateGameSettings({ sharedMarket: v })}
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
-          onStartRound={startRound}
-          onEndRound={endRound}
           roundTime={roundTimeMinutes}
           setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           isAdmin={isAdmin}
@@ -329,10 +327,10 @@ export const MultiUserApp: React.FC = () => {
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                <Plane className="w-8 h-8 text-white" />
+                <MapPin className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Airline Procurement & Demand Simulation
+                Touristic Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-400">

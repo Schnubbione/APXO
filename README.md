@@ -1,6 +1,6 @@
-# Airline Procurement & Demand Simulation (APXO)
+# Touristic Procurement & Demand Simulation (APXO)
 
-A real-time, multi-user simulation game for learning airline revenue management and procurement strategies.
+A real-time, multi-user simulation game for learning touristic procurement and demand management strategies.
 
 ## Features
 

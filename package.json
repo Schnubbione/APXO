@@ -1,7 +1,7 @@
 {
   "name": "apxo",
   "version": "1.0.0",
-  "description": "Airline Procurement & Demand Simulation",
+  "description": "Touristic Procurement & Demand Simulation",
   "main": "index.js",
   "type": "module",
   "scripts": {

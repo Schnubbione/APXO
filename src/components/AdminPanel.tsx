@@ -21,8 +21,6 @@ interface AdminPanelProps {
   setSharedMarket: (value: boolean) => void;
   seed: number;
   setSeed: (value: number) => void;
-  onStartRound: () => void;
-  onEndRound: () => void;
   roundTime: number;
   setRoundTime: (value: number) => void;
   isAdmin: boolean;
@@ -34,7 +32,7 @@ interface AdminPanelProps {
 export default function AdminPanel({
   numTeams, setNumTeams, rounds, setRounds, baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
-  seed, setSeed, onStartRound, onEndRound, roundTime, setRoundTime,
+  seed, setSeed, roundTime, setRoundTime,
   isAdmin, setIsAdmin, showAdminPanel, setShowAdminPanel
 }: AdminPanelProps) {
   if (!isAdmin || !showAdminPanel) {
@@ -46,7 +44,7 @@ export default function AdminPanel({
       {/* Mobile Overlay */}
       <div className="absolute inset-0 bg-black/60 sm:hidden backdrop-blur-sm" onClick={() => setShowAdminPanel(false)} />
 
-      <Card className="w-full max-w-sm sm:w-96 max-h-[85vh] sm:max-h-96 overflow-y-auto relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+      <Card className="w-full max-w-sm sm:w-96 max-h-[95vh] sm:max-h-[600px] overflow-y-auto relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
         <CardHeader className="pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
           <CardTitle className="text-lg sm:text-xl text-white font-bold">Admin Panel</CardTitle>
           <Button
@@ -62,7 +60,10 @@ export default function AdminPanel({
         </CardHeader>
         <CardContent className="space-y-5 p-6">
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Round Time (Minutes)</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Round Time</Label>
+              <div className="text-xs text-slate-500 mt-1">Slider von 1-30 Minuten</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
             </div>
@@ -70,7 +71,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Teams</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Teams</Label>
+              <div className="text-xs text-slate-500 mt-1">Aktuelle Anzahl registrierter Teams</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} className="w-full" />
             </div>
@@ -78,7 +82,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Rounds</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Rounds</Label>
+              <div className="text-xs text-slate-500 mt-1">Gesamtanzahl der Runden (1-12)</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} className="w-full" />
             </div>
@@ -86,7 +93,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
+              <div className="text-xs text-slate-500 mt-1">Grundnachfrage (20-240 Kunden)</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} className="w-full" />
             </div>
@@ -94,7 +104,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">WTP Spread</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">WTP Spread</Label>
+              <div className="text-xs text-slate-500 mt-1">Preisvariabilität (±5-150)</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} className="w-full" />
             </div>
@@ -102,7 +115,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Random Shock</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Random Shock</Label>
+              <div className="text-xs text-slate-500 mt-1">Zufällige Nachfrageschwankungen (±0-40%)</div>
+            </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} className="w-full" />
             </div>
@@ -110,7 +126,10 @@ export default function AdminPanel({
           </div>
 
           <div className="space-y-3">
-            <Label className="text-slate-300 text-sm font-medium">Seed</Label>
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Seed</Label>
+              <div className="text-xs text-slate-500 mt-1">Reproduzierbare Simulationen</div>
+            </div>
             <Input
               type="number"
               value={seed}
@@ -121,23 +140,10 @@ export default function AdminPanel({
 
           <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
             <Switch checked={sharedMarket} onCheckedChange={setSharedMarket} id="shared" className="data-[state=checked]:bg-indigo-500" />
-            <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market</Label>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button
-              onClick={onStartRound}
-              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold min-h-[48px] rounded-lg shadow-lg hover:shadow-green-500/25 transition-all duration-200"
-            >
-              Start New Round
-            </Button>
-            <Button
-              onClick={onEndRound}
-              variant="outline"
-              className="flex-1 bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white hover:border-slate-500 font-semibold min-h-[48px] rounded-lg transition-all duration-200"
-            >
-              End Round
-            </Button>
+            <div>
+              <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market</Label>
+              <div className="text-xs text-slate-500 mt-1">Toggle für Marktstruktur</div>
+            </div>
           </div>
         </CardContent>
       </Card>
