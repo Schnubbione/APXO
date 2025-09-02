@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
 import Tutorial from "./components/Tutorial";
 
 // ----------------------------------------------
@@ -291,29 +292,29 @@ export default function App() {
             <CardContent className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Teams</Label>
-                <Slider value={numTeams} onValueChange={setNumTeams} min={2} max={6} step={1} />
+                <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} />
                 <div className="text-sm text-slate-600">{numTeams} Teams aktiv</div>
               </div>
               <div className="space-y-2">
                 <Label>Runden</Label>
-                <Slider value={rounds} onValueChange={setRounds} min={1} max={12} step={1} />
+                <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} />
                 <div className="text-sm text-slate-600">Runde {Math.min(currentRound, rounds)} von {rounds}</div>
               </div>
 
               <div className="space-y-2">
                 <Label>Basis-Nachfrage (Kunden)</Label>
-                <Slider value={baseDemand} onValueChange={setBaseDemand} min={20} max={240} step={5} />
+                <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} />
                 <div className="text-sm text-slate-600">~ {baseDemand} pro Runde</div>
               </div>
               <div className="space-y-2">
                 <Label>WTP-Streuung</Label>
-                <Slider value={spread} onValueChange={setSpread} min={5} max={150} step={5} />
+                <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} />
                 <div className="text-sm text-slate-600">± {spread} (Preis-Sensitivität)</div>
               </div>
 
               <div className="space-y-2">
                 <Label>Random Shock</Label>
-                <Slider value={Math.round(shock*100)} onValueChange={(v: number) => setShock(v/100)} min={0} max={40} step={1} />
+                <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} />
                 <div className="text-sm text-slate-600">± {Math.round(shock*100)}%</div>
               </div>
               <div className="space-y-2">
