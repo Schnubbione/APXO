@@ -86,7 +86,7 @@ let gameState = {
   currentRound: 0,
   totalRounds: 5,
   isActive: false,
-  adminPassword: 'admin123', // In production, use environment variables
+  adminPassword: process.env.ADMIN_PASSWORD || 'admin123', // Use environment variable
   baseDemand: 100,
   spread: 50,
   shock: 0.1,
