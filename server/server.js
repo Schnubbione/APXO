@@ -5,7 +5,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config();
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config({ path: '.env.production' });
+} else {
+  dotenv.config();
+}
 
 const app = express();
 const server = createServer(app);
