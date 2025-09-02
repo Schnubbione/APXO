@@ -20,7 +20,7 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [
+    const staticAllowed = [
       // Local development
       "http://localhost:5173",
       "http://localhost:5174",
@@ -28,19 +28,38 @@ const corsOptions = {
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5174",
       "http://127.0.0.1:5175",
-      // Production frontend (will be updated with actual URL)
-      process.env.FRONTEND_URL || "https://your-frontend-url.vercel.app"
+      // Known production frontend
+      "https://apxo.vercel.app",
     ];
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    const envFrontend = process.env.FRONTEND_URL; // e.g. https://apxo.vercel.app
+
+    const allowedOrigins = envFrontend ? [...staticAllowed, envFrontend] : staticAllowed;
+
+    let isAllowed = allowedOrigins.includes(origin);
+
+    // Allow any *.vercel.app subdomain
+    if (!isAllowed) {
+      try {
+        const hostname = new URL(origin).hostname;
+        if (hostname.endsWith('.vercel.app')) {
+          isAllowed = true;
+        }
+      } catch (e) {
+        // ignore URL parse errors
+      }
+    }
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('Blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ["GET", "POST"],
-  credentials: true
+  methods: ["GET", "POST", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 const io = new Server(server, {
@@ -48,6 +67,8 @@ const io = new Server(server, {
 });
 
 app.use(cors(corsOptions));
+// Handle preflight requests globally
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // Health check route
