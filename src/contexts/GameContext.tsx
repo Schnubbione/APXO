@@ -93,10 +93,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [leaderboard, setLeaderboard] = useState<Array<{ name: string; profit: number }> | null>(null);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:3001');
+    // Use environment variable for server URL, fallback to localhost for development
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+    const newSocket = io(serverUrl);
     setSocket(newSocket);
 
-    console.log('Connecting to server...');
+    console.log('Connecting to server:', serverUrl);
 
     newSocket.on('connect', () => {
       console.log('Connected to server');

@@ -115,25 +115,121 @@ APXO/
 - `TeamRegistration.tsx`: Team registration component
 - `RoundTimer.tsx`: Round timing component
 
-## Deployment
+## Deployment für Tech Day
 
-### For Production
-1. Build the frontend:
+### Option 1: Lokale Netzwerk-Freigabe (Einfachste Lösung)
+
+1. **Frontend für Netzwerk freigeben:**
    ```bash
-   npm run build
+   npm run dev -- --host
+   ```
+   Die App ist dann unter `http://[Ihre-IP-Adresse]:5173` erreichbar
+
+2. **Backend für Netzwerk freigeben:**
+   ```bash
+   cd server
+   npm start
+   ```
+   Backend läuft auf Port 3001
+
+3. **Ihre lokale IP-Adresse finden:**
+   ```bash
+   ipconfig getifaddr en0  # macOS
+   # oder
+   hostname -I  # Linux
    ```
 
-2. Set environment variables for the server:
-   ```bash
-   PORT=3001
-   ADMIN_PASSWORD=your_secure_password
-   ```
+### Option 2: Online Deployment (Für globale Erreichbarkeit)
 
-3. Deploy both frontend (dist/) and backend to your hosting platform
+#### Frontend auf Vercel (Kostenlos)
+1. **Repository auf GitHub pushen**
+2. **Vercel Account erstellen:** https://vercel.com
+3. **Neues Projekt erstellen:**
+   - Repository importieren
+   - Build Settings: `npm run build`
+   - Output Directory: `dist`
+4. **Environment Variables setzen:**
+   - `VITE_SERVER_URL`: Ihre Backend-URL (z.B. `https://your-app.onrender.com`)
 
-### Environment Variables
-- `PORT`: Server port (default: 3001)
-- `ADMIN_PASSWORD`: Admin login password (default: admin123)
+#### Backend auf Render (Kostenlos)
+1. **Render Account erstellen:** https://render.com
+2. **Neuen Web Service erstellen:**
+   - Repository: Ihr GitHub Repo
+   - Branch: main
+   - Runtime: Node
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+3. **Environment Variables:**
+   - `PORT`: 10000 (wird von Render gesetzt)
+   - `NODE_ENV`: production
+   - `FRONTEND_URL`: Ihre Vercel-URL (z.B. `https://your-app.vercel.app`)
+
+#### Backend auf Railway (Kostenlos)
+1. **Railway Account erstellen:** https://railway.app
+2. **Neues Projekt erstellen:**
+   - Repository deployen
+   - Environment Variables setzen
+3. **Domain:** Automatisch generierte .up.railway.app URL
+
+### Environment Setup
+
+#### Lokale Entwicklung
+```bash
+# Frontend .env.local
+VITE_SERVER_URL=http://localhost:3001
+
+# Backend .env
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+```
+
+#### Produktion
+```bash
+# Frontend .env.production
+VITE_SERVER_URL=https://your-backend.onrender.com
+
+# Backend .env
+PORT=10000
+NODE_ENV=production
+FRONTEND_URL=https://your-frontend.vercel.app
+```
+
+### CORS-Konfiguration
+Der Server ist bereits für mehrere Origins konfiguriert:
+- Lokale Entwicklung: `localhost:5173`, `localhost:5174`, etc.
+- Produktion: Ihre Deployment-URLs
+
+### Troubleshooting
+
+**Problem: Socket.IO Verbindung fehlgeschlagen**
+- Prüfen Sie die `VITE_SERVER_URL` Environment Variable
+- Stellen Sie sicher, dass CORS für Ihre Domain konfiguriert ist
+
+**Problem: Admin Login funktioniert nicht**
+- Standard-Passwort: `admin123`
+- Prüfen Sie Server-Logs für Fehler
+
+**Problem: Teams können sich nicht registrieren**
+- Prüfen Sie Socket.IO Verbindung
+- Stellen Sie sicher, dass Backend läuft
+
+### Für Tech Day vorbereiten
+
+1. **Testen Sie beide Deployment-Optionen**
+2. **Notieren Sie sich alle URLs:**
+   - Frontend: `https://your-app.vercel.app`
+   - Backend: `https://your-app.onrender.com`
+3. **Testen Sie von verschiedenen Geräten:**
+   - Desktop Browser
+   - Mobile Browser
+   - Verschiedene Netzwerke
+4. **Backup-Plan:** Lokale Netzwerk-Freigabe als Fallback
+
+### Monitoring
+- **Frontend:** Vercel Analytics für Besucherzahlen
+- **Backend:** Server-Logs auf Render/Railway
+- **Echtzeit:** Socket.IO Verbindung überwachen
 
 ## Contributing
 

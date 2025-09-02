@@ -5,17 +5,41 @@ import cors from 'cors';
 
 const app = express();
 const server = createServer(app);
+
+// CORS configuration for both development and production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      // Local development
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+      "http://127.0.0.1:5175",
+      // Production frontend (will be updated with actual URL)
+      process.env.FRONTEND_URL || "https://your-frontend-url.vercel.app"
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ["GET", "POST"],
+  credentials: true
+};
+
 const io = new Server(server, {
-  cors: {
-    origin: ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
-    methods: ["GET", "POST"]
-  }
+  cors: corsOptions
 });
 
-app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // In-memory storage (for development)
@@ -158,4 +182,6 @@ function calculateRoundResults() {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5175'}`);
 });
