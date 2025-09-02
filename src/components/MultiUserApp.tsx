@@ -36,12 +36,9 @@ export const MultiUserApp: React.FC = () => {
     console.log('App state:', { currentTeam: currentTeam?.name, isAdmin, showAdminLogin });
   }, [currentTeam, isAdmin, showAdminLogin]);
 
-  // Show tutorial on first visit
+  // Always show tutorial on page load
   useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
-    if (!hasSeenTutorial) {
-      setShowTutorial(true);
-    }
+    setShowTutorial(true);
   }, []);
 
   // Get leaderboard when round ends
@@ -62,7 +59,7 @@ export const MultiUserApp: React.FC = () => {
   if (showTutorial) {
     return <Tutorial onStart={() => {
       setShowTutorial(false);
-      localStorage.setItem('hasSeenTutorial', 'true');
+      // Don't set localStorage since we want tutorial to show every time
     }} />;
   }
 
@@ -374,8 +371,13 @@ export const MultiUserApp: React.FC = () => {
                   <Label className="text-slate-300 text-sm font-medium">Retail Price (€)</Label>
                   <Input
                     type="number"
-                    value={currentTeam.decisions.price}
-                    onChange={(e) => updateTeamDecision({ price: Number(e.target.value) })}
+                    value={currentTeam.decisions.price === 0 ? "" : (currentTeam.decisions.price || "")}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = value === "" ? 0 : Number(value);
+                      updateTeamDecision({ price: numValue });
+                    }}
                     disabled={gameState.isActive}
                     className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                   />
@@ -411,10 +413,15 @@ export const MultiUserApp: React.FC = () => {
                         <Input
                           type="number"
                           min={0}
-                          value={currentTeam.decisions.buy[fare.code] || 0}
-                          onChange={(e) => updateTeamDecision({
-                            buy: { ...currentTeam.decisions.buy, [fare.code]: Math.max(0, Number(e.target.value)) }
-                          })}
+                          value={currentTeam.decisions.buy[fare.code] === 0 ? "" : (currentTeam.decisions.buy[fare.code] || "")}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const numValue = value === "" ? 0 : Math.max(0, Number(value));
+                            updateTeamDecision({
+                              buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
+                            });
+                          }}
                           disabled={gameState.isActive}
                           className="w-20 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[44px]"
                         />
@@ -443,10 +450,15 @@ export const MultiUserApp: React.FC = () => {
                         <Input
                           type="number"
                           min={0}
-                          value={currentTeam.decisions.buy[fare.code] || 0}
-                          onChange={(e) => updateTeamDecision({
-                            buy: { ...currentTeam.decisions.buy, [fare.code]: Math.max(0, Number(e.target.value)) }
-                          })}
+                          value={currentTeam.decisions.buy[fare.code] === 0 ? "" : (currentTeam.decisions.buy[fare.code] || "")}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const numValue = value === "" ? 0 : Math.max(0, Number(value));
+                            updateTeamDecision({
+                              buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
+                            });
+                          }}
                           disabled={gameState.isActive}
                           className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-sm font-mono min-h-[40px]"
                         />

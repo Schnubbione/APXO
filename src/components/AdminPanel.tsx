@@ -132,8 +132,13 @@ export default function AdminPanel({
             </div>
             <Input
               type="number"
-              value={seed}
-              onChange={e => setSeed(parseInt(e.target.value||"0"))}
+              value={seed === 0 ? "" : (seed || "")}
+              placeholder="0"
+              onChange={e => {
+                const value = e.target.value;
+                const numValue = value === "" ? 0 : parseInt(value || "0");
+                setSeed(numValue);
+              }}
               className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
             />
           </div>

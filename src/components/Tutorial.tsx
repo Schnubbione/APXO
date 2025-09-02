@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plane, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-react";
+import { MapPin, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-react";
 
 interface TutorialProps {
   onStart: () => void;
@@ -14,13 +14,13 @@ export default function Tutorial({ onStart }: TutorialProps) {
         <CardHeader className="text-center pb-8">
           <div className="flex justify-center mb-6">
             <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
-              <Plane className="w-10 h-10 text-white" />
+              <MapPin className="w-10 h-10 text-white" />
             </div>
           </div>
           <CardTitle className="text-3xl font-bold text-white mb-2">
-            Airline Procurement & Demand Simulation
+            Touristic Procurement & Demand Simulation
           </CardTitle>
-          <p className="text-slate-400 text-lg">Master the art of airline ticket procurement and pricing</p>
+          <p className="text-slate-400 text-lg">Master the art of touristic procurement and demand management</p>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -32,7 +32,7 @@ export default function Tutorial({ onStart }: TutorialProps) {
                 <h3 className="text-xl font-semibold text-white">Game Objective</h3>
               </div>
               <p className="text-slate-300 leading-relaxed">
-                As travel agency teams, you purchase different fare classes from the airline and set end-customer prices.
+                As tour operator teams, you purchase different fare classes from the airline and set end-customer prices.
                 Customer demand is simulated based on their Willingness to Pay (WTP).
                 <span className="text-green-400 font-semibold"> Goal: Achieve the highest profit (revenue - procurement costs)!</span>
               </p>
@@ -125,7 +125,7 @@ export default function Tutorial({ onStart }: TutorialProps) {
               className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg transition-all duration-200 min-h-[56px]"
             >
               <span className="flex items-center gap-2">
-                <Plane className="w-5 h-5" />
+                <MapPin className="w-5 h-5" />
                 Start Simulation
               </span>
             </Button>
