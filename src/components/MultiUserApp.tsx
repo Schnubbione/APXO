@@ -51,10 +51,6 @@ export const MultiUserApp: React.FC = () => {
     }} />;
   }
 
-  if (showAdminLogin) {
-    return <AdminLogin />;
-  }
-
   // If not registered and not admin, show registration
   if (!currentTeam && !isAdmin) {
     return (
@@ -69,6 +65,24 @@ export const MultiUserApp: React.FC = () => {
           </Button>
         </div>
         <TeamRegistration />
+      </div>
+    );
+  }
+
+  // Show admin login when requested
+  if (showAdminLogin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="flex justify-center pt-8">
+          <Button
+            variant="outline"
+            onClick={() => setShowAdminLogin(false)}
+            className="min-h-[44px]"
+          >
+            ← Back to Game
+          </Button>
+        </div>
+        <AdminLogin />
       </div>
     );
   }
@@ -183,6 +197,18 @@ export const MultiUserApp: React.FC = () => {
   if (currentTeam) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 p-2 sm:p-4 lg:p-8">
+        {/* Admin Login Button - always visible */}
+        <div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-40">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdminLogin(true)}
+            className="min-h-[44px] text-xs sm:text-sm"
+          >
+            Admin Login
+          </Button>
+        </div>
+
         <RoundTimer
           roundTime={gameState.roundTime}
           isActive={gameState.isActive}

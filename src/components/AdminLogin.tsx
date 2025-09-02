@@ -9,12 +9,14 @@ import { Shield } from 'lucide-react';
 export const AdminLogin: React.FC = () => {
   const { loginAsAdmin } = useGame();
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password.trim()) {
       loginAsAdmin(password.trim());
       setPassword('');
+      setError('');
     }
   };
 
@@ -43,6 +45,7 @@ export const AdminLogin: React.FC = () => {
                 required
                 className="text-sm min-h-[44px]"
               />
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
 
             <Button type="submit" className="w-full min-h-[44px]">

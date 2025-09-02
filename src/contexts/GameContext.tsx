@@ -111,6 +111,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(true);
     });
 
+    // Listen for admin login error
+    newSocket.on('adminLoginError', (error: string) => {
+      console.error('Admin login error:', error);
+      // Could emit an event or set an error state here
+    });
+
     // Listen for round events
     newSocket.on('roundStarted', (roundNumber: number) => {
       setGameState(prev => ({ ...prev, currentRound: roundNumber, isActive: true }));

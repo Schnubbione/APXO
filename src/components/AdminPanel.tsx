@@ -36,13 +36,7 @@ export default function AdminPanel({
   isAdmin, setIsAdmin
 }: AdminPanelProps) {
   if (!isAdmin) {
-    return (
-      <div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-50">
-        <Button variant="outline" size="sm" onClick={() => setIsAdmin(true)} className="text-xs sm:text-sm">
-          Admin
-        </Button>
-      </div>
-    );
+    return null; // Don't render anything when not admin
   }
 
   return (
