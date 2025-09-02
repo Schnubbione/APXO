@@ -118,7 +118,7 @@ io.on('connection', (socket) => {
         name: teamName,
         decisions: {
           price: 199,
-          buy: {}
+          buy: { F: 0, P: 0, O: 0 }
         },
         totalProfit: 0
       };

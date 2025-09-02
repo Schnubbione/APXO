@@ -20,7 +20,8 @@ export const MultiUserApp: React.FC = () => {
     isAdmin,
     roundResults,
     leaderboard,
-    updateTeamDecision,
+  updateTeamDecision,
+  updateGameSettings,
     startRound,
     endRound,
     getLeaderboard
@@ -102,33 +103,34 @@ export const MultiUserApp: React.FC = () => {
 
   // Admin view
   if (isAdmin) {
+  const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 p-2 sm:p-4 lg:p-8">
         <AdminPanel
           numTeams={gameState.teams.length}
-          setNumTeams={() => {}} // Handled by backend
+          setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
           rounds={gameState.totalRounds}
-          setRounds={() => {}}
+          setRounds={(v) => updateGameSettings({ totalRounds: v })}
           baseDemand={gameState.baseDemand}
-          setBaseDemand={() => {}}
+          setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
           spread={gameState.spread}
-          setSpread={() => {}}
+          setSpread={(v) => updateGameSettings({ spread: v })}
           shock={gameState.shock}
-          setShock={() => {}}
+          setShock={(v) => updateGameSettings({ shock: v })}
           sharedMarket={gameState.sharedMarket}
-          setSharedMarket={() => {}}
+          setSharedMarket={(v) => updateGameSettings({ sharedMarket: v })}
           seed={gameState.seed}
-          setSeed={() => {}}
+          setSeed={(v) => updateGameSettings({ seed: v })}
           onStartRound={startRound}
           onEndRound={endRound}
-          roundTime={gameState.roundTime}
-          setRoundTime={() => {}}
+      roundTime={roundTimeMinutes}
+      setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           isAdmin={true}
-          setIsAdmin={() => {}}
+          setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
         />
 
         <RoundTimer
-          roundTime={gameState.roundTime}
+      roundTime={roundTimeMinutes}
           isActive={gameState.isActive}
           onTimeUp={endRound}
         />
@@ -211,6 +213,7 @@ export const MultiUserApp: React.FC = () => {
 
   // Team view
   if (currentTeam) {
+  const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 p-2 sm:p-4 lg:p-8">
         {/* Admin Login Button - always visible */}
@@ -226,7 +229,7 @@ export const MultiUserApp: React.FC = () => {
         </div>
 
         <RoundTimer
-          roundTime={gameState.roundTime}
+          roundTime={roundTimeMinutes}
           isActive={gameState.isActive}
           onTimeUp={() => {}}
         />

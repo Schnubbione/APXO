@@ -111,7 +111,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for game state updates
     newSocket.on('gameState', (state: GameState) => {
       console.log('Game state updated:', state);
-      setGameState(state);
+      // Ensure each team has all fare codes initialized
+      const allCodes = (state.fares || []).map(f => f.code);
+      const normalizedTeams = (state.teams || []).map(t => ({
+        ...t,
+        decisions: {
+          price: t.decisions?.price ?? 199,
+          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>)
+        }
+      }));
+      setGameState({ ...state, teams: normalizedTeams });
+      // Keep currentTeam in sync with backend state (by socket id)
+  const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
+      if (myTeam) {
+        setCurrentTeam(myTeam);
+      }
     });
 
     // Listen for registration success
@@ -166,6 +180,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number> }) => {
+    // Optimistic local update for snappy UI
+    setCurrentTeam(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        decisions: {
+          ...prev.decisions,
+          ...(decision.price !== undefined ? { price: decision.price } : {}),
+          ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {})
+        }
+      };
+    });
+
+    // Also reflect in global game state teams for local view until server confirms
+    setGameState(prev => {
+      const sid = socket?.id;
+      if (!sid) return prev;
+      return {
+        ...prev,
+        teams: prev.teams.map(t => t.id === sid ? {
+          ...t,
+          decisions: {
+            ...t.decisions,
+            ...(decision.price !== undefined ? { price: decision.price } : {}),
+            ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {})
+          }
+        } : t)
+      };
+    });
+
+    // Notify server
     socket?.emit('updateTeamDecision', decision);
   };
 

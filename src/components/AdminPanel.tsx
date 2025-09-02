@@ -42,7 +42,7 @@ export default function AdminPanel({
   return (
     <div className="fixed inset-0 sm:inset-auto sm:top-4 sm:right-4 z-50 flex items-center justify-center sm:items-start sm:justify-end p-4">
       {/* Mobile Overlay */}
-      <div className="absolute inset-0 bg-black/50 sm:hidden" onClick={() => setIsAdmin(false)} />
+  <div className="absolute inset-0 bg-black/50 sm:hidden" onClick={() => setIsAdmin(false)} />
 
       <Card className="w-full max-w-sm sm:w-96 max-h-[80vh] sm:max-h-96 overflow-y-auto relative">
         <CardHeader className="pb-2">
@@ -51,9 +51,8 @@ export default function AdminPanel({
             variant="ghost"
             size="sm"
             onClick={() => {
+              // Einfach schließen; kein Reload nötig
               setIsAdmin(false);
-              // Reset to initial state
-              window.location.reload();
             }}
             className="absolute top-2 right-2 h-8 w-8 p-0"
           >
