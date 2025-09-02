@@ -1,6 +1,16 @@
-module.exports = {
+export default {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
   },
 }
+
+```parameter>
+<parameter name="oldString">module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+```
