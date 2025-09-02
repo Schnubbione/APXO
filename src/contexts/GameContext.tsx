@@ -129,7 +129,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
       setGameState({ ...state, teams: normalizedTeams });
       // Keep currentTeam in sync with backend state (by socket id)
-  const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
+      const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
+      if (myTeam) {
+        setCurrentTeam(myTeam);
+      }
+    });
+
+    // Also listen for gameStateUpdate events (broadcasted updates)
+    newSocket.on('gameStateUpdate', (state: GameState) => {
+      console.log('Game state broadcast updated:', state);
+      // Ensure each team has all fare codes initialized
+      const allCodes = (state.fares || []).map(f => f.code);
+      const normalizedTeams = (state.teams || []).map(t => ({
+        ...t,
+        decisions: {
+          price: t.decisions?.price ?? 199,
+          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>)
+        }
+      }));
+      setGameState({ ...state, teams: normalizedTeams });
+      // Keep currentTeam in sync with backend state (by socket id)
+      const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
       if (myTeam) {
         setCurrentTeam(myTeam);
       }
@@ -155,13 +175,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for round events
     newSocket.on('roundStarted', (roundNumber: number) => {
-      setGameState(prev => ({ ...prev, currentRound: roundNumber, isActive: true }));
+      console.log('Round started:', roundNumber);
       setRoundResults(null);
+      // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
     newSocket.on('roundEnded', (data: { roundResults: RoundResult[], roundNumber: number }) => {
+      console.log('Round ended:', data.roundNumber);
       setRoundResults(data.roundResults);
-      setGameState(prev => ({ ...prev, isActive: false }));
+      // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
     // Listen for leaderboard
@@ -194,6 +216,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     newSocket.on('resetAllDataError', (error: string) => {
       console.error('Reset all data error:', error);
+    });
+
+    // Listen for current game reset confirmation
+    newSocket.on('currentGameReset', (data: any) => {
+      console.log('Current game reset successfully:', data.message);
+      console.log('Reset timestamp:', data.timestamp);
+      // Reset local state for current game (keep high scores)
+      setGameState(prev => ({
+        ...prev,
+        teams: [],
+        currentRound: 0,
+        isActive: false
+      }));
+      setCurrentTeam(null);
+      setRoundResults(null);
+      setLeaderboard(null);
+      setRoundHistory([]);
+      setAnalyticsData(null);
+    });
+
+    newSocket.on('resetComplete', (result: any) => {
+      console.log('Reset operation completed:', result);
     });
 
     return () => {
@@ -269,6 +313,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetCurrentGame = () => {
+    console.log('resetCurrentGame function called');
     socket?.emit('resetCurrentGame');
   };
 

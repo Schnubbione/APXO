@@ -260,18 +260,37 @@ export class GameService {
     });
   }
 
-  // Clean up inactive teams (called periodically)
-  static async cleanupInactiveTeams() {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    await Team.update(
-      { isActive: false },
-      {
-        where: {
-          updatedAt: { [Op.lt]: oneHourAgo },
-          isActive: true
-        }
-      }
-    );
+  // Get current game state (for broadcasting)
+  static async getCurrentGameState() {
+    const session = await this.getCurrentGameSession();
+    const activeTeams = await this.getActiveTeams();
+
+    return {
+      teams: activeTeams.map(team => ({
+        id: team.id,
+        name: team.name,
+        decisions: team.decisions,
+        totalProfit: team.totalProfit
+      })),
+      currentRound: session.currentRound,
+      totalRounds: session.totalRounds,
+      isActive: session.isActive,
+      ...session.settings,
+      fares: [
+        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
+        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
+        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
+      ]
+    };
+  }
+
+  // Remove team (when user disconnects)
+  static async removeTeam(socketId) {
+    const team = await Team.findOne({ where: { socketId } });
+    if (team) {
+      await team.update({ isActive: false });
+      console.log(`Team ${team.name} deactivated due to disconnect`);
+    }
   }
 
   // Reset all game data (admin only)
