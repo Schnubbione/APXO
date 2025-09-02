@@ -10,6 +10,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import Tutorial from "./components/Tutorial";
+import TeamRegistration from "./components/TeamRegistration";
+import AdminPanel from "./components/AdminPanel";
+import RoundTimer from "./components/RoundTimer";
 
 // ----------------------------------------------
 // Utility: seeded RNG (Mulberry32)
@@ -131,6 +134,13 @@ export default function App() {
   const [seed, setSeed] = useState(42);
   const [autoRun, setAutoRun] = useState(false);
 
+  // New states for team registration and admin
+  const [teamNames, setTeamNames] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [roundTime, setRoundTime] = useState(10); // 10 minutes default
+  const [roundActive, setRoundActive] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
+
   // Teams state
   const emptyDecision = useMemo(() => ({ price: 199, buy: Object.fromEntries(fares.map(f => [f.code, 0])) }) as TeamDecision, [fares]);
   const [decisions, setDecisions] = useState<TeamDecision[]>(() => Array.from({ length: 6 }, () => ({...emptyDecision})));
@@ -241,6 +251,30 @@ export default function App() {
     setAutoRun(false);
   }
 
+  function handleTeamsRegistered(teams: string[]) {
+    setTeamNames(teams);
+    setNumTeams(teams.length);
+    setShowRegistration(false);
+  }
+
+  function handleStartRound() {
+    setRoundActive(true);
+    setCurrentRound(1);
+    setHistory([]);
+  }
+
+  function handleEndRound() {
+    setRoundActive(false);
+  }
+
+  function handleTimeUp() {
+    setRoundActive(false);
+    // Auto-run the round when time is up
+    if (currentRound <= rounds) {
+      handleRunRound();
+    }
+  }
+
   function addFareClass() {
     const idx = fares.length + 1;
     const code = String.fromCharCode(64 + ((idx % 26) || 26));
@@ -251,25 +285,48 @@ export default function App() {
     return history.map((round, i) => {
       const obj: any = { name: `R${i + 1}` };
       round.forEach(r => {
-        obj[`Team ${r.teamId + 1}`] = r.profit;
+        obj[teamNames[r.teamId] || `Team ${r.teamId + 1}`] = r.profit;
       });
       return obj;
     });
-  }, [history]);
+  }, [history, teamNames]);
 
   const leaderboard = useMemo(() => (
     Array.from({ length: numTeams }, (_, i) => ({
       team: i + 1,
+      name: teamNames[i] || `Team ${i + 1}`,
       profit: totalProfitByTeam[i] || 0,
     })).sort((a, b) => b.profit - a.profit)
-  ), [numTeams, totalProfitByTeam]);
+  ), [numTeams, totalProfitByTeam, teamNames]);
 
   if (showTutorial) {
     return <Tutorial onStart={() => setShowTutorial(false)} />;
   }
 
+  if (showRegistration || teamNames.length === 0) {
+    return <TeamRegistration onTeamsRegistered={handleTeamsRegistered} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 p-4 sm:p-6 lg:p-8">
+      {/* Admin Panel */}
+      <AdminPanel
+        numTeams={numTeams} setNumTeams={setNumTeams}
+        rounds={rounds} setRounds={setRounds}
+        baseDemand={baseDemand} setBaseDemand={setBaseDemand}
+        spread={spread} setSpread={setSpread}
+        shock={shock} setShock={setShock}
+        sharedMarket={sharedMarket} setSharedMarket={setSharedMarket}
+        seed={seed} setSeed={setSeed}
+        onStartRound={handleStartRound}
+        onEndRound={handleEndRound}
+        roundTime={roundTime} setRoundTime={setRoundTime}
+        isAdmin={isAdmin} setIsAdmin={setIsAdmin}
+      />
+
+      {/* Round Timer */}
+      <RoundTimer roundTime={roundTime} isActive={roundActive} onTimeUp={handleTimeUp} />
+
       <div className="max-w-7xl mx-auto grid gap-6">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -277,6 +334,9 @@ export default function App() {
             <h1 className="text-2xl sm:text-3xl font-semibold">Airline Einkaufs- & Nachfrage-Simulation</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowRegistration(true)}>
+              Teams bearbeiten
+            </Button>
             <Button variant="secondary" onClick={handleReset}><RefreshCcw className="w-4 h-4 mr-2"/>Reset</Button>
             <Button onClick={() => setAutoRun(v => !v)} variant={autoRun ? "destructive" : "default"}>
               {autoRun ? (<><Pause className="w-4 h-4 mr-2"/>Auto-Stop</>) : (<><Play className="w-4 h-4 mr-2"/>Auto-Run</>)}
@@ -359,7 +419,7 @@ export default function App() {
                 <div key={i} className="flex items-center justify-between p-2 rounded-xl border bg-white/60">
                   <div className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full" style={{ background: TEAM_COLORS[(row.team-1)%TEAM_COLORS.length] }} />
-                    <span className="font-medium">Team {row.team}</span>
+                    <span className="font-medium">{row.name}</span>
                   </div>
                   <div className="tabular-nums font-semibold">{row.profit.toFixed(0)} €</div>
                 </div>
@@ -378,7 +438,7 @@ export default function App() {
             <div className="grid md:grid-cols-2 gap-6">
               {Array.from({ length: numTeams }, (_, i) => (
                 <Card key={i}>
-                  <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/>Team {i + 1}</CardTitle></CardHeader>
+                  <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/>{teamNames[i] || `Team ${i + 1}`}</CardTitle></CardHeader>
                   <CardContent className="grid gap-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -442,7 +502,7 @@ export default function App() {
                         <Tooltip formatter={(v:any)=>`${v.toFixed? v.toFixed(0):v} €`} />
                         <Legend />
                         {Array.from({ length: numTeams }, (_, i) => (
-                          <Bar key={i} dataKey={`Team ${i+1}`} fill={TEAM_COLORS[i%TEAM_COLORS.length]} />
+                          <Bar key={i} dataKey={teamNames[i] || `Team ${i+1}`} fill={TEAM_COLORS[i%TEAM_COLORS.length]} />
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
