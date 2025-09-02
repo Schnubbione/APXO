@@ -2,47 +2,13 @@ import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Settings, Users, Plane, RefreshCcw, Play, Pause, LineChart, Award } from "lucide-react";
-
-// Einfache UI-Komponenten
-const Button = ({ children, onClick, variant, disabled, size, ...props }: any) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={`px-4 py-2 rounded ${variant === 'secondary' ? 'bg-gray-200' : variant === 'destructive' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'} ${size === 'sm' ? 'text-sm' : ''} disabled:opacity-50`}
-    {...props}
-  >
-    {children}
-  </button>
-);
-
-const Card = ({ children, className }: any) => <div className={`border rounded-lg shadow ${className}`}>{children}</div>;
-const CardHeader = ({ children }: any) => <div className="p-4 border-b">{children}</div>;
-const CardContent = ({ children }: any) => <div className="p-4">{children}</div>;
-const CardTitle = ({ children, className }: any) => <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>;
-
-const Input = ({ ...props }: any) => <input className="border px-2 py-1 rounded" {...props} />;
-const Label = ({ children, htmlFor }: any) => <label htmlFor={htmlFor} className="block text-sm font-medium">{children}</label>;
-
-const Switch = ({ checked, onCheckedChange, id }: any) => (
-  <input type="checkbox" id={id} checked={checked} onChange={(e) => onCheckedChange(e.target.checked)} />
-);
-
-const Tabs = ({ children, defaultValue }: any) => <div>{children}</div>;
-const TabsList = ({ children }: any) => <div className="flex border-b">{children}</div>;
-const TabsTrigger = ({ value, children, className }: any) => <button className={`px-4 py-2 ${className}`}>{children}</button>;
-const TabsContent = ({ value, children }: any) => <div>{children}</div>;
-
-const Slider = ({ value, onValueChange, min, max, step }: any) => (
-  <input
-    type="range"
-    min={min}
-    max={max}
-    step={step}
-    value={value[0]}
-    onChange={(e) => onValueChange([Number(e.target.value)])}
-    className="w-full"
-  />
-);
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Tutorial from "./components/Tutorial";
 
 // ----------------------------------------------
 // Utility: seeded RNG (Mulberry32)
@@ -107,9 +73,10 @@ type RoundResult = {
 // Default Config
 // ----------------------------------------------
 const DEFAULT_FARES: FareClass[] = [
-  { code: "S", label: "Saver", cost: 80 },
-  { code: "F", label: "Flex", cost: 120 },
-  { code: "P", label: "Plus", cost: 160 },
+  { code: "E", label: "Economy", cost: 50 },
+  { code: "P", label: "Premium Economy", cost: 100 },
+  { code: "B", label: "Business", cost: 200 },
+  { code: "F", label: "First Class", cost: 400 },
 ];
 
 const TEAM_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#9333ea", "#0891b2"]; // For Legend markers only
@@ -149,6 +116,7 @@ function generateCustomers(
 // Main Component
 // ----------------------------------------------
 export default function App() {
+  const [showTutorial, setShowTutorial] = useState(true);
   // Global config ("Leitstand")
   const [numTeams, setNumTeams] = useState(4);
   const [rounds, setRounds] = useState(6);
@@ -295,6 +263,10 @@ export default function App() {
     })).sort((a, b) => b.profit - a.profit)
   ), [numTeams, totalProfitByTeam]);
 
+  if (showTutorial) {
+    return <Tutorial onStart={() => setShowTutorial(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-800 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto grid gap-6">
@@ -319,29 +291,29 @@ export default function App() {
             <CardContent className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Teams</Label>
-                <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} />
+                <Slider value={numTeams} onValueChange={setNumTeams} min={2} max={6} step={1} />
                 <div className="text-sm text-slate-600">{numTeams} Teams aktiv</div>
               </div>
               <div className="space-y-2">
                 <Label>Runden</Label>
-                <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} />
+                <Slider value={rounds} onValueChange={setRounds} min={1} max={12} step={1} />
                 <div className="text-sm text-slate-600">Runde {Math.min(currentRound, rounds)} von {rounds}</div>
               </div>
 
               <div className="space-y-2">
                 <Label>Basis-Nachfrage (Kunden)</Label>
-                <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} />
+                <Slider value={baseDemand} onValueChange={setBaseDemand} min={20} max={240} step={5} />
                 <div className="text-sm text-slate-600">~ {baseDemand} pro Runde</div>
               </div>
               <div className="space-y-2">
                 <Label>WTP-Streuung</Label>
-                <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} />
+                <Slider value={spread} onValueChange={setSpread} min={5} max={150} step={5} />
                 <div className="text-sm text-slate-600">± {spread} (Preis-Sensitivität)</div>
               </div>
 
               <div className="space-y-2">
                 <Label>Random Shock</Label>
-                <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} />
+                <Slider value={Math.round(shock*100)} onValueChange={(v: number) => setShock(v/100)} min={0} max={40} step={1} />
                 <div className="text-sm text-slate-600">± {Math.round(shock*100)}%</div>
               </div>
               <div className="space-y-2">
