@@ -3,6 +3,9 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { testConnection } from './database.js';
+import { syncDatabase } from './models.js';
+import GameService from './gameService.js';
 
 // Load environment variables
 if (process.env.NODE_ENV === 'production') {
@@ -82,67 +85,133 @@ app.get('/', (req, res) => {
   });
 });
 
-// In-memory storage (for development)
-let gameState = {
-  teams: [],
-  currentRound: 0,
-  totalRounds: 5,
-  isActive: false,
-  adminPassword: process.env.ADMIN_PASSWORD || 'admin123', // Use environment variable
-  baseDemand: 100,
-  spread: 50,
-  shock: 0.1,
-  sharedMarket: true,
-  seed: 42,
-  roundTime: 300,
-  // Economic parameters for realistic modeling
-  priceElasticity: -1.5, // Price elasticity of demand
-  crossElasticity: 0.3, // Cross-price elasticity between fare types
-  costVolatility: 0.05, // Cost uncertainty (5%)
-  demandVolatility: 0.1, // Demand uncertainty (10%)
-  marketConcentration: 0.7, // Herfindahl-Hirschman Index approximation
-  fares: [
-    { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-    { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-    { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-  ]
-};
+// Initialize database and start server
+async function initializeServer() {
+  try {
+    // Test database connection
+    await testConnection();
 
-let roundHistory = [];
+    // Sync database models
+    await syncDatabase();
+
+    console.log('🚀 Server initialized with database connection');
+
+    // Start the server
+    const PORT = process.env.PORT || 3001;
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5175'}`);
+    });
+
+  } catch (error) {
+    console.error('Failed to initialize server:', error);
+    process.exit(1);
+  }
+}
+
+// Global variables for current session state (cached for performance)
+let currentGameState = null;
 let adminSocket = null;
 
+// Broadcast game state helper function
+async function broadcastGameState() {
+  try {
+    const gameSession = await GameService.getCurrentGameSession();
+    const activeTeams = await GameService.getActiveTeams();
+
+    const gameState = {
+      teams: activeTeams.map(team => ({
+        id: team.id,
+        name: team.name,
+        decisions: team.decisions,
+        totalProfit: team.totalProfit
+      })),
+      currentRound: gameSession.currentRound,
+      totalRounds: gameSession.totalRounds,
+      isActive: gameSession.isActive,
+      adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
+      ...gameSession.settings,
+      fares: [
+        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
+        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
+        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
+      ]
+    };
+
+    io.emit('gameStateUpdate', gameState);
+  } catch (error) {
+    console.error('Error broadcasting game state:', error);
+  }
+}
+
 // Socket.io connection handling
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log('User connected:', socket.id);
 
-  // Send current game state to new connection
-  socket.emit('gameState', gameState);
+  try {
+    // Get current game state from database
+    const gameSession = await GameService.getCurrentGameSession();
+    const activeTeams = await GameService.getActiveTeams();
+
+    // Prepare game state for client
+    const gameState = {
+      teams: activeTeams.map(team => ({
+        id: team.id,
+        name: team.name,
+        decisions: team.decisions,
+        totalProfit: team.totalProfit
+      })),
+      currentRound: gameSession.currentRound,
+      totalRounds: gameSession.totalRounds,
+      isActive: gameSession.isActive,
+      adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
+      ...gameSession.settings,
+      fares: [
+        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
+        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
+        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
+      ]
+    };
+
+    // Send current game state to new connection
+    socket.emit('gameState', gameState);
+
+  } catch (error) {
+    console.error('Error loading game state:', error);
+    socket.emit('error', 'Failed to load game state');
+  }
 
   // Team registration
-  socket.on('registerTeam', (teamName) => {
-    if (!gameState.teams.find(t => t.name === teamName)) {
-      const newTeam = {
-        id: socket.id,
-        name: teamName,
-        decisions: {
-          price: 199,
-          buy: { F: 0, P: 0, O: 0 }
-        },
-        totalProfit: 0
-      };
-      gameState.teams.push(newTeam);
-      socket.emit('registrationSuccess', newTeam);
-      io.emit('gameState', gameState);
+  socket.on('registerTeam', async (teamName) => {
+    try {
+      const team = await GameService.registerTeam(socket.id, teamName);
+
+      socket.emit('registrationSuccess', {
+        id: team.id,
+        name: team.name,
+        decisions: team.decisions,
+        totalProfit: team.totalProfit
+      });
+
+      // Broadcast updated game state to all clients
+      await broadcastGameState();
+
       console.log(`Team registered: ${teamName}`);
-    } else {
-      socket.emit('registrationError', 'Team name already taken');
+    } catch (error) {
+      socket.emit('registrationError', error.message);
     }
   });
 
   // Admin login
-  socket.on('adminLogin', (password) => {
-    if (password === gameState.adminPassword) {
+  socket.on('adminLogin', async (password) => {
+    if (password === (process.env.ADMIN_PASSWORD || 'admin123')) {
       adminSocket = socket.id;
+
+      // Update admin socket in database
+      const session = await GameService.getCurrentGameSession();
+      await session.update({ adminSocketId: socket.id });
+
       socket.emit('adminLoginSuccess');
       console.log('Admin logged in');
     } else {
@@ -151,92 +220,111 @@ io.on('connection', (socket) => {
   });
 
   // Admin actions
-  socket.on('updateGameSettings', (settings) => {
+  socket.on('updateGameSettings', async (settings) => {
     if (socket.id === adminSocket) {
-      gameState = { ...gameState, ...settings };
-      io.emit('gameState', gameState);
-      console.log('Game settings updated');
+      try {
+        await GameService.updateGameSettings(settings);
+        await broadcastGameState();
+        console.log('Game settings updated');
+      } catch (error) {
+        console.error('Error updating game settings:', error);
+        socket.emit('error', 'Failed to update game settings');
+      }
     }
   });
 
   // Team decisions
-  socket.on('updateTeamDecision', (decision) => {
-    const team = gameState.teams.find(t => t.id === socket.id);
-    if (team) {
-      team.decisions = { ...team.decisions, ...decision };
-      io.emit('gameState', gameState);
+  socket.on('updateTeamDecision', async (decision) => {
+    try {
+      const team = await GameService.updateTeamDecision(socket.id, decision);
+      if (team) {
+        await broadcastGameState();
+      }
+    } catch (error) {
+      console.error('Error updating team decision:', error);
+      socket.emit('error', 'Failed to update team decision');
     }
   });
 
   // Start round (admin only)
-  socket.on('startRound', () => {
-    if (socket.id === adminSocket && !gameState.isActive) {
-      gameState.isActive = true;
-      gameState.currentRound++;
-      io.emit('roundStarted', gameState.currentRound);
-      console.log(`Round ${gameState.currentRound} started`);
+  socket.on('startRound', async () => {
+    if (socket.id === adminSocket) {
+      try {
+        const newRound = await GameService.startRound();
+        io.emit('roundStarted', newRound);
+        await broadcastGameState();
+        console.log(`Round ${newRound} started`);
+      } catch (error) {
+        console.error('Error starting round:', error);
+        socket.emit('error', 'Failed to start round');
+      }
     }
   });
 
   // End round (admin only)
-  socket.on('endRound', () => {
-    if (socket.id === adminSocket && gameState.isActive) {
-      gameState.isActive = false;
-      // Calculate round results
-      const roundResults = calculateRoundResults();
+  socket.on('endRound', async () => {
+    if (socket.id === adminSocket) {
+      try {
+        const roundResults = await GameService.endRound(calculateRoundResults);
+        const session = await GameService.getCurrentGameSession();
 
-      // Store round data with additional economic metrics
-      const roundData = {
-        roundNumber: gameState.currentRound,
-        timestamp: new Date().toISOString(),
-        totalDemand: roundResults.reduce((sum, result) => sum + result.demand, 0),
-        totalSold: roundResults.reduce((sum, result) => sum + result.sold, 0),
-        avgPrice: roundResults.reduce((sum, result) => sum + (result.revenue / result.sold || 0), 0) / roundResults.length,
-        totalRevenue: roundResults.reduce((sum, result) => sum + result.revenue, 0),
-        totalCost: roundResults.reduce((sum, result) => sum + result.cost, 0),
-        totalProfit: roundResults.reduce((sum, result) => sum + result.profit, 0),
-        demandShock: generateNormalRandom(0, gameState.shock || 0.1),
-        teamResults: roundResults
-      };
-
-      roundHistory.push(roundData);
-      io.emit('roundEnded', { roundResults, roundNumber: gameState.currentRound });
-      console.log(`Round ${gameState.currentRound} ended with ${roundData.totalSold} total sales`);
+        io.emit('roundEnded', { roundResults, roundNumber: session.currentRound });
+        await broadcastGameState();
+        console.log(`Round ${session.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+      } catch (error) {
+        console.error('Error ending round:', error);
+        socket.emit('error', 'Failed to end round');
+      }
     }
   });
 
   // Get analytics data
-  socket.on('getAnalytics', () => {
-    socket.emit('analyticsData', {
-      roundHistory: roundHistory,
-      currentGameState: gameState,
-      leaderboard: gameState.teams
-        .map(team => ({
-          name: team.name,
-          profit: team.totalProfit,
-          marketShare: calculateMarketShares()[team.id] || 0,
-          avgPrice: calculateAveragePrice(team),
-          capacity: calculateTeamCapacity(team)
-        }))
-        .sort((a, b) => b.profit - a.profit)
-    });
+  socket.on('getAnalytics', async () => {
+    try {
+      const analyticsData = await GameService.getAnalyticsData();
+      socket.emit('analyticsData', analyticsData);
+    } catch (error) {
+      console.error('Error getting analytics data:', error);
+      socket.emit('error', 'Failed to get analytics data');
+    }
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    // Remove team if they disconnect
-    gameState.teams = gameState.teams.filter(t => t.id !== socket.id);
-    if (adminSocket === socket.id) {
-      adminSocket = null;
+  // Broadcast game state to all clients
+  socket.on('broadcastGameState', async () => {
+    try {
+      const gameState = await GameService.getCurrentGameState();
+      io.emit('gameStateUpdate', gameState);
+    } catch (error) {
+      console.error('Error broadcasting game state:', error);
     }
-    io.emit('gameState', gameState);
+  });
+
+  socket.on('disconnect', async () => {
+    console.log('User disconnected:', socket.id);
+
+    try {
+      // Remove team from database if they disconnect
+      await GameService.removeTeam(socket.id);
+
+      // Clear admin socket if admin disconnects
+      if (adminSocket === socket.id) {
+        adminSocket = null;
+        const session = await GameService.getCurrentGameSession();
+        await session.update({ adminSocketId: null });
+      }
+
+      // Broadcast updated game state
+      await broadcastGameState();
+    } catch (error) {
+      console.error('Error handling disconnect:', error);
+    }
   });
 });
 
 // Helper function to calculate round results with realistic economic modeling
-function calculateRoundResults() {
-  const baseDemand = gameState.baseDemand || 100;
-  const demandVolatility = gameState.demandVolatility || 0.1;
+function calculateRoundResults(teams, settings) {
+  const baseDemand = settings.baseDemand || 100;
+  const demandVolatility = settings.demandVolatility || 0.1;
 
   // Generate stochastic demand shock using normal distribution
   const demandShock = generateNormalRandom(0, demandVolatility);
@@ -246,9 +334,9 @@ function calculateRoundResults() {
   const totalDemand = Math.max(10, Math.round(baseDemand * (1 + demandShock) * seasonalFactor));
 
   // Calculate market shares based on economic principles
-  const marketShares = calculateMarketShares();
+  const marketShares = calculateMarketShares(teams, settings);
 
-  return gameState.teams.map(team => {
+  return teams.map(team => {
     const teamShare = marketShares[team.id] || 0;
     const teamDemand = Math.round(totalDemand * teamShare);
 
@@ -261,9 +349,6 @@ function calculateRoundResults() {
 
     // Calculate profit with stochastic cost variations
     const profit = revenue - cost;
-
-    // Update team's total profit
-    team.totalProfit += profit;
 
     return {
       teamId: team.id,
@@ -290,14 +375,13 @@ function generateNormalRandom(mean = 0, stdDev = 1) {
 }
 
 // Calculate market shares based on economic principles
-function calculateMarketShares() {
-  const teams = gameState.teams;
+function calculateMarketShares(teams, settings) {
   const shares = {};
 
   if (teams.length === 0) return shares;
 
   // Calculate price competitiveness for each team using price elasticity
-  const priceElasticity = gameState.priceElasticity || -1.5;
+  const priceElasticity = settings.priceElasticity || -1.5;
   const basePrice = 199; // Reference price
 
   const priceCompetitiveness = teams.map(team => {
@@ -327,7 +411,7 @@ function calculateMarketShares() {
 
     // Add stochastic variation using beta distribution approximation
     // Beta distribution parameters based on market concentration
-    const concentration = gameState.marketConcentration || 0.7;
+    const concentration = settings.marketConcentration || 0.7;
     const alpha = rawShare * (1 / concentration - 1);
     const beta_param = (1 - rawShare) * (1 / concentration - 1);
 
@@ -349,7 +433,7 @@ function calculateMarketShares() {
 function calculateAveragePrice(team) {
   const decisions = team.decisions;
   const buy = decisions.buy || {};
-  const fares = gameState.fares || [
+  const fares = [
     { code: 'F', cost: 60 },
     { code: 'P', cost: 85 },
     { code: 'O', cost: 110 }
@@ -397,7 +481,7 @@ function calculateRevenue(team, sold) {
 // Calculate costs with fixed and variable components
 function calculateCosts(team, sold) {
   const buy = team.decisions.buy || {};
-  const fares = gameState.fares || [
+  const fares = [
     { code: 'F', cost: 60, demandFactor: 1.2 },
     { code: 'P', cost: 85, demandFactor: 1.0 },
     { code: 'O', cost: 110, demandFactor: 0.8 }
@@ -419,7 +503,7 @@ function calculateCosts(team, sold) {
   const variableCosts = sold * 15; // $15 per passenger for variable costs
 
   // Stochastic cost variations using configured volatility
-  const costVolatility = gameState.costVolatility || 0.05;
+  const costVolatility = 0.05; // Default value since settings not passed here
   const costMultiplier = 1 + generateNormalRandom(0, costVolatility);
 
   // Add economies of scale (lower costs per unit with higher capacity)
@@ -429,8 +513,6 @@ function calculateCosts(team, sold) {
 }
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5175'}`);
-});
+
+// Start the server with database initialization
+initializeServer();
