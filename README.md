@@ -67,13 +67,21 @@ A real-time, multi-user simulation game for learning airline revenue management 
 4. Start rounds and monitor all teams
 5. View comprehensive admin dashboard with team decisions
 
+## Procurement Products
+
+The simulation features three different procurement products with varying risk profiles:
+
+- **Fix (€60/seat)**: Cheapest option, but must be paid regardless of demand. Lowest risk for airline, highest risk for tour operator.
+- **ProRata (€85/seat)**: More expensive, but can be returned until 60 days before departure if not booked. Medium risk for both parties.
+- **Pooling (€110/seat)**: Highest price, daily price and availability updates, not guaranteed, only paid if actual demand exists. Highest risk for airline, lowest risk for tour operator.
+
 ## Game Mechanics
 
-- **Procurement**: Teams buy seat capacity from different fare classes
+- **Procurement**: Teams buy seat capacity using different risk products
 - **Pricing**: Teams set retail prices for their seats
 - **Demand**: Random customer demand based on willingness-to-pay (WTP) distribution
 - **Competition**: In shared market mode, customers choose the cheapest available option
-- **Profit Calculation**: Revenue minus procurement costs
+- **Profit Calculation**: Revenue minus procurement costs (depending on product type and actual demand)
 
 ## Architecture
 

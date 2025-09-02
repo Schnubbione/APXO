@@ -24,12 +24,11 @@ export default function Tutorial({ onStart }: TutorialProps) {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-2">Fare Classes</h3>
+            <h3 className="text-lg font-semibold mb-2">Procurement Products</h3>
             <ul className="list-disc list-inside space-y-1">
-              <li><strong>Economy:</strong> Cheap, high demand, low margins.</li>
-              <li><strong>Premium Economy:</strong> Mid-range, balanced demand.</li>
-              <li><strong>Business:</strong> Expensive, low demand, high margins.</li>
-              <li><strong>First Class:</strong> Luxury, very expensive, minimal demand.</li>
+              <li><strong>Fix:</strong> Cheapest option (€60/seat), but must be paid regardless of demand. Lowest risk for airline, highest risk for tour operator.</li>
+              <li><strong>ProRata:</strong> More expensive (€85/seat), but can be returned until 60 days before departure if not booked. Medium risk for both parties.</li>
+              <li><strong>Pooling:</strong> Highest price (€110/seat), daily price and availability updates, not guaranteed, only paid if actual demand exists. Highest risk for airline, lowest risk for tour operator.</li>
             </ul>
           </div>
 

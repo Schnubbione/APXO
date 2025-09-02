@@ -82,9 +82,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     seed: 42,
     roundTime: 300,
     fares: [
-      { code: 'Y', label: 'Economy', cost: 80 },
-      { code: 'W', label: 'Premium Economy', cost: 120 },
-      { code: 'J', label: 'Business', cost: 200 }
+      { code: 'F', label: 'Fix', cost: 60 },
+      { code: 'P', label: 'ProRata', cost: 85 },
+      { code: 'O', label: 'Pooling', cost: 110 }
     ]
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);

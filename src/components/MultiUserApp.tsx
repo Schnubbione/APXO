@@ -253,6 +253,11 @@ export const MultiUserApp: React.FC = () => {
                   {gameState.fares.map((fare) => (
                     <div key={fare.code} className="p-3 border rounded-lg space-y-2">
                       <div className="font-medium text-sm">{fare.label} ({fare.code})</div>
+                      <div className="text-xs text-slate-500">
+                        {fare.code === 'F' && 'Fix: Cheapest, but must be paid regardless of demand'}
+                        {fare.code === 'P' && 'ProRata: More expensive, can be returned until 60 days before departure if not booked'}
+                        {fare.code === 'O' && 'Pooling: Daily price updates, not guaranteed, only paid if actual demand exists'}
+                      </div>
                       <div className="flex justify-between items-center text-xs text-slate-600">
                         <span>Price:</span>
                         <span className="tabular-nums">{fare.cost.toFixed(0)} €</span>
@@ -276,15 +281,21 @@ export const MultiUserApp: React.FC = () => {
                 {/* Desktop: Table layout */}
                 <div className="hidden sm:block">
                   <div className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-5 text-sm text-slate-500">Fare</div>
-                    <div className="col-span-3 text-sm text-slate-500">Price</div>
-                    <div className="col-span-4 text-sm text-slate-500">Quantity</div>
+                    <div className="col-span-4 text-sm text-slate-500">Product</div>
+                    <div className="col-span-4 text-sm text-slate-500">Description</div>
+                    <div className="col-span-2 text-sm text-slate-500">Price</div>
+                    <div className="col-span-2 text-sm text-slate-500">Quantity</div>
                   </div>
                   {gameState.fares.map((fare) => (
                     <div key={fare.code} className="grid grid-cols-12 gap-2 items-center py-1">
-                      <div className="col-span-5 text-sm">{fare.label} ({fare.code})</div>
-                      <div className="col-span-3 tabular-nums text-sm">{fare.cost.toFixed(0)} €</div>
-                      <div className="col-span-4">
+                      <div className="col-span-4 text-sm">{fare.label} ({fare.code})</div>
+                      <div className="col-span-4 text-xs text-slate-600">
+                        {fare.code === 'F' && 'Fix: Must be paid regardless of demand'}
+                        {fare.code === 'P' && 'ProRata: Can be returned until 60 days before departure'}
+                        {fare.code === 'O' && 'Pooling: Only paid if actual demand exists'}
+                      </div>
+                      <div className="col-span-2 tabular-nums text-sm">{fare.cost.toFixed(0)} €</div>
+                      <div className="col-span-2">
                         <Input
                           type="number"
                           min={0}

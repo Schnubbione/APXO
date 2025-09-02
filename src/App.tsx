@@ -77,10 +77,9 @@ type RoundResult = {
 // Default Config
 // ----------------------------------------------
 const DEFAULT_FARES: FareClass[] = [
-  { code: "E", label: "Economy", cost: 50 },
-  { code: "P", label: "Premium Economy", cost: 100 },
-  { code: "B", label: "Business", cost: 200 },
-  { code: "F", label: "First Class", cost: 400 },
+  { code: "F", label: "Fix", cost: 60 },
+  { code: "P", label: "ProRata", cost: 85 },
+  { code: "O", label: "Pooling", cost: 110 },
 ];
 
 const TEAM_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#9333ea", "#0891b2"]; // For Legend markers only
