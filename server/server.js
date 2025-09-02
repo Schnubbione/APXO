@@ -30,6 +30,8 @@ const corsOptions = {
       "http://127.0.0.1:5175",
       // Known production frontend
       "https://apxo.vercel.app",
+      "https://www.apxo.tech",
+      "https://apxo.tech",
     ];
 
     const envFrontend = process.env.FRONTEND_URL; // e.g. https://apxo.vercel.app
