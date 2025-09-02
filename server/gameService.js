@@ -1,4 +1,5 @@
 import { Team, GameSession, RoundResult, HighScore } from './models.js';
+import { Op } from 'sequelize';
 
 // Game Service - Handles all game-related database operations
 export class GameService {
@@ -41,29 +42,17 @@ export class GameService {
     return this.currentGameSession;
   }
 
-  // Get current game state for broadcasting
-  static async getCurrentGameState() {
+  // Get all active teams for current session
+  static async getActiveTeams() {
     const session = await this.getCurrentGameSession();
-    const activeTeams = await this.getActiveTeams();
-
-    return {
-      teams: activeTeams.map(team => ({
-        id: team.id,
-        name: team.name,
-        decisions: team.decisions,
-        totalProfit: team.totalProfit
-      })),
-      currentRound: session.currentRound,
-      totalRounds: session.totalRounds,
-      isActive: session.isActive,
-      adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
-      ...session.settings,
-      fares: [
-        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-      ]
-    };
+    return await Team.findAll({
+      where: { isActive: true },
+      include: [{
+        model: RoundResult,
+        where: { gameSessionId: session.id },
+        required: false
+      }]
+    });
   }
 
   // Register a new team
@@ -90,14 +79,16 @@ export class GameService {
     }
   }
 
-  // Remove team (when disconnecting)
-  static async removeTeam(socketId) {
+  // Update team decision
+  static async updateTeamDecision(socketId, decision) {
     const team = await Team.findOne({ where: { socketId, isActive: true } });
-    if (team) {
-      await team.update({ isActive: false });
-      return team;
-    }
-    return null;
+    if (!team) return null;
+
+    const currentDecisions = team.decisions || {};
+    const updatedDecisions = { ...currentDecisions, ...decision };
+
+    await team.update({ decisions: updatedDecisions });
+    return team;
   }
 
   // Update game settings
