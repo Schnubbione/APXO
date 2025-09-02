@@ -38,8 +38,8 @@ export default function TeamRegistration({ onTeamsRegistered }: TeamRegistration
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center p-4">
       <Card className="max-w-2xl w-full">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Team-Registrierung</CardTitle>
-          <p className="text-center text-slate-600">Geben Sie die Namen der teilnehmenden Teams ein.</p>
+          <CardTitle className="text-2xl text-center">Team Registration</CardTitle>
+          <p className="text-center text-slate-600">Enter the names of the participating teams.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {teamNames.map((name, index) => (
@@ -52,17 +52,17 @@ export default function TeamRegistration({ onTeamsRegistered }: TeamRegistration
               />
               {teamNames.length > 2 && (
                 <Button variant="outline" size="sm" onClick={() => removeTeam(index)}>
-                  Entfernen
+                  Remove
                 </Button>
               )}
             </div>
           ))}
           <div className="flex gap-2">
             <Button variant="outline" onClick={addTeam}>
-              Team hinzufügen
+              Add Team
             </Button>
             <Button onClick={handleSubmit} disabled={teamNames.filter(n => n.trim()).length < 2}>
-              Teams registrieren
+              Register Teams
             </Button>
           </div>
         </CardContent>

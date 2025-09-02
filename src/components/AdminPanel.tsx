@@ -56,31 +56,31 @@ export default function AdminPanel({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Runden-Zeit (Minuten)</Label>
+            <Label>Round Time (Minutes)</Label>
             <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} />
-            <div className="text-sm text-slate-600">{roundTime} Minuten</div>
+            <div className="text-sm text-slate-600">{roundTime} minutes</div>
           </div>
 
           <div className="space-y-2">
             <Label>Teams</Label>
             <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} />
-            <div className="text-sm text-slate-600">{numTeams} Teams</div>
+            <div className="text-sm text-slate-600">{numTeams} teams active</div>
           </div>
 
           <div className="space-y-2">
-            <Label>Runden</Label>
+            <Label>Rounds</Label>
             <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} />
-            <div className="text-sm text-slate-600">{rounds} Runden</div>
+            <div className="text-sm text-slate-600">{rounds} rounds</div>
           </div>
 
           <div className="space-y-2">
-            <Label>Basis-Nachfrage</Label>
+            <Label>Base Demand</Label>
             <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} />
-            <div className="text-sm text-slate-600">~ {baseDemand} Kunden</div>
+            <div className="text-sm text-slate-600">~ {baseDemand} customers</div>
           </div>
 
           <div className="space-y-2">
-            <Label>WTP-Streuung</Label>
+            <Label>WTP Spread</Label>
             <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} />
             <div className="text-sm text-slate-600">± {spread}</div>
           </div>
@@ -98,15 +98,15 @@ export default function AdminPanel({
 
           <div className="flex items-center gap-2">
             <Switch checked={sharedMarket} onCheckedChange={setSharedMarket} id="shared" />
-            <Label htmlFor="shared">Gemeinsamer Markt</Label>
+            <Label htmlFor="shared">Shared Market</Label>
           </div>
 
           <div className="flex gap-2">
             <Button onClick={onStartRound} size="sm">
-              Neue Runde starten
+              Start New Round
             </Button>
             <Button onClick={onEndRound} variant="outline" size="sm">
-              Runde beenden
+              End Round
             </Button>
           </div>
         </CardContent>

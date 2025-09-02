@@ -56,12 +56,12 @@ function rngWithSeed(seed: number) {
 type FareClass = {
   code: string;
   label: string;
-  cost: number; // Einkaufspreis Reisebüro pro Sitz
+  cost: number; // Procurement price per seat for travel agency
 };
 
 type TeamDecision = {
-  price: number; // Endkundenpreis
-  buy: Record<string, number>; // code -> Menge
+  price: number; // End-customer price
+  buy: Record<string, number>; // code -> quantity
 };
 
 type RoundResult = {
@@ -121,7 +121,7 @@ function generateCustomers(
 // ----------------------------------------------
 export default function App() {
   const [showTutorial, setShowTutorial] = useState(true);
-  // Global config ("Leitstand")
+  // Global config ("Control Center")
   const [numTeams, setNumTeams] = useState(4);
   const [rounds, setRounds] = useState(6);
   const [currentRound, setCurrentRound] = useState(1);
@@ -331,45 +331,45 @@ export default function App() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Plane className="w-8 h-8" />
-            <h1 className="text-2xl sm:text-3xl font-semibold">Airline Einkaufs- & Nachfrage-Simulation</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold">Airline Procurement & Demand Simulation</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setShowRegistration(true)}>
-              Teams bearbeiten
+              Edit Teams
             </Button>
             <Button variant="secondary" onClick={handleReset}><RefreshCcw className="w-4 h-4 mr-2"/>Reset</Button>
             <Button onClick={() => setAutoRun(v => !v)} variant={autoRun ? "destructive" : "default"}>
               {autoRun ? (<><Pause className="w-4 h-4 mr-2"/>Auto-Stop</>) : (<><Play className="w-4 h-4 mr-2"/>Auto-Run</>)}
             </Button>
-            <Button onClick={handleRunRound} disabled={currentRound>rounds}><Play className="w-4 h-4 mr-2"/>Nächste Runde</Button>
+            <Button onClick={handleRunRound} disabled={currentRound>rounds}><Play className="w-4 h-4 mr-2"/>Next Round</Button>
           </div>
         </header>
 
         {/* Top Row: Settings + Leaderboard */}
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2">
-            <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5"/>Leitstand & Parameter</CardTitle></CardHeader>
+            <CardHeader className="pb-2">            <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5"/>Control Center & Parameters</CardTitle></CardHeader>
             <CardContent className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Teams</Label>
                 <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} />
-                <div className="text-sm text-slate-600">{numTeams} Teams aktiv</div>
+                <div className="text-sm text-slate-600">{numTeams} teams active</div>
               </div>
               <div className="space-y-2">
-                <Label>Runden</Label>
+                <Label>Rounds</Label>
                 <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} />
-                <div className="text-sm text-slate-600">Runde {Math.min(currentRound, rounds)} von {rounds}</div>
+                <div className="text-sm text-slate-600">Round {Math.min(currentRound, rounds)} of {rounds}</div>
               </div>
 
               <div className="space-y-2">
-                <Label>Basis-Nachfrage (Kunden)</Label>
+                <Label>Base Demand (Customers)</Label>
                 <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} />
-                <div className="text-sm text-slate-600">~ {baseDemand} pro Runde</div>
+                <div className="text-sm text-slate-600">~ {baseDemand} per round</div>
               </div>
               <div className="space-y-2">
-                <Label>WTP-Streuung</Label>
+                <Label>WTP Spread</Label>
                 <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} />
-                <div className="text-sm text-slate-600">± {spread} (Preis-Sensitivität)</div>
+                <div className="text-sm text-slate-600">± {spread} (Price Sensitivity)</div>
               </div>
 
               <div className="space-y-2">
@@ -384,18 +384,18 @@ export default function App() {
 
               <div className="flex items-center gap-2">
                 <Switch checked={sharedMarket} onCheckedChange={setSharedMarket} id="shared" />
-                <Label htmlFor="shared">Gemeinsamer Markt (Kunden wählen günstigste Option)</Label>
+                <Label htmlFor="shared">Shared Market (Customers choose cheapest option)</Label>
               </div>
 
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="font-medium">Fare-Klassen & Einkaufspreise</div>
-                  <Button variant="secondary" size="sm" onClick={addFareClass}>+ Fare Klasse</Button>
+                  <div className="font-medium">Fare Classes & Procurement Prices</div>
+                  <Button variant="secondary" size="sm" onClick={addFareClass}>+ Fare Class</Button>
                 </div>
                 <div className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4 text-sm text-slate-500">Bezeichnung</div>
+                  <div className="col-span-4 text-sm text-slate-500">Name</div>
                   <div className="col-span-3 text-sm text-slate-500">Code</div>
-                  <div className="col-span-3 text-sm text-slate-500">Einkaufspreis</div>
+                  <div className="col-span-3 text-sm text-slate-500">Procurement Price</div>
                   <div className="col-span-2"></div>
                 </div>
                 {fares.map((f, idx) => (
@@ -404,7 +404,7 @@ export default function App() {
                     <Input className="col-span-3" value={f.code} onChange={e=>setFares(prev=>prev.map((x,i)=>i===idx?{...x,code:e.target.value.toUpperCase().slice(0,2)}:x))} />
                     <Input className="col-span-3" type="number" value={f.cost} onChange={e=>setFares(prev=>prev.map((x,i)=>i===idx?{...x,cost:Number(e.target.value)}:x))} />
                     <div className="col-span-2 text-right">
-                      <Button variant="ghost" size="sm" onClick={()=>setFares(prev=>prev.filter((_,i)=>i!==idx))}>Entfernen</Button>
+                      <Button variant="ghost" size="sm" onClick={()=>setFares(prev=>prev.filter((_,i)=>i!==idx))}>Remove</Button>
                     </div>
                   </div>
                 ))}
@@ -442,11 +442,11 @@ export default function App() {
                   <CardContent className="grid gap-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Endkundenpreis (€)</Label>
+                        <Label>Retail Price (€)</Label>
                         <Input type="number" value={decisions[i]?.price ?? 199} onChange={e => handleDecisionChange(i, "price", Number(e.target.value))} />
                       </div>
                       <div>
-                        <Label>Kapazität (Sitze)</Label>
+                        <Label>Capacity (Seats)</Label>
                         <div className="p-2 rounded-lg bg-slate-50 border tabular-nums">
                           {Object.values(decisions[i]?.buy || {}).reduce((a: any,b: any)=>Number(a)+Number(b),0)}
                         </div>
@@ -454,11 +454,11 @@ export default function App() {
                     </div>
 
                     <div>
-                      <div className="text-sm text-slate-600 mb-1">Einkauf beim Carrier</div>
+                      <div className="text-sm text-slate-600 mb-1">Procurement from Carrier</div>
                       <div className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-5 text-sm text-slate-500">Fare</div>
-                        <div className="col-span-3 text-sm text-slate-500">Preis</div>
-                        <div className="col-span-4 text-sm text-slate-500">Menge</div>
+                        <div className="col-span-3 text-sm text-slate-500">Price</div>
+                        <div className="col-span-4 text-sm text-slate-500">Quantity</div>
                       </div>
                       {fares.map((f, idx) => (
                         <div key={idx} className="grid grid-cols-12 gap-2 items-center py-1">
@@ -471,15 +471,15 @@ export default function App() {
                       ))}
                     </div>
 
-                    <div className="text-sm text-slate-600">Tipp: Preis zu hoch → wenig Absatz; Preis zu niedrig → Marge verschenkt.</div>
+                    <div className="text-sm text-slate-600">Tip: Price too high → low sales; Price too low → margin wasted.</div>
 
                     {/* Round-by-round summary for this team */}
                     {history.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="p-2 bg-white/60 border rounded-xl">Verkaufte Sitze: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.sold || 0), 0)}</span></div>
-                        <div className="p-2 bg-white/60 border rounded-xl">Umsatz: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.revenue || 0), 0).toFixed(0)} €</span></div>
-                        <div className="p-2 bg-white/60 border rounded-xl">Kosten: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.cost || 0), 0).toFixed(0)} €</span></div>
-                        <div className="p-2 bg-white/60 border rounded-xl">Gewinn: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.profit || 0), 0).toFixed(0)} €</span></div>
+                        <div className="p-2 bg-white/60 border rounded-xl">Seats Sold: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.sold || 0), 0)}</span></div>
+                        <div className="p-2 bg-white/60 border rounded-xl">Revenue: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.revenue || 0), 0).toFixed(0)} €</span></div>
+                        <div className="p-2 bg-white/60 border rounded-xl">Costs: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.cost || 0), 0).toFixed(0)} €</span></div>
+                        <div className="p-2 bg-white/60 border rounded-xl">Profit: <span className="font-semibold tabular-nums">{history.reduce((acc, r) => acc + (r[i]?.profit || 0), 0).toFixed(0)} €</span></div>
                       </div>
                     )}
                   </CardContent>
@@ -489,10 +489,10 @@ export default function App() {
           </TabsContent>
           <TabsContent value="charts">
             <Card>
-              <CardHeader className="pb-2"><CardTitle>Profit je Runde</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle>Profit per Round</CardTitle></CardHeader>
               <CardContent>
                 {history.length === 0 ? (
-                  <div className="text-sm text-slate-600">Noch keine Ergebnisse. Starte eine Runde.</div>
+                  <div className="text-sm text-slate-600">No results yet. Start a round.</div>
                 ) : (
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
@@ -515,8 +515,8 @@ export default function App() {
 
         {/* Footer info */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-slate-500 text-center">
-          Ziel: Maximale Gewinnsumme = Umsatz (verkaufte Sitze × Endpreis) − Einkaufskosten (Summe Sitzkäufe je Fare).
-          Die Nachfrage entsteht zufällig aus einer WTP-Verteilung. Im gemeinsamen Markt wählen Kunden die günstigste Option.
+          Goal: Maximize total profit = Revenue (sold seats × retail price) − Procurement costs (sum of seat purchases per fare).
+          Demand is generated randomly from a WTP distribution. In shared market, customers choose the cheapest available option.
         </motion.div>
       </div>
     </div>
