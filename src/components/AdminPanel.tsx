@@ -47,6 +47,7 @@ interface AdminPanelProps {
   leaderboard: any[];
   onGetAnalytics?: () => void;
   onResetAllData?: () => void;
+  onResetCurrentGame?: () => void;
 }
 
 export default function AdminPanel({
@@ -54,7 +55,7 @@ export default function AdminPanel({
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData
+  gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
 
@@ -226,6 +227,27 @@ export default function AdminPanel({
                   <AlertTriangle className="w-5 h-5" />
                   Danger Zone
                 </h3>
+                <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-white font-medium">Reset Current Game</h4>
+                      <p className="text-sm text-slate-400 mt-1">
+                        This will deactivate all current teams and reset the game session, but preserve all high scores and team names.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to reset the current game? All current teams will be deactivated, but high scores will be preserved.')) {
+                          onResetCurrentGame?.();
+                        }
+                      }}
+                      variant="outline"
+                      className="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-lg border-orange-600"
+                    >
+                      Reset Current Game
+                    </Button>
+                  </div>
+                </div>
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>

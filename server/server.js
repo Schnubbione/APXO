@@ -305,6 +305,33 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Reset current game (keep high scores)
+  socket.on('resetCurrentGame', async () => {
+    if (socket.id === adminSocket) {
+      try {
+        console.log('🔄 Admin resetting current game (keeping high scores)...');
+        const result = await GameService.resetCurrentGame();
+
+        // Broadcast reset confirmation to all clients
+        io.emit('currentGameReset', {
+          message: 'Current game has been reset by admin. High scores are preserved.',
+          timestamp: new Date().toISOString()
+        });
+
+        // Broadcast fresh game state
+        await broadcastGameState();
+
+        socket.emit('resetComplete', result);
+        console.log('✅ Current game reset successfully (high scores preserved)');
+      } catch (error) {
+        console.error('❌ Error resetting current game:', error);
+        socket.emit('error', 'Failed to reset current game');
+      }
+    } else {
+      socket.emit('error', 'Unauthorized: Admin access required');
+    }
+  });
+
   // Get analytics data
   socket.on('getAnalytics', async () => {
     try {

@@ -41,7 +41,8 @@ export const MultiUserApp: React.FC = () => {
     endRound,
     getLeaderboard,
     getAnalytics,
-    resetAllData
+    resetAllData,
+    resetCurrentGame
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -162,6 +163,7 @@ export const MultiUserApp: React.FC = () => {
           leaderboard={leaderboard || []}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
+          onResetCurrentGame={resetCurrentGame}
         />
 
         <RoundTimer
@@ -203,7 +205,7 @@ export const MultiUserApp: React.FC = () => {
                   {gameState.isActive ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      Round in progress...
+                      ⏰ Round in progress. Make your moves!
                     </span>
                   ) : (
                     <span className="text-slate-400">Ready to start next round</span>
@@ -368,6 +370,7 @@ export const MultiUserApp: React.FC = () => {
           leaderboard={leaderboard || []}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
+          onResetCurrentGame={resetCurrentGame}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -405,7 +408,7 @@ export const MultiUserApp: React.FC = () => {
                   {gameState.isActive ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      Round in progress...
+                      ⏰ Round in progress. Make your moves!
                     </span>
                   ) : (
                     <span className="text-slate-400">Waiting for admin to start round</span>

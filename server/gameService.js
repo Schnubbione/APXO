@@ -322,6 +322,55 @@ export class GameService {
       throw new Error('Failed to reset game data');
     }
   }
+
+  // Reset current game session and teams (keep high scores)
+  static async resetCurrentGame() {
+    try {
+      // Deactivate all current teams (but keep them in database for potential high scores)
+      await Team.update({ isActive: false }, { where: { isActive: true } });
+
+      // Reset current game session
+      const session = await this.getCurrentGameSession();
+      await session.update({
+        currentRound: 0,
+        isActive: false,
+        settings: {
+          baseDemand: 100,
+          spread: 50,
+          shock: 0.1,
+          sharedMarket: true,
+          seed: 42,
+          roundTime: 300,
+          priceElasticity: -1.5,
+          crossElasticity: 0.3,
+          costVolatility: 0.05,
+          demandVolatility: 0.1,
+          marketConcentration: 0.7
+        }
+      });
+
+      // Delete round results for current session only
+      await RoundResult.destroy({ where: { gameSessionId: session.id } });
+
+      // Keep high scores intact - don't delete them
+
+      // Reset current session cache
+      this.currentGameSession = null;
+
+      // Create a fresh game session
+      const freshSession = await this.getCurrentGameSession();
+
+      console.log('✅ Current game has been reset successfully (high scores preserved)');
+      return {
+        success: true,
+        message: 'Current game has been reset successfully. High scores are preserved.',
+        newSession: freshSession
+      };
+    } catch (error) {
+      console.error('❌ Error resetting current game:', error);
+      throw new Error('Failed to reset current game');
+    }
+  }
 }
 
 export default GameService;
