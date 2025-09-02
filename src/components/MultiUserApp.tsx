@@ -9,9 +9,17 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Users, Award, Settings, MapPin } from 'lucide-react';
+import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
 
 const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+
+const TOURIST_ICONS = [Sun, Camera, Compass, Anchor, MapPin, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee];
+
+// Function to get a consistent icon for each team based on team name
+const getTeamIconByName = (teamName: string) => {
+  const iconIndex = teamName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % TOURIST_ICONS.length;
+  return TOURIST_ICONS[iconIndex];
+};
 
 export const MultiUserApp: React.FC = () => {
   const {
@@ -137,7 +145,7 @@ export const MultiUserApp: React.FC = () => {
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                <MapPin className="w-8 h-8 text-white" />
+                <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                 Touristic Procurement & Demand Simulation
@@ -211,21 +219,29 @@ export const MultiUserApp: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4">
-                {gameState.teams.map((team, index) => (
-                  <div key={team.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-slate-700/30 rounded-xl border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200">
-                    <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                      <div
-                        className="w-4 h-4 rounded-full shadow-lg"
-                        style={{ backgroundColor: TEAM_COLORS[index % TEAM_COLORS.length] }}
-                      />
-                      <span className="font-semibold text-white text-lg">{team.name}</span>
+                {gameState.teams.map((team, index) => {
+                  const TeamIcon = getTeamIconByName(team.name);
+                  return (
+                    <div key={team.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-slate-700/30 rounded-xl border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200">
+                      <div className="flex items-center gap-3 mb-2 sm:mb-0">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded-full shadow-lg"
+                            style={{ backgroundColor: TEAM_COLORS[index % TEAM_COLORS.length] }}
+                          />
+                          <div className="p-1 bg-slate-600/50 rounded-lg">
+                            <TeamIcon className="w-4 h-4 text-slate-300" />
+                          </div>
+                        </div>
+                        <span className="font-semibold text-white text-lg">{team.name}</span>
+                      </div>
+                      <div className="text-sm text-slate-300 sm:text-right">
+                        Price: <span className="font-mono text-indigo-400">€{team.decisions.price}</span> |
+                        Capacity: <span className="font-mono text-green-400">{Object.values(team.decisions.buy).reduce((a, b) => Number(a) + Number(b), 0)} seats</span>
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-300 sm:text-right">
-                      Price: <span className="font-mono text-indigo-400">€{team.decisions.price}</span> |
-                      Capacity: <span className="font-mono text-green-400">{Object.values(team.decisions.buy).reduce((a, b) => Number(a) + Number(b), 0)} seats</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -324,7 +340,7 @@ export const MultiUserApp: React.FC = () => {
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                <MapPin className="w-8 h-8 text-white" />
+                <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                 Touristic Procurement & Demand Simulation
@@ -332,7 +348,17 @@ export const MultiUserApp: React.FC = () => {
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-400">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Team: {currentTeam.name}</span>
+              <div className="flex items-center gap-2">
+                {currentTeam && (
+                  <div className="p-1 bg-slate-600/50 rounded-lg">
+                    {(() => {
+                      const TeamIcon = getTeamIconByName(currentTeam.name);
+                      return <TeamIcon className="w-4 h-4 text-slate-300" />;
+                    })()}
+                  </div>
+                )}
+                <span className="font-medium">Team: {currentTeam.name}</span>
+              </div>
             </div>
           </header>          {/* Round Status */}
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
@@ -508,19 +534,25 @@ export const MultiUserApp: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {leaderboard.slice(0, 5).map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-slate-700/30 to-slate-600/20 border border-slate-600/50 hover:from-slate-700/50 hover:to-slate-600/30 transition-all duration-200">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">
-                          #{index + 1}
+                  {leaderboard.slice(0, 5).map((entry, index) => {
+                    const TeamIcon = getTeamIconByName(entry.name);
+                    return (
+                      <div key={entry.name} className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-slate-700/30 to-slate-600/20 border border-slate-600/50 hover:from-slate-700/50 hover:to-slate-600/30 transition-all duration-200">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">
+                            #{index + 1}
+                          </div>
+                          <div className="p-1 bg-slate-600/50 rounded-lg">
+                            <TeamIcon className="w-4 h-4 text-slate-300" />
+                          </div>
+                          <span className={`font-semibold text-lg ${entry.name === currentTeam.name ? 'text-indigo-400' : 'text-white'}`}>
+                            {entry.name}
+                          </span>
                         </div>
-                        <span className={`font-semibold text-lg ${entry.name === currentTeam.name ? 'text-indigo-400' : 'text-white'}`}>
-                          {entry.name}
-                        </span>
+                        <div className="text-xl font-bold text-green-400 tabular-nums">€{entry.profit.toFixed(0)}</div>
                       </div>
-                      <div className="text-xl font-bold text-green-400 tabular-nums">€{entry.profit.toFixed(0)}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
