@@ -274,19 +274,53 @@ export class GameService {
     );
   }
 
-  // Reset game session
-  static async resetGameSession() {
-    const session = await this.getCurrentGameSession();
-    await session.update({
-      currentRound: 0,
-      isActive: false
-    });
+  // Reset all game data (admin only)
+  static async resetAllData() {
+    try {
+      // Deactivate all teams
+      await Team.update({ isActive: false }, { where: {} });
 
-    // Mark all teams as inactive
-    await Team.update({ isActive: false }, { where: { isActive: true } });
+      // Reset all game sessions
+      await GameSession.update({
+        currentRound: 0,
+        isActive: false,
+        settings: {
+          baseDemand: 100,
+          spread: 50,
+          shock: 0.1,
+          sharedMarket: true,
+          seed: 42,
+          roundTime: 300,
+          priceElasticity: -1.5,
+          crossElasticity: 0.3,
+          costVolatility: 0.05,
+          demandVolatility: 0.1,
+          marketConcentration: 0.7
+        }
+      }, { where: {} });
 
-    this.currentGameSession = null;
-    return await this.getCurrentGameSession();
+      // Delete all round results
+      await RoundResult.destroy({ where: {} });
+
+      // Delete all high scores
+      await HighScore.destroy({ where: {} });
+
+      // Reset current session cache
+      this.currentGameSession = null;
+
+      // Create a fresh game session
+      const freshSession = await this.getCurrentGameSession();
+
+      console.log('✅ All game data has been reset successfully');
+      return {
+        success: true,
+        message: 'All game data has been reset successfully',
+        newSession: freshSession
+      };
+    } catch (error) {
+      console.error('❌ Error resetting game data:', error);
+      throw new Error('Failed to reset game data');
+    }
   }
 }
 

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award } from "lucide-react";
+import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award, AlertTriangle } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -46,6 +46,7 @@ interface AdminPanelProps {
   roundHistory: any[];
   leaderboard: any[];
   onGetAnalytics?: () => void;
+  onResetAllData?: () => void;
 }
 
 export default function AdminPanel({
@@ -53,7 +54,7 @@ export default function AdminPanel({
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState, roundHistory, leaderboard, onGetAnalytics
+  gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
 
@@ -217,6 +218,37 @@ export default function AdminPanel({
                 </div>
               </CardContent>
             </TabsContent>
+
+            {/* Danger Zone */}
+            <div className="px-6 py-4 border-t border-slate-600">
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-red-400 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5" />
+                  Danger Zone
+                </h3>
+                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-white font-medium">Reset All Game Data</h4>
+                      <p className="text-sm text-slate-400 mt-1">
+                        This will permanently delete all teams, highscores, round results, and reset the game to its initial state.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to reset ALL game data? This action cannot be undone.')) {
+                          onResetAllData?.();
+                        }
+                      }}
+                      variant="destructive"
+                      className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg"
+                    >
+                      Reset All Data
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <TabsContent value="analytics" className="mt-0">
               <CardContent className="space-y-6 p-6">

@@ -59,6 +59,7 @@ interface GameContextType {
   endRound: () => void;
   getLeaderboard: () => void;
   getAnalytics: () => void;
+  resetAllData: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -173,6 +174,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAnalyticsData(data);
     });
 
+    // Listen for reset confirmation
+    newSocket.on('resetAllDataSuccess', () => {
+      console.log('All data reset successfully');
+      // Reset local state
+      setGameState(prev => ({
+        ...prev,
+        teams: [],
+        currentRound: 0,
+        isActive: false
+      }));
+      setCurrentTeam(null);
+      setRoundResults(null);
+      setLeaderboard(null);
+      setRoundHistory([]);
+      setAnalyticsData(null);
+    });
+
+    newSocket.on('resetAllDataError', (error: string) => {
+      console.error('Reset all data error:', error);
+    });
+
     return () => {
       newSocket.close();
     };
@@ -241,6 +263,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('getAnalytics');
   };
 
+  const resetAllData = () => {
+    socket?.emit('resetAllData');
+  };
+
   const value: GameContextType = {
     socket,
     gameState,
@@ -257,7 +283,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startRound,
     endRound,
     getLeaderboard,
-    getAnalytics
+    getAnalytics,
+    resetAllData
   };
 
   return (

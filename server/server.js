@@ -278,6 +278,33 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Reset all game data (admin only)
+  socket.on('resetAllData', async () => {
+    if (socket.id === adminSocket) {
+      try {
+        console.log('🔄 Admin resetting all game data...');
+        const result = await GameService.resetAllData();
+
+        // Broadcast reset confirmation to all clients
+        io.emit('dataReset', {
+          message: 'All game data has been reset by admin',
+          timestamp: new Date().toISOString()
+        });
+
+        // Broadcast fresh game state
+        await broadcastGameState();
+
+        socket.emit('resetComplete', result);
+        console.log('✅ All game data reset successfully');
+      } catch (error) {
+        console.error('❌ Error resetting data:', error);
+        socket.emit('error', 'Failed to reset game data');
+      }
+    } else {
+      socket.emit('error', 'Unauthorized: Admin access required');
+    }
+  });
+
   // Get analytics data
   socket.on('getAnalytics', async () => {
     try {

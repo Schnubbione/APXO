@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { TeamRegistration } from './MultiUserTeamRegistration';
 import { AdminLogin } from './AdminLogin';
 import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
 import Tutorial from './Tutorial';
+import AchievementSystem from './AchievementSystem';
+import StreakCounter from './StreakCounter';
+import MotivationalMessages from './MotivationalMessages';
+import LiveCompetition from './LiveCompetition';
+import SoundEffects from './SoundEffects';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
@@ -35,12 +40,28 @@ export const MultiUserApp: React.FC = () => {
     startRound,
     endRound,
     getLeaderboard,
-    getAnalytics
+    getAnalytics,
+    resetAllData
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
+
+  // Play sound effects for game events
+  useEffect(() => {
+    if (gameState.isActive && !prevIsActive) {
+      setSoundEffect('roundStart');
+    } else if (!gameState.isActive && prevIsActive) {
+      setSoundEffect('roundEnd');
+    }
+  }, [gameState.isActive]);
+
+  const prevIsActive = useRef(gameState.isActive);
+  useEffect(() => {
+    prevIsActive.current = gameState.isActive;
+  });
 
   // Debug: Log state changes
   React.useEffect(() => {
@@ -140,6 +161,7 @@ export const MultiUserApp: React.FC = () => {
           roundHistory={roundHistory}
           leaderboard={leaderboard || []}
           onGetAnalytics={getAnalytics}
+          onResetAllData={resetAllData}
         />
 
         <RoundTimer
@@ -345,6 +367,7 @@ export const MultiUserApp: React.FC = () => {
           roundHistory={roundHistory}
           leaderboard={leaderboard || []}
           onGetAnalytics={getAnalytics}
+          onResetAllData={resetAllData}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -531,6 +554,35 @@ export const MultiUserApp: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Live Competition */}
+          <LiveCompetition
+            currentTeam={currentTeam}
+            leaderboard={leaderboard || []}
+            roundResults={roundResults || []}
+          />
+
+          {/* Motivational Messages */}
+          <MotivationalMessages
+            currentTeam={currentTeam}
+            roundResults={roundResults || []}
+            leaderboard={leaderboard || []}
+          />
+
+          {/* Streak Counter */}
+          <StreakCounter
+            currentTeam={currentTeam}
+            roundResults={roundResults || []}
+          />
+
+          {/* Sound Effects */}
+          <SoundEffects playSound={soundEffect} />
+          <AchievementSystem
+            currentTeam={currentTeam}
+            roundResults={roundResults || []}
+            leaderboard={leaderboard || []}
+            onPlaySound={setSoundEffect}
+          />
 
           {/* Leaderboard */}
           {leaderboard && (
