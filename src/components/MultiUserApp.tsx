@@ -404,7 +404,7 @@ export const MultiUserApp: React.FC = () => {
                       const numValue = value === "" ? 0 : Number(value);
                       updateTeamDecision({ price: numValue });
                     }}
-                    disabled={gameState.isActive}
+                    disabled={!gameState.isActive}
                     className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                   />
                 </div>
@@ -448,7 +448,7 @@ export const MultiUserApp: React.FC = () => {
                               buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
                             });
                           }}
-                          disabled={gameState.isActive}
+                          disabled={!gameState.isActive}
                           className="w-20 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[44px]"
                         />
                       </div>
@@ -485,7 +485,7 @@ export const MultiUserApp: React.FC = () => {
                               buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
                             });
                           }}
-                          disabled={gameState.isActive}
+                          disabled={!gameState.isActive}
                           className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-sm font-mono min-h-[40px]"
                         />
                       </div>
