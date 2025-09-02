@@ -50,6 +50,15 @@ const io = new Server(server, {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'APXO Server is running!',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // In-memory storage (for development)
 let gameState = {
   teams: [],
