@@ -28,21 +28,25 @@ export const AdminLogin: React.FC = () => {
   // because the parent component will show the admin view instead
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2 text-lg sm:text-xl">
-            <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
+        <CardHeader className="text-center pb-6">
+          <div className="flex justify-center mb-4">
+            <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold text-white mb-2">
             Admin Login
           </CardTitle>
-          <CardDescription className="text-sm">
+          <CardDescription className="text-slate-400 text-base">
             Enter admin password to control the simulation
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm">Password</Label>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="password" className="text-slate-300 text-sm font-medium">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -50,22 +54,33 @@ export const AdminLogin: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="text-sm min-h-[44px]"
+                className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg min-h-[52px] rounded-xl"
                 disabled={loading}
               />
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-red-400 font-medium">{error}</p>}
             </div>
 
-            <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login as Admin'}
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Logging in...
+                </span>
+              ) : (
+                'Login as Admin'
+              )}
             </Button>
           </form>
 
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <Button
               variant="outline"
               onClick={() => window.location.reload()}
-              className="text-sm min-h-[44px]"
+              className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white min-h-[44px] rounded-lg"
             >
               Back to Team Registration
             </Button>
