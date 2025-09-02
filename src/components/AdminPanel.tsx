@@ -27,22 +27,24 @@ interface AdminPanelProps {
   setRoundTime: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
+  showAdminPanel: boolean;
+  setShowAdminPanel: (value: boolean) => void;
 }
 
 export default function AdminPanel({
   numTeams, setNumTeams, rounds, setRounds, baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, onStartRound, onEndRound, roundTime, setRoundTime,
-  isAdmin, setIsAdmin
+  isAdmin, setIsAdmin, showAdminPanel, setShowAdminPanel
 }: AdminPanelProps) {
-  if (!isAdmin) {
-    return null; // Don't render anything when not admin
+  if (!isAdmin || !showAdminPanel) {
+    return null; // Don't render anything when not admin or panel is closed
   }
 
   return (
     <div className="fixed inset-0 sm:inset-auto sm:top-4 sm:right-4 z-50 flex items-center justify-center sm:items-start sm:justify-end p-4">
       {/* Mobile Overlay */}
-      <div className="absolute inset-0 bg-black/60 sm:hidden backdrop-blur-sm" onClick={() => setIsAdmin(false)} />
+      <div className="absolute inset-0 bg-black/60 sm:hidden backdrop-blur-sm" onClick={() => setShowAdminPanel(false)} />
 
       <Card className="w-full max-w-sm sm:w-96 max-h-[85vh] sm:max-h-96 overflow-y-auto relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
         <CardHeader className="pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
@@ -51,8 +53,7 @@ export default function AdminPanel({
             variant="ghost"
             size="sm"
             onClick={() => {
-              // Einfach schließen; kein Reload nötig
-              setIsAdmin(false);
+              setShowAdminPanel(false);
             }}
             className="absolute top-3 right-3 h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg"
           >
@@ -73,7 +74,7 @@ export default function AdminPanel({
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} className="w-full" />
             </div>
-            <div className="text-sm text-slate-400 text-center">{numTeams} teams active</div>
+            <div className="text-sm text-slate-400 text-center">{numTeams} teams registered</div>
           </div>
 
           <div className="space-y-3">

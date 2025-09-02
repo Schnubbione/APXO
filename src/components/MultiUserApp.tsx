@@ -29,6 +29,7 @@ export const MultiUserApp: React.FC = () => {
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Debug: Log state changes
   React.useEffect(() => {
@@ -127,6 +128,8 @@ export const MultiUserApp: React.FC = () => {
           setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           isAdmin={true}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
+          showAdminPanel={showAdminPanel}
+          setShowAdminPanel={setShowAdminPanel}
         />
 
         <RoundTimer
@@ -145,8 +148,63 @@ export const MultiUserApp: React.FC = () => {
                 Airline Procurement & Demand Simulation
               </h1>
             </div>
-            <p className="text-slate-400 text-lg">Admin Control Panel</p>
-          </header>          {/* Teams Overview */}
+            <div className="flex items-center justify-center gap-4 text-slate-400">
+              <span className="text-lg">Admin Control Panel</span>
+              <Button
+                onClick={() => setShowAdminPanel(true)}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </div>
+          </header>
+
+          {/* Round Control */}
+          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+            <CardContent className="pt-6 sm:pt-8">
+              <div className="text-center space-y-4">
+                <div className="text-2xl font-bold text-white mb-4">
+                  Round {gameState.currentRound} of {gameState.totalRounds}
+                </div>
+                <div className="text-lg text-slate-300 mb-6">
+                  {gameState.isActive ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      Round in progress...
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">Ready to start next round</span>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button
+                    onClick={startRound}
+                    disabled={gameState.isActive}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                      Start New Round
+                    </span>
+                  </Button>
+                  <Button
+                    onClick={endRound}
+                    disabled={!gameState.isActive}
+                    variant="outline"
+                    className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white hover:border-slate-500 disabled:opacity-50 font-semibold px-8 py-3 rounded-lg transition-all duration-200 min-h-[48px]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      End Round
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Teams Overview */}
           <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
@@ -216,7 +274,16 @@ export const MultiUserApp: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         {/* Admin Login Button - always visible */}
-        <div className="fixed top-4 right-4 z-40">
+        <div className="fixed top-4 right-4 z-40 flex gap-2">
+          {isAdmin && (
+            <Button
+              onClick={() => setShowAdminPanel(true)}
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Admin
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -231,6 +298,31 @@ export const MultiUserApp: React.FC = () => {
           roundTime={roundTimeMinutes}
           isActive={gameState.isActive}
           onTimeUp={() => {}}
+        />
+
+        <AdminPanel
+          numTeams={gameState.teams.length}
+          setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
+          rounds={gameState.totalRounds}
+          setRounds={(v) => updateGameSettings({ totalRounds: v })}
+          baseDemand={gameState.baseDemand}
+          setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
+          spread={gameState.spread}
+          setSpread={(v) => updateGameSettings({ spread: v })}
+          shock={gameState.shock}
+          setShock={(v) => updateGameSettings({ shock: v })}
+          sharedMarket={gameState.sharedMarket}
+          setSharedMarket={(v) => updateGameSettings({ sharedMarket: v })}
+          seed={gameState.seed}
+          setSeed={(v) => updateGameSettings({ seed: v })}
+          onStartRound={startRound}
+          onEndRound={endRound}
+          roundTime={roundTimeMinutes}
+          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
+          isAdmin={isAdmin}
+          setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
+          showAdminPanel={showAdminPanel}
+          setShowAdminPanel={setShowAdminPanel}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
