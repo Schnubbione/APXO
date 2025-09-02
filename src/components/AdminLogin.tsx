@@ -54,7 +54,6 @@ export const AdminLogin: React.FC = () => {
                 disabled={loading}
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <p className="text-xs text-slate-500">Hint: admin123</p>
             </div>
 
             <Button type="submit" className="w-full min-h-[44px]" disabled={loading}>
