@@ -47,6 +47,8 @@ interface GameContextType {
   isAdmin: boolean;
   roundResults: RoundResult[] | null;
   leaderboard: Array<{ name: string; profit: number }> | null;
+  roundHistory: any[];
+  analyticsData: any;
 
   // Actions
   registerTeam: (name: string) => void;
@@ -92,6 +94,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [roundResults, setRoundResults] = useState<RoundResult[] | null>(null);
   const [leaderboard, setLeaderboard] = useState<Array<{ name: string; profit: number }> | null>(null);
+  const [roundHistory, setRoundHistory] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   useEffect(() => {
     // Use environment variable for server URL, fallback to localhost for development
@@ -161,6 +165,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for leaderboard
     newSocket.on('leaderboard', (board: Array<{ name: string; profit: number }>) => {
       setLeaderboard(board);
+    });
+
+    // Listen for analytics data
+    newSocket.on('analyticsData', (data: any) => {
+      setRoundHistory(data.roundHistory || []);
+      setAnalyticsData(data);
     });
 
     return () => {
@@ -238,6 +248,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin,
     roundResults,
     leaderboard,
+    roundHistory,
+    analyticsData,
     registerTeam,
     loginAsAdmin,
     updateGameSettings,
