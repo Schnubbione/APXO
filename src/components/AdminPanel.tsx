@@ -62,7 +62,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Round Time</Label>
-              <div className="text-xs text-slate-500 mt-1">Slider von 1-30 Minuten</div>
+              <div className="text-xs text-slate-500 mt-1">Slider from 1-30 minutes</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
@@ -73,7 +73,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Teams</Label>
-              <div className="text-xs text-slate-500 mt-1">Aktuelle Anzahl registrierter Teams</div>
+              <div className="text-xs text-slate-500 mt-1">Current number of registered teams</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} className="w-full" />
@@ -84,7 +84,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Rounds</Label>
-              <div className="text-xs text-slate-500 mt-1">Gesamtanzahl der Runden (1-12)</div>
+              <div className="text-xs text-slate-500 mt-1">Total number of rounds (1-12)</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} className="w-full" />
@@ -95,7 +95,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
-              <div className="text-xs text-slate-500 mt-1">Grundnachfrage (20-240 Kunden)</div>
+              <div className="text-xs text-slate-500 mt-1">Base demand (20-240 customers)</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} className="w-full" />
@@ -106,7 +106,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">WTP Spread</Label>
-              <div className="text-xs text-slate-500 mt-1">Preisvariabilität (±5-150)</div>
+              <div className="text-xs text-slate-500 mt-1">Price variability (±5-150)</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} className="w-full" />
@@ -117,7 +117,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Random Shock</Label>
-              <div className="text-xs text-slate-500 mt-1">Zufällige Nachfrageschwankungen (±0-40%)</div>
+              <div className="text-xs text-slate-500 mt-1">Random demand fluctuations (±0-40%)</div>
             </div>
             <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
               <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} className="w-full" />
@@ -128,7 +128,7 @@ export default function AdminPanel({
           <div className="space-y-3">
             <div>
               <Label className="text-slate-300 text-sm font-medium">Seed</Label>
-              <div className="text-xs text-slate-500 mt-1">Reproduzierbare Simulationen</div>
+              <div className="text-xs text-slate-500 mt-1">Reproducible simulations</div>
             </div>
             <Input
               type="number"
@@ -142,7 +142,7 @@ export default function AdminPanel({
             <Switch checked={sharedMarket} onCheckedChange={setSharedMarket} id="shared" className="data-[state=checked]:bg-indigo-500" />
             <div>
               <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market</Label>
-              <div className="text-xs text-slate-500 mt-1">Toggle für Marktstruktur</div>
+              <div className="text-xs text-slate-500 mt-1">Toggle for market structure</div>
             </div>
           </div>
         </CardContent>
