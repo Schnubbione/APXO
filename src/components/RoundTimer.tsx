@@ -36,16 +36,16 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp }: RoundTimer
   const isWarning = timeLeft <= 60; // Last minute red
 
   return (
-    <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/90 backdrop-blur-sm border-slate-600 shadow-2xl">
+    <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
       <CardContent className="p-4 sm:p-6">
         <div className="text-center">
-          <div className="text-sm text-slate-400 mb-2">Time Remaining</div>
+          <div className="text-sm text-slate-400 mb-2 font-medium">Time Remaining</div>
           <div className={`text-3xl sm:text-4xl font-bold tabular-nums ${
             isWarning ? 'text-red-400 animate-pulse' : 'text-white'
           }`}>
             {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
           </div>
-          {!isActive && <div className="text-sm text-slate-500 mt-2">Round paused</div>}
+          {!isActive && <div className="text-sm text-slate-500 mt-2 font-medium">Round paused</div>}
         </div>
       </CardContent>
     </Card>

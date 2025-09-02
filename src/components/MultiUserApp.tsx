@@ -11,7 +11,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Plane, Users, Award, Settings } from 'lucide-react';
 
-const TEAM_COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 export const MultiUserApp: React.FC = () => {
   const {
@@ -147,7 +147,7 @@ export const MultiUserApp: React.FC = () => {
             </div>
             <p className="text-slate-400 text-lg">Admin Control Panel</p>
           </header>          {/* Teams Overview */}
-          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl">
+          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
                 <div className="p-2 bg-indigo-500/20 rounded-lg">
@@ -248,7 +248,7 @@ export const MultiUserApp: React.FC = () => {
               <span className="font-medium">Team: {currentTeam.name}</span>
             </div>
           </header>          {/* Round Status */}
-          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardContent className="pt-6 sm:pt-8">
               <div className="text-center">
                 <div className="text-4xl sm:text-5xl font-bold text-white mb-2">
@@ -269,7 +269,7 @@ export const MultiUserApp: React.FC = () => {
           </Card>
 
           {/* Team Decision Making */}
-          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl">
+          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -370,7 +370,7 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Round Results */}
           {roundResults && (
-            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl text-white">Round {gameState.currentRound} Results</CardTitle>
               </CardHeader>
@@ -395,7 +395,7 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Leaderboard */}
           {leaderboard && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl">
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
                   <div className="p-2 bg-yellow-500/20 rounded-lg">

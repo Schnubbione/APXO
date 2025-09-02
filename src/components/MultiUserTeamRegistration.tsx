@@ -64,8 +64,8 @@ export const TeamRegistration: React.FC = () => {
             ) : (
               <div className="space-y-3 max-h-40 overflow-y-auto">
                 {gameState.teams.map((team) => (
-                  <div key={team.id} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <div key={team.id} className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200">
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg"></div>
                     <span className="text-white font-medium">{team.name}</span>
                   </div>
                 ))}

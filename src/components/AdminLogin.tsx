@@ -80,9 +80,9 @@ export const AdminLogin: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => window.location.reload()}
-              className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white min-h-[44px] rounded-lg"
+              className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white hover:border-slate-500 min-h-[44px] rounded-lg transition-all duration-200"
             >
-              Back to Team Registration
+              ← Back to Team Registration
             </Button>
           </div>
         </CardContent>

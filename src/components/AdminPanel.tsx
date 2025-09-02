@@ -44,7 +44,7 @@ export default function AdminPanel({
       {/* Mobile Overlay */}
       <div className="absolute inset-0 bg-black/60 sm:hidden backdrop-blur-sm" onClick={() => setIsAdmin(false)} />
 
-      <Card className="w-full max-w-sm sm:w-96 max-h-[85vh] sm:max-h-96 overflow-y-auto relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl">
+      <Card className="w-full max-w-sm sm:w-96 max-h-[85vh] sm:max-h-96 overflow-y-auto relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
         <CardHeader className="pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
           <CardTitle className="text-lg sm:text-xl text-white font-bold">Admin Panel</CardTitle>
           <Button
@@ -126,14 +126,14 @@ export default function AdminPanel({
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               onClick={onStartRound}
-              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold min-h-[48px] rounded-lg shadow-lg"
+              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold min-h-[48px] rounded-lg shadow-lg hover:shadow-green-500/25 transition-all duration-200"
             >
               Start New Round
             </Button>
             <Button
               onClick={onEndRound}
               variant="outline"
-              className="flex-1 bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white font-semibold min-h-[48px] rounded-lg"
+              className="flex-1 bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white hover:border-slate-500 font-semibold min-h-[48px] rounded-lg transition-all duration-200"
             >
               End Round
             </Button>
