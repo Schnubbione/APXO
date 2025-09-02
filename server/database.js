@@ -18,12 +18,18 @@ const dbConfig = process.env.NODE_ENV === 'production' ? {
   dialect: 'postgres',
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
   ssl: process.env.DB_SSL === 'true',
-  dialectOptions: process.env.DB_SSL === 'true' ? {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
+  dialectOptions: {
+    ...(process.env.DB_SSL === 'true' ? {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    } : {}),
+    // Force IPv4 to avoid IPv6 connection issues
+    connect: {
+      family: 4
     }
-  } : {}
+  }
 } : {
   dialect: 'sqlite',
   storage: './database.sqlite',
