@@ -49,6 +49,14 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [roundResults, getLeaderboard]);
 
+  // If admin login was successful, reset showAdminLogin (hook must be before any returns)
+  React.useEffect(() => {
+    if (isAdmin && showAdminLogin) {
+      setShowAdminLogin(false);
+    }
+  }, [isAdmin, showAdminLogin]);
+
+  // 1) Tutorial first
   if (showTutorial) {
     return <Tutorial onStart={() => {
       setShowTutorial(false);
@@ -56,25 +64,7 @@ export const MultiUserApp: React.FC = () => {
     }} />;
   }
 
-  // If not registered and not admin, show registration
-  if (!currentTeam && !isAdmin) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-        <div className="flex justify-center pt-8">
-          <Button
-            variant="outline"
-            onClick={() => setShowAdminLogin(true)}
-            className="min-h-[44px]"
-          >
-            Admin Login
-          </Button>
-        </div>
-        <TeamRegistration />
-      </div>
-    );
-  }
-
-  // Show admin login when requested
+  // 2) Explicitly show Admin Login when requested (takes precedence over registration/team views)
   if (showAdminLogin && !isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -92,12 +82,23 @@ export const MultiUserApp: React.FC = () => {
     );
   }
 
-  // If admin login was successful, reset showAdminLogin
-  React.useEffect(() => {
-    if (isAdmin && showAdminLogin) {
-      setShowAdminLogin(false);
-    }
-  }, [isAdmin, showAdminLogin]);
+  // 3) If not registered and not admin, show registration
+  if (!currentTeam && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="flex justify-center pt-8">
+          <Button
+            variant="outline"
+            onClick={() => setShowAdminLogin(true)}
+            className="min-h-[44px]"
+          >
+            Admin Login
+          </Button>
+        </div>
+        <TeamRegistration />
+      </div>
+    );
+  }
 
   // Admin view
   if (isAdmin) {
