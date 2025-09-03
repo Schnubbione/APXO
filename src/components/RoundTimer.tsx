@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, Zap, Flame, Target } from "lucide-react";
 
@@ -14,27 +14,40 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
   const [progress, setProgress] = useState(100);
 
   useEffect(() => {
+    // Reset when roundTime changes (e.g., new phase/round)
     setTimeLeft(roundTime * 60);
     setProgress(100);
   }, [roundTime]);
 
   useEffect(() => {
-    if (!isActive) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          onTimeUp();
-          return 0;
-        }
-        const newTime = prev - 1;
-        setProgress((newTime / (roundTime * 60)) * 100);
-        return newTime;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
+    let timer: any = null;
+    if (isActive) {
+      // When (re)activated, ensure timer is aligned with current timeLeft
+      timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            onTimeUp();
+            return 0;
+          }
+          const newTime = prev - 1;
+          setProgress((newTime / (roundTime * 60)) * 100);
+          return newTime;
+        });
+      }, 1000);
+    }
+    // If deactivated, make sure timer stops immediately
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [isActive, onTimeUp, roundTime]);
+
+  // If the phase changes from active to inactive, freeze the clock visually
+  useEffect(() => {
+    if (!isActive) {
+      setProgress((timeLeft / (roundTime * 60)) * 100);
+    }
+  }, [isActive, timeLeft, roundTime]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

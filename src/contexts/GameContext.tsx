@@ -10,6 +10,7 @@ interface Team {
     fixSeatsPurchased: number;
     fixSeatsAllocated?: number; // Actually allocated fix seats (may be less than purchased)
     poolingAllocation: number;
+  hotelCapacity?: number;
   };
   totalProfit: number;
 }
@@ -53,6 +54,10 @@ interface GameState {
     lastUpdate: string;
     priceHistory: Array<{ price: number; timestamp: string }>;
   };
+  // Hotel info
+  hotelBedCost?: number;
+  hotelCapacityAssigned?: boolean;
+  hotelCapacityPerTeam?: number;
 }
 
 interface RoundResult {
@@ -70,6 +75,11 @@ interface GameContextType {
   currentTeam: Team | null;
   isAdmin: boolean;
   roundResults: RoundResult[] | null;
+  // Practice mode state
+  practice:
+    | { running: true; rounds: number; aiCount: number }
+    | { running: false; results?: any }
+    | null;
   leaderboard: Array<{ name: string; profit: number }> | null;
   roundHistory: any[];
   analyticsData: any;
@@ -92,6 +102,7 @@ interface GameContextType {
   logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
   updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => void;
+  startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
   startPrePurchasePhase: () => void;
   startSimulationPhase: () => void;
   startRound: () => void;
@@ -150,7 +161,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentDemand: 100,
       lastUpdate: new Date().toISOString(),
       priceHistory: [{ price: 150, timestamp: new Date().toISOString() }]
-    }
+  },
+  // Hotel defaults in initial state (will be overwritten by server)
+  hotelBedCost: 50,
+  hotelCapacityAssigned: false,
+  hotelCapacityPerTeam: 0
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -160,6 +175,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [practice, setPractice] = useState<
+    | { running: true; rounds: number; aiCount: number }
+    | { running: false; results?: any }
+    | null
+  >(null);
 
   // Tutorial state
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -196,7 +216,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Game state updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
-      const normalizedTeams = (state.teams || []).map(t => ({
+    const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
@@ -204,7 +224,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           // Before allocation is confirmed by server, do not infer allocated seats
           fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-          poolingAllocation: t.decisions?.poolingAllocation ?? 0
+      poolingAllocation: t.decisions?.poolingAllocation ?? 0,
+      hotelCapacity: t.decisions?.hotelCapacity
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -220,14 +241,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Game state broadcast updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
-      const normalizedTeams = (state.teams || []).map(t => ({
+    const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-          poolingAllocation: t.decisions?.poolingAllocation ?? 0
+      poolingAllocation: t.decisions?.poolingAllocation ?? 0,
+      hotelCapacity: t.decisions?.hotelCapacity
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -279,6 +301,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for leaderboard
     newSocket.on('leaderboard', (board: Array<{ name: string; profit: number }>) => {
       setLeaderboard(board);
+    });
+
+    // Practice mode events
+    newSocket.on('practiceResults', (payload: any) => {
+      setPractice({ running: false, results: payload });
+    });
+    newSocket.on('practiceError', (msg: string) => {
+      console.error('Practice error:', msg);
+      setPractice({ running: false });
     });
 
     // Listen for analytics data
@@ -395,6 +426,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('updateTeamDecision', decision);
   };
 
+  const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => {
+    const rounds = Math.max(1, Math.min(5, Number(config?.rounds) || 3));
+    const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 0));
+    setPractice({ running: true, rounds, aiCount });
+    socket?.emit('startPracticeMode', config || {});
+  };
+
   const startPrePurchasePhase = () => {
     socket?.emit('startPrePurchasePhase');
   };
@@ -476,6 +514,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentTeam,
     isAdmin,
     roundResults,
+  practice,
     leaderboard,
     roundHistory,
     analyticsData,
@@ -494,6 +533,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logoutAsAdmin,
     updateGameSettings,
     updateTeamDecision,
+  startPracticeMode,
     startPrePurchasePhase,
     startSimulationPhase,
     startRound,

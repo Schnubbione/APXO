@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection } from './database.js';
-import { syncDatabase } from './models.js';
+import { syncDatabase, Team } from './models.js';
 import GameService from './gameService.js';
 
 // Load environment variables
@@ -404,6 +404,109 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Server-side Practice Mode: simulate rounds vs. AI without touching DB state
+  socket.on('startPracticeMode', async (config = {}) => {
+    try {
+      // Ensure a registered team exists for this socket
+      const humanTeam = await Team.findOne({ where: { socketId: socket.id, isActive: true } });
+      if (!humanTeam) {
+        socket.emit('practiceError', 'Bitte zuerst als Team registrieren.');
+        return;
+      }
+
+      // Randomized settings for the practice session
+      const rnd = (min, max) => Math.random() * (max - min) + min;
+      const irnd = (min, max) => Math.floor(rnd(min, max + 1));
+
+      const rounds = Math.max(1, Math.min(5, Number(config.rounds) || 3));
+      const aiCount = Math.max(2, Math.min(6, Number(config.aiCount) || irnd(2, 5)));
+
+      const settings = {
+        baseDemand: irnd(80, 240),
+        demandVolatility: rnd(0.05, 0.2),
+        priceElasticity: -(rnd(0.9, 2.7)),
+        marketConcentration: rnd(0.6, 0.9),
+        totalCapacity: irnd(600, 1400),
+        fixSeatPrice: irnd(50, 80),
+        hotelBedCost: irnd(30, 70),
+        costVolatility: rnd(0.03, 0.1),
+        poolingMarket: { currentPrice: irnd(100, 220) }
+      };
+
+      // Build ephemeral team list: human + randomized AIs
+      const totalTeams = aiCount + 1;
+      const perTeamHotel = Math.floor((settings.totalCapacity * 0.6) / totalTeams);
+
+      const humanDecisions = {
+        price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
+        buy: {
+          F: Number(humanTeam.decisions?.buy?.F || 0),
+          P: Number(humanTeam.decisions?.buy?.P || 0),
+          O: Number(humanTeam.decisions?.buy?.O || 0)
+        },
+        fixSeatsPurchased: Number(humanTeam.decisions?.fixSeatsPurchased || 0),
+        fixSeatsAllocated: Number(humanTeam.decisions?.fixSeatsAllocated || 0),
+        poolingAllocation: Number(humanTeam.decisions?.poolingAllocation || 0),
+        hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel)
+      };
+
+      const teams = [
+        {
+          id: humanTeam.id,
+          name: humanTeam.name,
+          decisions: humanDecisions,
+          totalProfit: 0
+        }
+      ];
+
+      for (let i = 0; i < aiCount; i++) {
+        teams.push({
+          id: `AI_${i + 1}`,
+          name: `AI Team ${i + 1}`,
+          decisions: {
+            price: irnd(150, 350),
+            buy: { F: irnd(0, 180), P: irnd(0, 100), O: irnd(0, 60) },
+            fixSeatsPurchased: 0,
+            fixSeatsAllocated: 0,
+            poolingAllocation: irnd(0, 70),
+            hotelCapacity: perTeamHotel
+          },
+          totalProfit: 0
+        });
+      }
+
+      // Auto-run rounds and collect history
+      const perRound = [];
+      for (let r = 1; r <= rounds; r++) {
+        const raw = calculateRoundResults(teams, settings);
+        const rr = raw.map(res => ({
+          ...res,
+          teamName: teams.find(t => t.id === res.teamId)?.name || String(res.teamId)
+        }));
+        // accumulate profit
+        rr.forEach(res => {
+          const t = teams.find(t => t.id === res.teamId);
+          if (t) t.totalProfit = Number(t.totalProfit || 0) + Number(res.profit || 0);
+        });
+        perRound.push({ round: r, teamResults: rr });
+      }
+
+      const leaderboard = teams
+        .map(t => ({ name: t.name, profit: Math.round(Number(t.totalProfit || 0)) }))
+        .sort((a, b) => b.profit - a.profit);
+
+      socket.emit('practiceResults', {
+        config: { rounds, aiCount },
+        settings,
+        rounds: perRound,
+        leaderboard
+      });
+    } catch (err) {
+      console.error('Error running practice mode:', err);
+      socket.emit('practiceError', 'Übungsmodus fehlgeschlagen.');
+    }
+  });
+
   // Start round (admin only)
   socket.on('startRound', async () => {
     if (socket.id === adminSocket) {
@@ -716,7 +819,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
 }
 
 // Helper function to calculate round results with realistic economic modeling
-function calculateRoundResults(teams, settings) {
+export function calculateRoundResults(teams, settings) {
   const baseDemand = settings.baseDemand || 100;
   const demandVolatility = settings.demandVolatility || 0.1;
 

@@ -551,7 +551,7 @@ export const MultiUserApp: React.FC = () => {
                     <div className="text-2xl font-bold text-red-400 mb-2">
                       {gameState.totalFixSeats || 500}
                     </div>
-                    <div className="text-slate-300 text-sm">Total Fix Seats Available</div>
+                    <div className="text-slate-300 text-sm">Total Aircraft Seats Available</div>
                   </div>
                   {/* Hide exact remaining availability and utilization until allocation */}
                   <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
@@ -564,6 +564,38 @@ export const MultiUserApp: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Hotel capacity and empty-bed cost awareness for purchase decisions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
+                    <div className="text-2xl font-bold text-indigo-400 mb-2">
+                      {currentTeam?.decisions?.hotelCapacity ?? (gameState.hotelCapacityPerTeam ?? '—')}
+                    </div>
+                    <div className="text-slate-300 text-sm">Your Hotel Beds (assigned)</div>
+                  </div>
+                  <div className="text-center p-4 bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-600/20 rounded-xl border border-fuchsia-500/30">
+                    <div className="text-2xl font-bold text-fuchsia-400 mb-2">
+                      €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50}
+                    </div>
+                    <div className="text-slate-300 text-sm">Empty Bed Cost (per bed)</div>
+                  </div>
+                </div>
+
+                {/* Team fix seats visibility to support purchase decision */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="text-center p-4 bg-gradient-to-br from-sky-500/20 to-sky-600/20 rounded-xl border border-sky-500/30">
+                    <div className="text-2xl font-bold text-sky-400 mb-2">
+                      {currentTeam?.decisions?.fixSeatsPurchased ?? 0}
+                    </div>
+                    <div className="text-slate-300 text-sm">Your Fix Seats (requested)</div>
+                  </div>
+                  <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">
+                    <div className="text-2xl font-bold text-emerald-400 mb-2">
+                      {typeof currentTeam?.decisions?.fixSeatsAllocated === 'number' ? currentTeam?.decisions?.fixSeatsAllocated : '—'}
+                    </div>
+                    <div className="text-slate-300 text-sm">Allocated Fix Seats (after Phase 1)</div>
+                  </div>
+                </div>
+
                 {/* Hide progress bar before allocation to avoid revealing demand */}
 
                 {/* Team purchase activity is hidden before allocation to ensure anonymity and avoid demand signals */}
@@ -573,6 +605,7 @@ export const MultiUserApp: React.FC = () => {
                   <div>• Fix seats are purchased at €{gameState.fixSeatPrice} each (guaranteed capacity)</div>
                   <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
                   <div>• First come, first served - act quickly to secure your capacity!</div>
+                  <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
                 </div>
               </CardContent>
             </Card>
