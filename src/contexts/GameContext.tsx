@@ -8,6 +8,7 @@ interface Team {
     price: number;
     buy: Record<string, number>;
     fixSeatsPurchased: number;
+    fixSeatsAllocated?: number; // Actually allocated fix seats (may be less than purchased)
     poolingAllocation: number;
   };
   totalProfit: number;
@@ -38,6 +39,19 @@ interface GameState {
   fixSeatPrice: number;
   simulationMonths: number;
   departureDate: Date;
+  fixSeatsAllocated?: boolean;
+  poolingReserveCapacity?: number;
+  poolingMarketUpdateInterval?: number; // in seconds
+  simulatedWeeksPerUpdate?: number; // weeks simulated per market update
+  poolingMarket?: {
+    currentPrice: number;
+    totalPoolingCapacity: number;
+    availablePoolingCapacity: number;
+    offeredPoolingCapacity: number;
+    currentDemand: number;
+    lastUpdate: string;
+    priceHistory: Array<{ price: number; timestamp: string }>;
+  };
 }
 
 interface RoundResult {
@@ -118,7 +132,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     availableFixSeats: 500,
     fixSeatPrice: 60,
     simulationMonths: 12,
-    departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000) // 12 months from now
+    departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000), // 12 months from now
+    fixSeatsAllocated: false,
+    poolingReserveCapacity: 300,
+    poolingMarketUpdateInterval: 1, // 1 second = 1 day
+    simulatedWeeksPerUpdate: 1, // 1 day per update
+    poolingMarket: {
+      currentPrice: 150,
+      totalPoolingCapacity: 300,
+      availablePoolingCapacity: 300,
+      offeredPoolingCapacity: 0,
+      currentDemand: 100,
+      lastUpdate: new Date().toISOString(),
+      priceHistory: [{ price: 150, timestamp: new Date().toISOString() }]
+    }
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -159,6 +186,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
+          fixSeatsAllocated: t.decisions?.fixSeatsAllocated ?? t.decisions?.fixSeatsPurchased ?? 0,
           poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));
@@ -181,6 +209,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
+          fixSeatsAllocated: t.decisions?.fixSeatsAllocated ?? t.decisions?.fixSeatsPurchased ?? 0,
           poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));

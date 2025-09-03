@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Pre-Purchase - Buy fixed seats (€60 each, limited availability). Phase 2: Simulation - Set prices and allocate pooling capacity for 12 months.',
+    description: 'Phase 1: Pre-Purchase - Buy fixed seats (€60 each, limited availability). Phase 2: Simulation - Set prices and pooling allocation for 365 days with real-time market monitoring.',
     position: 'center'
   },
   {
@@ -68,6 +68,19 @@ const tutorialSteps: TutorialStep[] = [
     position: 'top'
   },
   {
+    id: 'pooling-market',
+    title: 'Live Pooling Market',
+    description: 'Monitor the dynamic pooling market with transparent pricing. Prices update every second, simulating one day of market activity each time. Set your initial price before the simulation starts, then use the "Update Price" button to adjust during the simulation.',
+    target: '[data-tutorial="pooling-market"]',
+    position: 'top'
+  },
+  {
+    id: 'market-insights',
+    title: 'Market Insights',
+    description: 'Use the pooling market data to inform your strategy. Watch price trends and demand patterns to optimize your pricing and capacity allocation. Remember to set your initial price before the simulation begins!',
+    position: 'center'
+  },
+  {
     id: 'leaderboard',
     title: 'Live Leaderboard',
     description: 'Track your performance and see how you rank against other teams in real-time.',
@@ -77,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You\'re all set! Remember: balance risk and reward, monitor demand patterns, and make strategic decisions to maximize your profits.',
+    description: 'You\'re all set! Remember: balance risk and reward, monitor demand patterns, watch the live pooling market (updates every second = 1 day), and make strategic decisions to maximize your profits. Don\'t forget to set your initial price before the simulation starts!',
     position: 'center'
   }
 ];

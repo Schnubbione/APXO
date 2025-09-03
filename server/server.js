@@ -113,6 +113,45 @@ async function initializeServer() {
 // Global variables for current session state (cached for performance)
 let currentGameState = null;
 let adminSocket = null;
+let poolingMarketInterval = null; // For periodic pooling market updates
+
+// Start periodic pooling market updates
+function startPoolingMarketUpdates() {
+  // Clear any existing interval
+  if (poolingMarketInterval) {
+    clearInterval(poolingMarketInterval);
+  }
+
+  // Get current settings for update interval (default to 1 second if not set)
+  const updateInterval = 1000; // 1 second = 1 day
+
+  // Update pooling market every configured interval during simulation
+  poolingMarketInterval = setInterval(async () => {
+    try {
+      const session = await GameService.getCurrentGameSession();
+      if (session.settings?.currentPhase === 'simulation' && session.isActive) {
+        await GameService.updatePoolingMarket();
+        await broadcastGameState();
+      } else {
+        // Stop updates if simulation is no longer active
+        stopPoolingMarketUpdates();
+      }
+    } catch (error) {
+      console.error('Error updating pooling market:', error);
+    }
+  }, updateInterval); // 1 second = 1 day
+
+  console.log(`🏊 Pooling market updates started (every ${updateInterval/1000} second = 1 day)`);
+}
+
+// Stop pooling market updates
+function stopPoolingMarketUpdates() {
+  if (poolingMarketInterval) {
+    clearInterval(poolingMarketInterval);
+    poolingMarketInterval = null;
+    console.log('🏊 Pooling market updates stopped');
+  }
+}
 
 // Broadcast game state helper function
 async function broadcastGameState() {
@@ -120,26 +159,49 @@ async function broadcastGameState() {
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
-    const gameState = {
-      teams: activeTeams.map(team => ({
-        id: team.id,
-        name: team.name,
-        decisions: team.decisions,
-        totalProfit: team.totalProfit
-      })),
-      currentRound: gameSession.currentRound,
-      totalRounds: gameSession.totalRounds,
-      isActive: gameSession.isActive,
-      adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
-      ...gameSession.settings,
-      fares: [
-        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-      ]
-    };
+    // Get list of all connected sockets
+    const connectedSockets = await io.fetchSockets();
 
-    io.emit('gameStateUpdate', gameState);
+    // Send personalized game state to each client
+    for (const socket of connectedSockets) {
+      const gameState = {
+        teams: activeTeams.map(team => {
+          if (team.socketId !== socket.id) {
+            // Hide fix seat purchases from other teams
+            return {
+              id: team.id,
+              name: team.name,
+              decisions: {
+                ...team.decisions,
+                fixSeatsPurchased: undefined, // Hide from other teams
+                fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+              },
+              totalProfit: team.totalProfit
+            };
+          } else {
+            // Show full data for own team
+            return {
+              id: team.id,
+              name: team.name,
+              decisions: team.decisions,
+              totalProfit: team.totalProfit
+            };
+          }
+        }),
+        currentRound: gameSession.currentRound,
+        totalRounds: gameSession.totalRounds,
+        isActive: gameSession.isActive,
+        adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
+        ...gameSession.settings,
+        fares: [
+          { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
+          { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
+          { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
+        ]
+      };
+
+      socket.emit('gameStateUpdate', gameState);
+    }
   } catch (error) {
     console.error('Error broadcasting game state:', error);
   }
@@ -150,18 +212,35 @@ io.on('connection', async (socket) => {
   console.log('User connected:', socket.id);
 
   try {
-    // Get current game state from database
+    // Get current game state from database with privacy filtering
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
-    // Prepare game state for client
+    // Prepare game state for this specific client
     const gameState = {
-      teams: activeTeams.map(team => ({
-        id: team.id,
-        name: team.name,
-        decisions: team.decisions,
-        totalProfit: team.totalProfit
-      })),
+      teams: activeTeams.map(team => {
+        if (team.socketId !== socket.id) {
+          // Hide fix seat purchases from other teams
+          return {
+            id: team.id,
+            name: team.name,
+            decisions: {
+              ...team.decisions,
+              fixSeatsPurchased: undefined, // Hide from other teams
+              fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+            },
+            totalProfit: team.totalProfit
+          };
+        } else {
+          // Show full data for own team
+          return {
+            id: team.id,
+            name: team.name,
+            decisions: team.decisions,
+            totalProfit: team.totalProfit
+          };
+        }
+      }),
       currentRound: gameSession.currentRound,
       totalRounds: gameSession.totalRounds,
       isActive: gameSession.isActive,
@@ -239,6 +318,15 @@ io.on('connection', async (socket) => {
       const team = await GameService.updateTeamDecision(socket.id, decision);
       if (team) {
         await broadcastGameState();
+
+        // If this is a price change during simulation, trigger immediate market update
+        if (decision.price !== undefined) {
+          const session = await GameService.getCurrentGameSession();
+          if (session.settings?.currentPhase === 'simulation' && session.isActive) {
+            await GameService.updatePoolingMarket();
+            await broadcastGameState();
+          }
+        }
       }
     } catch (error) {
       console.error('Error updating team decision:', error);
@@ -265,12 +353,27 @@ io.on('connection', async (socket) => {
   socket.on('endRound', async () => {
     if (socket.id === adminSocket) {
       try {
-        const roundResults = await GameService.endRound(calculateRoundResults);
         const session = await GameService.getCurrentGameSession();
 
-        io.emit('roundEnded', { roundResults, roundNumber: session.currentRound });
+        // If this is the first round and fix seats haven't been allocated yet, allocate them now
+        if (session.currentRound === 0 && !(session.settings?.fixSeatsAllocated)) {
+          console.log('🎯 Allocating fix seats at end of first round...');
+          const allocationResult = await GameService.allocateFixSeats();
+
+          // Broadcast allocation results to all clients
+          io.emit('fixSeatsAllocated', allocationResult);
+          console.log('✅ Fix seats allocation completed');
+        }
+
+        const roundResults = await GameService.endRound(calculateRoundResults);
+        const updatedSession = await GameService.getCurrentGameSession();
+
+        io.emit('roundEnded', { roundResults, roundNumber: updatedSession.currentRound });
         await broadcastGameState();
-        console.log(`Round ${session.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+        console.log(`Round ${updatedSession.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+
+        // Stop pooling market updates when round ends
+        stopPoolingMarketUpdates();
       } catch (error) {
         console.error('Error ending round:', error);
         socket.emit('error', 'Failed to end round');
@@ -301,6 +404,9 @@ io.on('connection', async (socket) => {
         io.emit('phaseStarted', 'simulation');
         await broadcastGameState();
         console.log('Simulation phase started');
+
+        // Start pooling market updates
+        startPoolingMarketUpdates();
       } catch (error) {
         console.error('Error starting simulation phase:', error);
         socket.emit('error', 'Failed to start simulation phase');
@@ -316,6 +422,9 @@ io.on('connection', async (socket) => {
         io.emit('phaseEnded');
         await broadcastGameState();
         console.log('Current phase ended');
+
+        // Stop pooling market updates when phase ends
+        stopPoolingMarketUpdates();
       } catch (error) {
         console.error('Error ending phase:', error);
         socket.emit('error', 'Failed to end phase');
@@ -467,8 +576,8 @@ async function runMonthlySimulation() {
       teamResults: monthResults
     });
 
-    // Small delay to simulate real-time progression
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Small delay to simulate real-time progression (1 second per month for 365-day simulation)
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   // Update team profits based on simulation results

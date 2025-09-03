@@ -37,6 +37,10 @@ interface AdminPanelProps {
   setSeed: (value: number) => void;
   roundTime: number;
   setRoundTime: (value: number) => void;
+  poolingMarketUpdateInterval: number;
+  setPoolingMarketUpdateInterval: (value: number) => void;
+  simulatedWeeksPerUpdate: number;
+  setSimulatedWeeksPerUpdate: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
@@ -54,6 +58,8 @@ export default function AdminPanel({
   numTeams, setNumTeams, rounds, setRounds, baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
+  poolingMarketUpdateInterval, setPoolingMarketUpdateInterval,
+  simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
@@ -190,6 +196,28 @@ export default function AdminPanel({
                     <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} className="w-full" />
                   </div>
                   <div className="text-sm text-slate-400 text-center">± {Math.round(shock*100)}%</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Pooling Market Update Interval</Label>
+                    <div className="text-xs text-slate-500 mt-1">How often the pooling market updates (1-10 seconds)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[poolingMarketUpdateInterval]} onValueChange={([v]) => setPoolingMarketUpdateInterval(v)} min={1} max={10} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{poolingMarketUpdateInterval} second{poolingMarketUpdateInterval !== 1 ? 's' : ''} = {poolingMarketUpdateInterval} day{poolingMarketUpdateInterval !== 1 ? 's' : ''}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Simulated Days per Update</Label>
+                    <div className="text-xs text-slate-500 mt-1">How many days advance per market update (1-7 days)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[simulatedWeeksPerUpdate]} onValueChange={([v]) => setSimulatedWeeksPerUpdate(v)} min={1} max={7} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{simulatedWeeksPerUpdate} day{simulatedWeeksPerUpdate !== 1 ? 's' : ''}</div>
                 </div>
 
                 <div className="space-y-3">

@@ -473,9 +473,7 @@ export const MultiUserApp: React.FC = () => {
                 <span className="font-medium">Team: {currentTeam.name}</span>
               </div>
             </div>
-          </header>
-
-          {/* Price Setting Dialog - Show before simulation starts */}
+          </header>          {/* Price Setting Dialog - Show before simulation starts */}
           {gameState.currentPhase === 'simulation' && !gameState.isActive && !initialPriceSet && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <Card className="w-full max-w-md bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl">
@@ -670,8 +668,8 @@ export const MultiUserApp: React.FC = () => {
                       ))}
                     </div>
                     <div className="text-xs text-slate-400">
-                      Price Trend: {gameState.poolingMarket.priceHistory.length > 1 ?
-                        (gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 1].price > gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 2].price ?
+                      Price Trend: {gameState.poolingMarket.priceHistory.length > 1 ? 
+                        (gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 1].price > gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 2].price ? 
                           '↗️ Rising' : '↘️ Falling') : '➡️ Stable'}
                     </div>
                   </div>

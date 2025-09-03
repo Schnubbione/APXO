@@ -38,7 +38,9 @@ export class GameService {
             availableFixSeats: 500,
             fixSeatPrice: 60,
             simulationMonths: 12,
-            departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
+            departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
+            poolingMarketUpdateInterval: 1, // 1 second = 1 day
+            simulatedWeeksPerUpdate: 1 // 1 day per update
           }
         });
       }
@@ -88,34 +90,87 @@ export class GameService {
     }
   }
 
-  // Update team decision
-  static async updateTeamDecision(socketId, decision) {
-    const team = await Team.findOne({ where: { socketId, isActive: true } });
-    if (!team) return null;
+    // Allocate fix seats at end of first round
+  static async allocateFixSeats() {
+    const session = await this.getCurrentGameSession();
+    const teams = await this.getActiveTeams();
+    const settings = session.settings || {};
 
-    const currentDecisions = team.decisions || {};
-    const updatedDecisions = { ...currentDecisions, ...decision };
+    const totalCapacity = settings.totalCapacity || 1000;
+    const poolingReserveRatio = 0.3; // Airline keeps 30% for pooling
+    const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
 
-    // If fix seats are being purchased, update available seats
-    if (decision.fixSeatsPurchased !== undefined) {
-      const session = await this.getCurrentGameSession();
-      const currentSettings = session.settings || {};
-      const currentPurchased = currentDecisions.fixSeatsPurchased || 0;
-      const newPurchased = decision.fixSeatsPurchased;
-      const difference = newPurchased - currentPurchased;
+    // Collect all requested fix seats
+    const requestedSeats = teams.map(team => ({
+      teamId: team.id,
+      teamName: team.name,
+      requested: team.decisions?.fixSeatsPurchased || 0
+    }));
 
-      if (difference > 0) {
-        const availableSeats = currentSettings.availableFixSeats || 0;
-        if (difference > availableSeats) {
-          throw new Error('Not enough fix seats available');
-        }
-        const updatedSettings = { ...currentSettings, availableFixSeats: availableSeats - difference };
-        await session.update({ settings: updatedSettings });
-      }
+    const totalRequested = requestedSeats.reduce((sum, req) => sum + req.requested, 0);
+
+    let allocationRatio = 1.0;
+
+    // If total requested exceeds available fix capacity, reduce proportionally
+    if (totalRequested > maxFixCapacity) {
+      allocationRatio = maxFixCapacity / totalRequested;
+      console.log(`⚠️ High demand for fix seats. Reducing allocation by ${(1 - allocationRatio) * 100}%`);
     }
 
-    await team.update({ decisions: updatedDecisions });
-    return team;
+    // Allocate seats to teams
+    const allocations = [];
+    for (const team of teams) {
+      const requested = team.decisions?.fixSeatsPurchased || 0;
+      const allocated = Math.floor(requested * allocationRatio);
+
+      // Update team's actual allocated fix seats
+      const updatedDecisions = {
+        ...team.decisions,
+        fixSeatsPurchased: allocated,
+        fixSeatsAllocated: allocated // Store the actually allocated amount
+      };
+
+      await team.update({ decisions: updatedDecisions });
+
+      allocations.push({
+        teamId: team.id,
+        teamName: team.name,
+        requested,
+        allocated,
+        allocationRatio
+      });
+    }
+
+    // Update session settings to reflect actual allocations
+    const totalAllocated = allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
+    const updatedSettings = {
+      ...settings,
+      availableFixSeats: maxFixCapacity - totalAllocated,
+      poolingReserveCapacity: totalCapacity - totalAllocated,
+      fixSeatsAllocated: true, // Mark that allocation has happened
+      // Initialize pooling market
+      poolingMarket: {
+        currentPrice: 150, // Starting pooling price
+        totalPoolingCapacity: totalCapacity - totalAllocated,
+        availablePoolingCapacity: totalCapacity - totalAllocated,
+        lastUpdate: new Date().toISOString(),
+        priceHistory: [{ price: 150, timestamp: new Date().toISOString() }]
+      }
+    };
+
+    await session.update({ settings: updatedSettings });
+
+    console.log(`✅ Fix seats allocated: ${totalAllocated}/${maxFixCapacity} seats (${Math.round(allocationRatio * 100)}% of requests)`);
+    console.log(`🏊 Pooling market initialized with ${totalCapacity - totalAllocated} seats at €${150}`);
+
+    return {
+      allocations,
+      totalRequested,
+      totalAllocated,
+      maxFixCapacity,
+      allocationRatio,
+      poolingReserveCapacity: totalCapacity - totalAllocated
+    };
   }
 
   // Update game settings
@@ -305,17 +360,37 @@ export class GameService {
   }
 
   // Get current game state (for broadcasting)
-  static async getCurrentGameState() {
+  static async getCurrentGameState(socketId = null) {
     const session = await this.getCurrentGameSession();
     const activeTeams = await this.getActiveTeams();
 
+    // If socketId is provided, hide other teams' fix seat purchases for privacy
+    const teamsData = activeTeams.map(team => {
+      if (socketId && team.socketId !== socketId) {
+        // Hide fix seat purchases from other teams
+        return {
+          id: team.id,
+          name: team.name,
+          decisions: {
+            ...team.decisions,
+            fixSeatsPurchased: undefined, // Hide from other teams
+            fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+          },
+          totalProfit: team.totalProfit
+        };
+      } else {
+        // Show full data for own team
+        return {
+          id: team.id,
+          name: team.name,
+          decisions: team.decisions,
+          totalProfit: team.totalProfit
+        };
+      }
+    });
+
     return {
-      teams: activeTeams.map(team => ({
-        id: team.id,
-        name: team.name,
-        decisions: team.decisions,
-        totalProfit: team.totalProfit
-      })),
+      teams: teamsData,
       currentRound: session.currentRound,
       totalRounds: session.totalRounds,
       isActive: session.isActive,
@@ -326,6 +401,78 @@ export class GameService {
         { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
       ]
     };
+  }
+
+  // Update pooling market prices and availability
+  static async updatePoolingMarket() {
+    const session = await this.getCurrentGameSession();
+    const teams = await this.getActiveTeams();
+    const settings = session.settings || {};
+    const poolingMarket = settings.poolingMarket || {};
+
+    const totalPoolingCapacity = poolingMarket.totalPoolingCapacity || 300;
+    const currentPrice = poolingMarket.currentPrice || 150;
+
+    // Calculate total pooling capacity offered by teams
+    const totalPoolingOffered = teams.reduce((sum, team) => {
+      const poolingAllocation = (team.decisions?.poolingAllocation || 0) / 100;
+      const teamPoolingCapacity = Math.round(settings.totalCapacity * poolingAllocation);
+      return sum + teamPoolingCapacity;
+    }, 0);
+
+    // Calculate demand pressure (simulated customer demand)
+    const baseDemand = settings.baseDemand || 100;
+    const demandMultiplier = 0.8 + Math.random() * 0.4; // Random between 0.8 and 1.2
+    const currentDemand = Math.round(baseDemand * demandMultiplier);
+
+    // Calculate price adjustment based on supply/demand ratio
+    const supplyDemandRatio = totalPoolingOffered / Math.max(1, currentDemand);
+    let priceAdjustment = 0;
+
+    if (supplyDemandRatio < 0.8) {
+      // High demand, low supply - increase price
+      priceAdjustment = Math.min(20, (0.8 - supplyDemandRatio) * 50);
+    } else if (supplyDemandRatio > 1.2) {
+      // Low demand, high supply - decrease price
+      priceAdjustment = Math.max(-20, (supplyDemandRatio - 1.2) * -30);
+    }
+
+    // Apply price adjustment with smoothing
+    const newPrice = Math.max(80, Math.min(300, currentPrice + priceAdjustment * 0.3));
+
+    // Update price history
+    const priceHistory = poolingMarket.priceHistory || [];
+    priceHistory.push({
+      price: Math.round(newPrice),
+      timestamp: new Date().toISOString()
+    });
+
+    // Keep only last 20 price points
+    if (priceHistory.length > 20) {
+      priceHistory.shift();
+    }
+
+    // Update market state
+    const updatedPoolingMarket = {
+      ...poolingMarket,
+      currentPrice: Math.round(newPrice),
+      availablePoolingCapacity: totalPoolingCapacity,
+      offeredPoolingCapacity: totalPoolingOffered,
+      currentDemand: currentDemand,
+      lastUpdate: new Date().toISOString(),
+      priceHistory: priceHistory
+    };
+
+    const updatedSettings = {
+      ...settings,
+      poolingMarket: updatedPoolingMarket
+    };
+
+    await session.update({ settings: updatedSettings });
+
+    console.log(`🏊 Pooling market updated: €${Math.round(newPrice)} (offered: ${totalPoolingOffered}/${totalPoolingCapacity}, demand: ${currentDemand}) - ${settings.simulatedWeeksPerUpdate || 2} weeks simulated`);
+
+    return updatedPoolingMarket;
   }
 
   // Remove team (when user disconnects)
@@ -365,7 +512,11 @@ export class GameService {
           availableFixSeats: 500,
           fixSeatPrice: 60,
           simulationMonths: 12,
-          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
+          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
+          fixSeatsAllocated: false, // Reset allocation flag
+          poolingReserveCapacity: 300, // 30% of total capacity
+          poolingMarketUpdateInterval: 1, // 1 second = 1 day
+          simulatedWeeksPerUpdate: 1 // 1 day per update
         }
       }, { where: {} });
 
@@ -422,7 +573,11 @@ export class GameService {
           availableFixSeats: 500,
           fixSeatPrice: 60,
           simulationMonths: 12,
-          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
+          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
+          fixSeatsAllocated: false, // Reset allocation flag
+          poolingReserveCapacity: 300, // 30% of total capacity
+          poolingMarketUpdateInterval: 1, // 1 second = 1 day
+          simulatedWeeksPerUpdate: 1 // 1 day per update
         }
       });
 
@@ -437,7 +592,7 @@ export class GameService {
       // Create a fresh game session
       const freshSession = await this.getCurrentGameSession();
 
-      console.log('✅ Current game has been reset successfully (high scores preserved)');
+      console.log('✅ Current game reset successfully (high scores preserved)');
       return {
         success: true,
         message: 'Current game has been reset successfully. High scores are preserved.',

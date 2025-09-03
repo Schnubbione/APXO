@@ -50,8 +50,9 @@ export default function Tutorial({ onStart }: TutorialProps) {
                   <div className="text-sm">Purchase fixed seats at €60 each. Only 500 seats available total - first come, first served! These seats are guaranteed but must be paid regardless of demand.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-blue-400">Phase 2: Simulation (12 Months)</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Simulation (365 Days)</div>
                   <div className="text-sm">Set customer prices and allocate pooling capacity. Customer demand increases as departure approaches. Compete with other teams for market share!</div>
+                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Real-time Market:</strong> Prices update every second, simulating one day of market activity. Set your initial price before the simulation starts!</div>
                 </div>
               </div>
             </div>
@@ -68,7 +69,8 @@ export default function Tutorial({ onStart }: TutorialProps) {
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
                 <li><strong>Phase 1:</strong> Purchase fixed seats (€60 each, limited to 500 total)</li>
                 <li><strong>Phase 2:</strong> Set customer prices and pooling allocation</li>
-                <li>Simulation runs for 12 months with increasing demand</li>
+                <li>Simulation runs for 365 days with increasing demand</li>
+                <li>Monitor live pooling market data (updates every second = 1 simulated day)</li>
                 <li>Monthly results show sales, revenue, and profits</li>
                 <li>Compare final results across all teams</li>
               </ol>
@@ -81,6 +83,9 @@ export default function Tutorial({ onStart }: TutorialProps) {
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> Optimize pricing as departure nears</div>
+                </div>
+                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-sm text-slate-400">📈 <strong>Market Intelligence:</strong> Use pooling market data to predict demand trends</div>
                 </div>
               </div>
             </div>
@@ -109,7 +114,9 @@ export default function Tutorial({ onStart }: TutorialProps) {
             </div>
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
-                <strong>Advanced:</strong> Monitor demand patterns over 12 months and adjust pricing dynamically to maximize profits
+                <strong>Advanced:</strong> Monitor demand patterns over 365 days and adjust pricing dynamically to maximize profits.
+                Use the live pooling market data to anticipate market trends and make strategic pricing decisions.
+                <span className="text-indigo-300">Set your initial price before the simulation starts, then use the "Update Price" button during the simulation.</span>
               </div>
             </div>
           </div>
