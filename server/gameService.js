@@ -41,7 +41,11 @@ export class GameService {
             simulationMonths: 12,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
             poolingMarketUpdateInterval: 1, // 1 second = 1 day
-            simulatedWeeksPerUpdate: 1 // 1 day per update
+            simulatedWeeksPerUpdate: 1, // 1 day per update
+            // Hotel defaults
+            hotelCapacityRatio: 0.6, // 60% der Flugkapazität als Hotelbetten insgesamt
+            hotelBedCost: 50, // Kosten pro leerem Bett
+            hotelCapacityAssigned: false
           }
         });
       }
@@ -114,7 +118,9 @@ export class GameService {
         return anyTeamWithName;
       }
 
-      // No existing team with that name -> create fresh
+    // No existing team with that name -> create fresh
+    const session = await this.getCurrentGameSession();
+    const perTeamHotel = session.settings?.hotelCapacityAssigned ? (session.settings.hotelCapacityPerTeam || 0) : 0;
       const team = await Team.create({
         socketId,
         name: normalizedName,
@@ -122,7 +128,8 @@ export class GameService {
           price: 199,
           buy: { F: 0, P: 0, O: 0 },
           fixSeatsPurchased: 0,
-          poolingAllocation: 0
+      poolingAllocation: 0,
+      hotelCapacity: perTeamHotel
         },
         totalProfit: 0
       });
@@ -234,7 +241,27 @@ export class GameService {
   static async startPrePurchasePhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    const updatedSettings = { ...currentSettings, currentPhase: 'prePurchase', isActive: true };
+    // Assign equal hotel capacity per team based on totalCapacity and ratio
+    const teams = await this.getActiveTeams();
+    const ratio = (typeof currentSettings.hotelCapacityRatio === 'number') ? currentSettings.hotelCapacityRatio : 0.6;
+    const totalCapacity = currentSettings.totalCapacity || 1000;
+    const perTeam = teams.length > 0 ? Math.floor((totalCapacity * ratio) / teams.length) : 0;
+
+    for (const team of teams) {
+      const updatedDecisions = {
+        ...team.decisions,
+        hotelCapacity: perTeam
+      };
+      await team.update({ decisions: updatedDecisions });
+    }
+
+    const updatedSettings = {
+      ...currentSettings,
+      currentPhase: 'prePurchase',
+      isActive: true,
+      hotelCapacityAssigned: true,
+      hotelCapacityPerTeam: perTeam
+    };
 
     await session.update({ settings: updatedSettings });
     return session;
@@ -414,8 +441,13 @@ export class GameService {
     // Sanitize settings to avoid leaking sensitive keys like adminPassword
     const sanitizeSettings = (settings) => {
       if (!settings || typeof settings !== 'object') return {};
-      const { adminPassword, ...safe } = settings;
-      return safe;
+      const { adminPassword, ...rest } = settings;
+      const allocationDone = !!rest.fixSeatsAllocated;
+      if (!allocationDone) {
+        const { availableFixSeats, ...safe } = rest;
+        return safe;
+      }
+      return rest;
     };
 
     // If socketId is provided, hide other teams' fix seat purchases for privacy
@@ -428,7 +460,8 @@ export class GameService {
           decisions: {
             ...team.decisions,
             fixSeatsPurchased: undefined, // Hide from other teams
-            fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+            // Hide allocated before allocation has happened
+            fixSeatsAllocated: (session.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
           },
           totalProfit: team.totalProfit
         };
@@ -437,7 +470,10 @@ export class GameService {
         return {
           id: team.id,
           name: team.name,
-          decisions: team.decisions,
+          decisions: {
+            ...team.decisions,
+            fixSeatsAllocated: (session.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+          },
           totalProfit: team.totalProfit
         };
       }
@@ -572,6 +608,12 @@ export class GameService {
           poolingReserveCapacity: 300, // 30% of total capacity
           poolingMarketUpdateInterval: 1, // 1 second = 1 day
           simulatedWeeksPerUpdate: 1 // 1 day per update
+          ,
+          // Hotel defaults
+          hotelCapacityRatio: 0.6,
+          hotelBedCost: 50,
+          hotelCapacityAssigned: false,
+          hotelCapacityPerTeam: 0
         }
       }, { where: {} });
 
@@ -634,6 +676,12 @@ export class GameService {
           poolingReserveCapacity: 300, // 30% of total capacity
           poolingMarketUpdateInterval: 1, // 1 second = 1 day
           simulatedWeeksPerUpdate: 1 // 1 day per update
+          ,
+          // Hotel defaults
+          hotelCapacityRatio: 0.6,
+          hotelBedCost: 50,
+          hotelCapacityAssigned: false,
+          hotelCapacityPerTeam: 0
         }
       });
 

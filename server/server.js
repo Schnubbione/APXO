@@ -171,11 +171,17 @@ async function broadcastGameState() {
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
-    // Ensure sensitive settings never leak to clients
+    // Ensure sensitive settings never leak to clients and hide availability before allocation
     const sanitizeSettings = (settings) => {
       if (!settings || typeof settings !== 'object') return {};
-      const { adminPassword, ...safe } = settings; // drop any legacy leak
-      return safe;
+      const { adminPassword, ...rest } = settings; // drop any legacy leak
+      const allocationDone = !!rest.fixSeatsAllocated;
+      // Before allocation, do not reveal exact remaining availability
+      if (!allocationDone) {
+        const { availableFixSeats, ...safe } = rest;
+        return safe;
+      }
+      return rest;
     };
 
     // Get list of all connected sockets
@@ -193,7 +199,8 @@ async function broadcastGameState() {
               decisions: {
                 ...team.decisions,
                 fixSeatsPurchased: undefined, // Hide from other teams
-                fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+                // Before allocation, also hide any allocated amounts
+                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
               },
               totalProfit: team.totalProfit
             };
@@ -202,7 +209,11 @@ async function broadcastGameState() {
             return {
               id: team.id,
               name: team.name,
-              decisions: team.decisions,
+              decisions: {
+                ...team.decisions,
+                // Before allocation, ensure allocated is not prematurely inferred
+                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+              },
               totalProfit: team.totalProfit
             };
           }
@@ -234,11 +245,17 @@ io.on('connection', async (socket) => {
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
-    // Ensure sensitive settings never leak to clients
+    // Ensure sensitive settings never leak to clients and hide availability before allocation
     const sanitizeSettings = (settings) => {
       if (!settings || typeof settings !== 'object') return {};
-      const { adminPassword, ...safe } = settings; // drop any legacy leak
-      return safe;
+      const { adminPassword, ...rest } = settings; // drop any legacy leak
+      const allocationDone = !!rest.fixSeatsAllocated;
+      // Before allocation, do not reveal exact remaining availability
+      if (!allocationDone) {
+        const { availableFixSeats, ...safe } = rest;
+        return safe;
+      }
+      return rest;
     };
 
     // Prepare game state for this specific client
@@ -252,7 +269,7 @@ io.on('connection', async (socket) => {
             decisions: {
               ...team.decisions,
               fixSeatsPurchased: undefined, // Hide from other teams
-              fixSeatsAllocated: team.decisions?.fixSeatsAllocated // Show allocated amount if available
+              fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
             },
             totalProfit: team.totalProfit
           };
@@ -261,7 +278,10 @@ io.on('connection', async (socket) => {
           return {
             id: team.id,
             name: team.name,
-            decisions: team.decisions,
+            decisions: {
+              ...team.decisions,
+              fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+            },
             totalProfit: team.totalProfit
           };
         }
@@ -666,7 +686,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
 
     // Calculate actual sales
     const sold = Math.min(teamDemand, availableCapacity);
-    const price = team.decisions.price || 199;
+  const price = team.decisions.price || 199;
 
     // Revenue from passenger sales
     const passengerRevenue = sold * price;
@@ -700,28 +720,36 @@ function calculateRoundResults(teams, settings) {
   const baseDemand = settings.baseDemand || 100;
   const demandVolatility = settings.demandVolatility || 0.1;
 
-  // Generate stochastic demand shock using normal distribution
+  // Stochastic demand shock and seasonal factor
   const demandShock = generateNormalRandom(0, demandVolatility);
+  const seasonalFactor = 0.9 + Math.random() * 0.2; // 0.9..1.1
 
-  // Calculate total market demand with stochastic variation and seasonal factors
-  const seasonalFactor = 0.9 + Math.random() * 0.2; // Random between 0.9 and 1.1
-  const totalDemand = Math.max(10, Math.round(baseDemand * (1 + demandShock) * seasonalFactor));
+  // Capacity-weighted market price index
+  const basePrice = 199;
+  const capacities = teams.map(t => calculateTeamCapacity(t, settings));
+  const totalCapacity = Math.max(1, capacities.reduce((a, b) => a + b, 0));
+  const weightedPriceSum = teams.reduce((sum, team, i) => sum + (getRetailPrice(team) * (capacities[i] || 0)), 0);
+  const marketWeightedPrice = weightedPriceSum / totalCapacity;
+  const priceIndex = Math.max(0.5, Math.min(1.5, (marketWeightedPrice || basePrice) / basePrice));
+  const marketPriceElasticity = (typeof settings.marketPriceElasticity === 'number')
+    ? settings.marketPriceElasticity
+    : ((typeof settings.priceElasticity === 'number' ? settings.priceElasticity * 0.6 : -0.9));
 
-  // Calculate market shares based on economic principles
+  // Total market demand reacts to overall price level
+  const demandBase = baseDemand * (1 + demandShock) * seasonalFactor;
+  const totalDemand = Math.max(10, Math.round(demandBase * Math.pow(priceIndex, marketPriceElasticity)));
+
+  // Market shares based on price and capacity (incl. pooling)
   const marketShares = calculateMarketShares(teams, settings);
 
-  return teams.map(team => {
+  return teams.map((team, idx) => {
     const teamShare = marketShares[team.id] || 0;
     const teamDemand = Math.round(totalDemand * teamShare);
 
-    // Calculate revenue based on actual sales and pricing
-    const sold = Math.min(teamDemand, calculateTeamCapacity(team));
+    const capacity = calculateTeamCapacity(team, settings);
+    const sold = Math.min(teamDemand, capacity);
     const revenue = calculateRevenue(team, sold);
-
-    // Calculate costs (fixed + variable costs)
-    const cost = calculateCosts(team, sold);
-
-    // Calculate profit with stochastic cost variations
+    const cost = calculateCosts(team, sold, settings);
     const profit = revenue - cost;
 
     return {
@@ -734,7 +762,7 @@ function calculateRoundResults(teams, settings) {
       marketShare: Math.round(teamShare * 100) / 100,
       demand: teamDemand,
       avgPrice: calculateAveragePrice(team),
-      capacity: calculateTeamCapacity(team)
+      capacity: capacity
     };
   });
 }
@@ -756,18 +784,19 @@ function calculateMarketShares(teams, settings) {
 
   // Calculate price competitiveness for each team using price elasticity
   const priceElasticity = settings.priceElasticity || -1.5;
-  const basePrice = 199; // Reference price
+  const basePrice = 199; // Reference price (retail)
 
   const priceCompetitiveness = teams.map(team => {
-    const avgPrice = calculateAveragePrice(team);
-    // Price elasticity formula: demand = baseDemand * (price/basePrice)^elasticity
-    const elasticityFactor = Math.pow(basePrice / avgPrice, priceElasticity);
-    return Math.max(0.05, Math.min(3.0, elasticityFactor)); // Bound between 0.05 and 3.0
+    const retailPrice = getRetailPrice(team);
+    // Correct elasticity: demand ∝ (price/basePrice)^elasticity with elasticity < 0
+    const ratio = Math.max(0.1, Math.min(3.0, (retailPrice || basePrice) / basePrice));
+    const elasticityFactor = Math.pow(ratio, priceElasticity);
+    return Math.max(0.05, Math.min(3.0, elasticityFactor)); // Bound
   });
 
   // Calculate capacity factor (more capacity = more market presence)
   const capacityFactors = teams.map(team => {
-    const capacity = calculateTeamCapacity(team);
+    const capacity = calculateTeamCapacity(team, settings);
     return Math.max(0.1, Math.min(2.0, capacity / 50)); // Normalize around 50 capacity
   });
 
@@ -785,12 +814,9 @@ function calculateMarketShares(teams, settings) {
 
     // Add stochastic variation using beta distribution approximation
     // Beta distribution parameters based on market concentration
-    const concentration = settings.marketConcentration || 0.7;
-    const alpha = rawShare * (1 / concentration - 1);
-    const beta_param = (1 - rawShare) * (1 / concentration - 1);
-
-    // Simple approximation of beta distribution
-    const stochasticFactor = 0.7 + Math.random() * 0.6; // Random between 0.7 and 1.3
+  const concentration = settings.marketConcentration || 0.7;
+  // Simple stochastic variation (implicit cross-effects)
+  const stochasticFactor = 0.85 + Math.random() * 0.3; // 0.85..1.15, weniger Rauschen
     shares[team.id] = Math.max(0.01, Math.min(0.99, rawShare * stochasticFactor));
   });
 
@@ -804,56 +830,34 @@ function calculateMarketShares(teams, settings) {
 }
 
 // Calculate average price weighted by purchased capacity
+function getRetailPrice(team) {
+  return team?.decisions?.price || 199;
+}
+
 function calculateAveragePrice(team) {
-  const decisions = team.decisions;
-  const buy = decisions.buy || {};
-  const fares = [
-    { code: 'F', cost: 60 },
-    { code: 'P', cost: 85 },
-    { code: 'O', cost: 110 }
-  ];
-
-  let totalCapacity = 0;
-  let totalCost = 0;
-
-  fares.forEach(fare => {
-    const capacity = buy[fare.code] || 0;
-    totalCapacity += capacity;
-    totalCost += capacity * fare.cost;
-  });
-
-  if (totalCapacity === 0) return decisions.price || 199;
-
-  const avgCost = totalCost / totalCapacity;
-  return (decisions.price || 199) + avgCost;
+  // For reporting: average price the customer pays is the retail price
+  return getRetailPrice(team);
 }
 
 // Calculate team's total capacity
-function calculateTeamCapacity(team) {
+function calculateTeamCapacity(team, settings = {}) {
   const buy = team.decisions.buy || {};
-  return Object.values(buy).reduce((sum, capacity) => sum + (capacity || 0), 0);
+  const purchased = Object.values(buy).reduce((sum, capacity) => sum + (capacity || 0), 0);
+  const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
+  const totalCapacity = settings.totalCapacity || 1000;
+  const poolingCapacity = Math.round(totalCapacity * poolingAllocation);
+  return purchased + poolingCapacity;
 }
 
 // Calculate revenue based on sales and pricing strategy
 function calculateRevenue(team, sold) {
   const price = team.decisions.price || 199;
-  const buy = team.decisions.buy || {};
-
-  // Revenue from passenger tickets
-  const passengerRevenue = sold * price;
-
-  // Additional revenue from unsold capacity (could be used for cargo, etc.)
-  const totalCapacity = calculateTeamCapacity(team);
-  const unsoldCapacity = Math.max(0, totalCapacity - sold);
-
-  // Assume 20% of unsold capacity generates alternative revenue
-  const alternativeRevenue = unsoldCapacity * 50; // $50 per unsold seat for alternative uses
-
-  return passengerRevenue + alternativeRevenue;
+  // Revenue from passenger tickets only; no extra revenue for unsold seats
+  return sold * price;
 }
 
 // Calculate costs with fixed and variable components
-function calculateCosts(team, sold) {
+function calculateCosts(team, sold, settings = {}) {
   const buy = team.decisions.buy || {};
   const fares = [
     { code: 'F', cost: 60, demandFactor: 1.2 },
@@ -876,14 +880,33 @@ function calculateCosts(team, sold) {
   // Variable costs based on actual operations
   const variableCosts = sold * 15; // $15 per passenger for variable costs
 
+  // Pooling usage costs: pay per used pooled seat at current pooling price
+  const totalCapacitySetting = settings.totalCapacity || 1000;
+  const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
+  const poolingCapacity = Math.round(totalCapacitySetting * poolingAllocation);
+  const fixSeats = team.decisions.fixSeatsPurchased || 0;
+  // Roughly assume pooled seats are used after fix seats
+  const pooledUsed = Math.max(0, Math.min(poolingCapacity, sold - Math.min(sold, fixSeats)));
+  const poolingUnitCost = (settings.poolingMarket && typeof settings.poolingMarket.currentPrice === 'number')
+    ? settings.poolingMarket.currentPrice
+    : (typeof settings.poolingCost === 'number' ? settings.poolingCost : 30);
+  const poolingUsageCost = pooledUsed * poolingUnitCost;
+
+  // Hotel capacity costs: empty beds are a cost (per rule). Beds assigned at phase start.
+  const hotelCapacity = team.decisions.hotelCapacity || 0;
+  const hotelBedCost = typeof settings.hotelBedCost === 'number' ? settings.hotelBedCost : 50;
+  const usedBeds = Math.min(sold, hotelCapacity);
+  const emptyBeds = Math.max(0, hotelCapacity - usedBeds);
+  const hotelEmptyBedCost = emptyBeds * hotelBedCost;
+
   // Stochastic cost variations using configured volatility
-  const costVolatility = 0.05; // Default value since settings not passed here
+  const costVolatility = typeof settings.costVolatility === 'number' ? settings.costVolatility : 0.05;
   const costMultiplier = 1 + generateNormalRandom(0, costVolatility);
 
   // Add economies of scale (lower costs per unit with higher capacity)
-  const scaleFactor = Math.max(0.9, Math.min(1.0, 1 - (totalCapacity / 200) * 0.1));
+  const scaleFactor = Math.max(0.85, Math.min(1.0, 1 - (totalCapacity / 200) * 0.1));
 
-  return (totalCost + fixedCosts + variableCosts) * costMultiplier * scaleFactor;
+  return (totalCost + fixedCosts + variableCosts + poolingUsageCost + hotelEmptyBedCost) * costMultiplier * scaleFactor;
 }
 
 const PORT = process.env.PORT || 3001;

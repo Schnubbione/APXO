@@ -542,65 +542,25 @@ export const MultiUserApp: React.FC = () => {
                     </div>
                     <div className="text-slate-300 text-sm">Total Fix Seats Available</div>
                   </div>
+                  {/* Hide exact remaining availability and utilization until allocation */}
                   <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
-                    <div className="text-2xl font-bold text-orange-400 mb-2">
-                      {gameState.availableFixSeats}
-                    </div>
-                    <div className="text-slate-300 text-sm">Still Available</div>
+                    <div className="text-2xl font-bold text-orange-400 mb-2">—</div>
+                    <div className="text-slate-300 text-sm">Remaining (hidden)</div>
                   </div>
                   <div className="text-center p-4 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-xl border border-green-500/30">
-                    <div className="text-2xl font-bold text-green-400 mb-2">
-                      {Math.round(((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}%
-                    </div>
-                    <div className="text-slate-300 text-sm">Market Utilization</div>
+                    <div className="text-2xl font-bold text-green-400 mb-2">—</div>
+                    <div className="text-slate-300 text-sm">Market Utilization (hidden)</div>
                   </div>
                 </div>
 
-                {/* Progress Bar for Fix Seat Availability */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm text-slate-400">
-                    <span>Fix Seats Purchased</span>
-                    <span>{(gameState.totalFixSeats || 500) - gameState.availableFixSeats} / {gameState.totalFixSeats || 500}</span>
-                  </div>
-                  <div className="w-full bg-slate-700 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-red-500 to-orange-500 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, ((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}%` }}
-                    />
-                  </div>
-                </div>
+                {/* Hide progress bar before allocation to avoid revealing demand */}
 
-                {/* Team Purchase Summary (Anonymized) */}
-                <div className="space-y-3">
-                  <Label className="text-slate-300 text-sm font-medium">Team Activity Overview</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {gameState.teams
-                      .filter(team => team.decisions.fixSeatsPurchased > 0)
-                      .sort((a, b) => b.decisions.fixSeatsPurchased - a.decisions.fixSeatsPurchased)
-                      .slice(0, 4)
-                      .map((team, index) => (
-                        <div key={team.id} className="text-center p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                          <div className="text-lg font-bold text-indigo-400 mb-1">
-                            {team.decisions.fixSeatsPurchased}
-                          </div>
-                          <div className="text-xs text-slate-400">
-                            Team {index + 1}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                  {gameState.teams.filter(team => team.decisions.fixSeatsPurchased > 0).length === 0 && (
-                    <div className="text-center text-slate-500 py-4">
-                      No teams have purchased fix seats yet
-                    </div>
-                  )}
-                </div>
+                {/* Team purchase activity is hidden before allocation to ensure anonymity and avoid demand signals */}
 
                 <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
                   <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
                   <div>• Fix seats are purchased at €{gameState.fixSeatPrice} each (guaranteed capacity)</div>
-                  <div>• {gameState.availableFixSeats} seats still available for purchase</div>
-                  <div>• {Math.round(((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}% of fix capacity has been secured</div>
+                  <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
                   <div>• First come, first served - act quickly to secure your capacity!</div>
                 </div>
               </CardContent>
@@ -621,11 +581,9 @@ export const MultiUserApp: React.FC = () => {
                   <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Available Fix Seats</Label>
+                      <Label className="text-slate-300 text-sm font-medium">Maximum Requestable Fix Seats (hidden)</Label>
                       <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
-                        <span className="text-2xl font-bold text-orange-400 tabular-nums">
-                          {gameState.availableFixSeats}
-                        </span>
+                        <span className="text-2xl font-bold text-orange-400 tabular-nums">—</span>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -642,12 +600,14 @@ export const MultiUserApp: React.FC = () => {
                     <Input
                       type="number"
                       min={0}
-                      max={gameState.availableFixSeats}
+                      // Cap by total fix seats to avoid leaking remaining availability
+                      max={gameState.totalFixSeats || 500}
                       value={currentTeam.decisions.fixSeatsPurchased === 0 ? "" : (currentTeam.decisions.fixSeatsPurchased || "")}
                       placeholder="0"
                       onChange={(e) => {
                         const value = e.target.value;
-                        const numValue = value === "" ? 0 : Math.max(0, Math.min(gameState.availableFixSeats, Number(value)));
+                        const cap = gameState.totalFixSeats || 500;
+                        const numValue = value === "" ? 0 : Math.max(0, Math.min(cap, Number(value)));
                         updateTeamDecision({ fixSeatsPurchased: numValue });
                       }}
                       disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}

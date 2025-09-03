@@ -202,7 +202,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
-          fixSeatsAllocated: t.decisions?.fixSeatsAllocated ?? t.decisions?.fixSeatsPurchased ?? 0,
+          // Before allocation is confirmed by server, do not infer allocated seats
+          fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
           poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));
@@ -225,7 +226,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
-          fixSeatsAllocated: t.decisions?.fixSeatsAllocated ?? t.decisions?.fixSeatsPurchased ?? 0,
+          fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
           poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));
