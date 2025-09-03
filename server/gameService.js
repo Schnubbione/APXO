@@ -31,7 +31,14 @@ export class GameService {
             crossElasticity: 0.3,
             costVolatility: 0.05,
             demandVolatility: 0.1,
-            marketConcentration: 0.7
+            marketConcentration: 0.7,
+            currentPhase: 'prePurchase',
+            phaseTime: 600,
+            totalCapacity: 1000,
+            availableFixSeats: 500,
+            fixSeatPrice: 60,
+            simulationMonths: 12,
+            departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
           }
         });
       }
@@ -68,7 +75,9 @@ export class GameService {
         name: teamName,
         decisions: {
           price: 199,
-          buy: { F: 0, P: 0, O: 0 }
+          buy: { F: 0, P: 0, O: 0 },
+          fixSeatsPurchased: 0,
+          poolingAllocation: 0
         },
         totalProfit: 0
       });
@@ -87,6 +96,24 @@ export class GameService {
     const currentDecisions = team.decisions || {};
     const updatedDecisions = { ...currentDecisions, ...decision };
 
+    // If fix seats are being purchased, update available seats
+    if (decision.fixSeatsPurchased !== undefined) {
+      const session = await this.getCurrentGameSession();
+      const currentSettings = session.settings || {};
+      const currentPurchased = currentDecisions.fixSeatsPurchased || 0;
+      const newPurchased = decision.fixSeatsPurchased;
+      const difference = newPurchased - currentPurchased;
+
+      if (difference > 0) {
+        const availableSeats = currentSettings.availableFixSeats || 0;
+        if (difference > availableSeats) {
+          throw new Error('Not enough fix seats available');
+        }
+        const updatedSettings = { ...currentSettings, availableFixSeats: availableSeats - difference };
+        await session.update({ settings: updatedSettings });
+      }
+    }
+
     await team.update({ decisions: updatedDecisions });
     return team;
   }
@@ -101,17 +128,34 @@ export class GameService {
     return session;
   }
 
-  // Start new round
-  static async startRound() {
+  // Start pre-purchase phase
+  static async startPrePurchasePhase() {
     const session = await this.getCurrentGameSession();
-    const newRound = session.currentRound + 1;
+    const currentSettings = session.settings || {};
+    const updatedSettings = { ...currentSettings, currentPhase: 'prePurchase', isActive: true };
 
-    await session.update({
-      currentRound: newRound,
-      isActive: true
-    });
+    await session.update({ settings: updatedSettings });
+    return session;
+  }
 
-    return newRound;
+  // Start simulation phase
+  static async startSimulationPhase() {
+    const session = await this.getCurrentGameSession();
+    const currentSettings = session.settings || {};
+    const updatedSettings = { ...currentSettings, currentPhase: 'simulation', isActive: true };
+
+    await session.update({ settings: updatedSettings });
+    return session;
+  }
+
+  // End current phase
+  static async endPhase() {
+    const session = await this.getCurrentGameSession();
+    const currentSettings = session.settings || {};
+    const updatedSettings = { ...currentSettings, isActive: false };
+
+    await session.update({ settings: updatedSettings });
+    return session;
   }
 
   // End current round and calculate results
@@ -314,7 +358,14 @@ export class GameService {
           crossElasticity: 0.3,
           costVolatility: 0.05,
           demandVolatility: 0.1,
-          marketConcentration: 0.7
+          marketConcentration: 0.7,
+          currentPhase: 'prePurchase',
+          phaseTime: 600,
+          totalCapacity: 1000,
+          availableFixSeats: 500,
+          fixSeatPrice: 60,
+          simulationMonths: 12,
+          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
         }
       }, { where: {} });
 
@@ -364,7 +415,14 @@ export class GameService {
           crossElasticity: 0.3,
           costVolatility: 0.05,
           demandVolatility: 0.1,
-          marketConcentration: 0.7
+          marketConcentration: 0.7,
+          currentPhase: 'prePurchase',
+          phaseTime: 600,
+          totalCapacity: 1000,
+          availableFixSeats: 500,
+          fixSeatPrice: 60,
+          simulationMonths: 12,
+          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000)
         }
       });
 

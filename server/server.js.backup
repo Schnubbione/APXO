@@ -246,38 +246,6 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Start round (admin only)
-  socket.on('startRound', async () => {
-    if (socket.id === adminSocket) {
-      try {
-        const newRound = await GameService.startRound();
-        io.emit('roundStarted', newRound);
-        await broadcastGameState();
-        console.log(`Round ${newRound} started`);
-      } catch (error) {
-        console.error('Error starting round:', error);
-        socket.emit('error', 'Failed to start round');
-      }
-    }
-  });
-
-  // End round (admin only)
-  socket.on('endRound', async () => {
-    if (socket.id === adminSocket) {
-      try {
-        const roundResults = await GameService.endRound(calculateRoundResults);
-        const session = await GameService.getCurrentGameSession();
-
-        io.emit('roundEnded', { roundResults, roundNumber: session.currentRound });
-        await broadcastGameState();
-        console.log(`Round ${session.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
-      } catch (error) {
-        console.error('Error ending round:', error);
-        socket.emit('error', 'Failed to end round');
-      }
-    }
-  });
-
   // Start pre-purchase phase (admin only)
   socket.on('startPrePurchasePhase', async () => {
     if (socket.id === adminSocket) {
@@ -308,22 +276,7 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // End current phase (admin only)
-  socket.on('endPhase', async () => {
-    if (socket.id === adminSocket) {
-      try {
-        await GameService.endPhase();
-        io.emit('phaseEnded');
-        await broadcastGameState();
-        console.log('Current phase ended');
-      } catch (error) {
-        console.error('Error ending phase:', error);
-        socket.emit('error', 'Failed to end phase');
-      }
-    }
-  });
-
-  // Run simulation (admin only)
+  // Run simulation for 12 months
   socket.on('runSimulation', async () => {
     if (socket.id === adminSocket) {
       try {
@@ -334,6 +287,23 @@ io.on('connection', async (socket) => {
       } catch (error) {
         console.error('Error running simulation:', error);
         socket.emit('error', 'Failed to run simulation');
+      }
+    }
+  });
+
+  // End round (admin only)
+  socket.on('endRound', async () => {
+    if (socket.id === adminSocket) {
+      try {
+        const roundResults = await GameService.endRound(calculateRoundResults);
+        const session = await GameService.getCurrentGameSession();
+
+        io.emit('roundEnded', { roundResults, roundNumber: session.currentRound });
+        await broadcastGameState();
+        console.log(`Round ${session.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+      } catch (error) {
+        console.error('Error ending round:', error);
+        socket.emit('error', 'Failed to end round');
       }
     }
   });
@@ -535,9 +505,6 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
     };
   });
 }
-
-// Helper function to calculate round results with realistic economic modeling
-function calculateRoundResults(teams, settings) {
   const baseDemand = settings.baseDemand || 100;
   const demandVolatility = settings.demandVolatility || 0.1;
 
@@ -578,6 +545,7 @@ function calculateRoundResults(teams, settings) {
       capacity: calculateTeamCapacity(team)
     };
   });
+}
 }
 
 // Generate normal distributed random number using Box-Muller transform

@@ -37,6 +37,8 @@ export const MultiUserApp: React.FC = () => {
     analyticsData,
     updateTeamDecision,
     updateGameSettings,
+    startPrePurchasePhase,
+    startSimulationPhase,
     startRound,
     endRound,
     getLeaderboard,
@@ -194,32 +196,47 @@ export const MultiUserApp: React.FC = () => {
             </div>
           </header>
 
-          {/* Round Control */}
+          {/* Phase Control */}
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardContent className="pt-6 sm:pt-8">
               <div className="text-center space-y-4">
                 <div className="text-2xl font-bold text-white mb-4">
-                  Round {gameState.currentRound} of {gameState.totalRounds}
+                  Current Phase: {gameState.currentPhase === 'prePurchase' ? 'Pre-Purchase' : gameState.currentPhase === 'simulation' ? 'Simulation' : 'Setup'}
                 </div>
                 <div className="text-lg text-slate-300 mb-6">
-                  {gameState.isActive ? (
+                  {gameState.currentPhase === 'prePurchase' && gameState.isActive ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      ⏰ Round in progress. Make your moves!
+                      ⏰ Pre-purchase phase active. Teams can buy fix seats!
+                    </span>
+                  ) : gameState.currentPhase === 'simulation' && gameState.isActive ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      🚀 Simulation running. Customers are booking!
                     </span>
                   ) : (
-                    <span className="text-slate-400">Ready to start next round</span>
+                    <span className="text-slate-400">Ready to start phases</span>
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button
-                    onClick={startRound}
-                    disabled={gameState.isActive}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
+                    onClick={startPrePurchasePhase}
+                    disabled={gameState.isActive || gameState.currentPhase !== 'prePurchase'}
+                    className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
                   >
                     <span className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-white rounded-full"></div>
-                      Start New Round
+                      Start Pre-Purchase Phase
+                    </span>
+                  </Button>
+                  <Button
+                    onClick={startSimulationPhase}
+                    disabled={gameState.isActive || gameState.currentPhase !== 'simulation'}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                      Start Simulation Phase
                     </span>
                   </Button>
                   <Button
@@ -230,7 +247,7 @@ export const MultiUserApp: React.FC = () => {
                   >
                     <span className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      End Round
+                      End Current Phase
                     </span>
                   </Button>
                 </div>
@@ -397,21 +414,26 @@ export const MultiUserApp: React.FC = () => {
                 <span className="font-medium">Team: {currentTeam.name}</span>
               </div>
             </div>
-          </header>          {/* Round Status */}
+          </header>          {/* Phase Status */}
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
             <CardContent className="pt-6 sm:pt-8">
               <div className="text-center">
                 <div className="text-4xl sm:text-5xl font-bold text-white mb-2">
-                  Round {gameState.currentRound} of {gameState.totalRounds}
+                  {gameState.currentPhase === 'prePurchase' ? 'Pre-Purchase Phase' : gameState.currentPhase === 'simulation' ? 'Simulation Phase' : 'Setup Phase'}
                 </div>
                 <div className="text-lg text-slate-300">
-                  {gameState.isActive ? (
+                  {gameState.currentPhase === 'prePurchase' && gameState.isActive ? (
                     <span className="flex items-center justify-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      ⏰ Round in progress. Make your moves!
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                      ⏰ Buy fix seats before they run out!
+                    </span>
+                  ) : gameState.currentPhase === 'simulation' && gameState.isActive ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      🚀 Simulation running. Monitor your bookings!
                     </span>
                   ) : (
-                    <span className="text-slate-400">Waiting for admin to start round</span>
+                    <span className="text-slate-400">Waiting for admin to start phase</span>
                   )}
                 </div>
               </div>
@@ -429,107 +451,94 @@ export const MultiUserApp: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">Retail Price (€)</Label>
-                  <Input
-                    type="number"
-                    value={currentTeam.decisions.price === 0 ? "" : (currentTeam.decisions.price || "")}
-                    placeholder="0"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const numValue = value === "" ? 0 : Number(value);
-                      updateTeamDecision({ price: numValue });
-                    }}
-                    disabled={!gameState.isActive}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">Capacity (Seats)</Label>
-                  <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
-                    <span className="text-2xl font-bold text-green-400 tabular-nums">
-                      {Object.values(currentTeam.decisions.buy).reduce((a, b) => Number(a) + Number(b), 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="text-slate-300 mb-4 text-sm font-medium">Procurement from Carrier</div>
-                {/* Mobile: Stack vertically */}
-                <div className="block sm:hidden space-y-3">
-                  {gameState.fares.map((fare) => (
-                    <div key={fare.code} className="p-4 border border-slate-600 rounded-xl bg-slate-700/30 space-y-3">
-                      <div className="font-semibold text-white text-lg">{fare.label} ({fare.code})</div>
-                      <div className="text-sm text-slate-400">
-                        {fare.code === 'F' && 'Fix: Cheapest, but must be paid regardless of demand'}
-                        {fare.code === 'P' && 'ProRata: More expensive, can be returned until 60 days before departure if not booked'}
-                        {fare.code === 'O' && 'Pooling: Daily price updates, not guaranteed, only paid if actual demand exists'}
-                      </div>
-                      <div className="flex justify-between items-center text-sm text-slate-300">
-                        <span>Price:</span>
-                        <span className="font-mono text-indigo-400 tabular-nums">€{fare.cost.toFixed(0)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-slate-300">Quantity:</span>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={currentTeam.decisions.buy[fare.code] === 0 ? "" : (currentTeam.decisions.buy[fare.code] || "")}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const numValue = value === "" ? 0 : Math.max(0, Number(value));
-                            updateTeamDecision({
-                              buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
-                            });
-                          }}
-                          disabled={!gameState.isActive}
-                          className="w-20 bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[44px]"
-                        />
+              {gameState.currentPhase === 'prePurchase' ? (
+                <div className="space-y-4">
+                  <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Available Fix Seats</Label>
+                      <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
+                        <span className="text-2xl font-bold text-orange-400 tabular-nums">
+                          {gameState.availableFixSeats}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-                {/* Desktop: Table layout */}
-                <div className="hidden sm:block">
-                  <div className="grid grid-cols-12 gap-4 items-center mb-4">
-                    <div className="col-span-4 text-slate-300 text-sm font-medium">Product</div>
-                    <div className="col-span-4 text-slate-300 text-sm font-medium">Description</div>
-                    <div className="col-span-2 text-slate-300 text-sm font-medium">Price</div>
-                    <div className="col-span-2 text-slate-300 text-sm font-medium">Quantity</div>
-                  </div>
-                  {gameState.fares.map((fare) => (
-                    <div key={fare.code} className="grid grid-cols-12 gap-4 items-center py-3 px-4 rounded-lg bg-slate-700/20 hover:bg-slate-700/30 transition-colors">
-                      <div className="col-span-4 text-white font-medium">{fare.label} ({fare.code})</div>
-                      <div className="col-span-4 text-sm text-slate-400">
-                        {fare.code === 'F' && 'Fix: Must be paid regardless of demand'}
-                        {fare.code === 'P' && 'ProRata: Can be returned until 60 days before departure'}
-                        {fare.code === 'O' && 'Pooling: Only paid if actual demand exists'}
-                      </div>
-                      <div className="col-span-2 tabular-nums text-indigo-400 font-mono font-semibold">€{fare.cost.toFixed(0)}</div>
-                      <div className="col-span-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={currentTeam.decisions.buy[fare.code] === 0 ? "" : (currentTeam.decisions.buy[fare.code] || "")}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const numValue = value === "" ? 0 : Math.max(0, Number(value));
-                            updateTeamDecision({
-                              buy: { ...currentTeam.decisions.buy, [fare.code]: numValue }
-                            });
-                          }}
-                          disabled={!gameState.isActive}
-                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-sm font-mono min-h-[40px]"
-                        />
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Fix Seat Price (€)</Label>
+                      <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
+                        <span className="text-2xl font-bold text-green-400 tabular-nums">
+                          €{gameState.fixSeatPrice}
+                        </span>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-medium">Purchase Quantity</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={gameState.availableFixSeats}
+                      value={currentTeam.decisions.fixSeatsPurchased === 0 ? "" : (currentTeam.decisions.fixSeatsPurchased || "")}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const numValue = value === "" ? 0 : Math.max(0, Math.min(gameState.availableFixSeats, Number(value)));
+                        updateTeamDecision({ fixSeatsPurchased: numValue });
+                      }}
+                      disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                    />
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    Total Cost: €{(currentTeam.decisions.fixSeatsPurchased || 0) * gameState.fixSeatPrice}
+                  </div>
                 </div>
-              </div>
+              ) : gameState.currentPhase === 'simulation' ? (
+                <div className="space-y-4">
+                  <div className="text-slate-300 mb-4 text-sm font-medium">Simulation Settings</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Retail Price (€)</Label>
+                      <Input
+                        type="number"
+                        value={currentTeam.decisions.price === 0 ? "" : (currentTeam.decisions.price || "")}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const numValue = value === "" ? 0 : Number(value);
+                          updateTeamDecision({ price: numValue });
+                        }}
+                        disabled={!gameState.isActive}
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Pooling Allocation (%)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={currentTeam.decisions.poolingAllocation === 0 ? "" : (currentTeam.decisions.poolingAllocation || "")}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const numValue = value === "" ? 0 : Math.max(0, Math.min(100, Number(value)));
+                          updateTeamDecision({ poolingAllocation: numValue });
+                        }}
+                        disabled={!gameState.isActive}
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    Your Fix Seats: {currentTeam.decisions.fixSeatsPurchased || 0} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * gameState.totalCapacity)}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-slate-400 py-8">
+                  Waiting for phase to start...
+                </div>
+              )}
             </CardContent>
           </Card>
 

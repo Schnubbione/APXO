@@ -7,6 +7,8 @@ interface Team {
   decisions: {
     price: number;
     buy: Record<string, number>;
+    fixSeatsPurchased: number;
+    poolingAllocation: number;
   };
   totalProfit: number;
 }
@@ -29,6 +31,13 @@ interface GameState {
   seed: number;
   roundTime: number;
   fares: Fare[];
+  currentPhase: 'prePurchase' | 'simulation';
+  phaseTime: number;
+  totalCapacity: number;
+  availableFixSeats: number;
+  fixSeatPrice: number;
+  simulationMonths: number;
+  departureDate: Date;
 }
 
 interface RoundResult {
@@ -54,7 +63,9 @@ interface GameContextType {
   registerTeam: (name: string) => void;
   loginAsAdmin: (password: string) => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
-  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number> }) => void;
+  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => void;
+  startPrePurchasePhase: () => void;
+  startSimulationPhase: () => void;
   startRound: () => void;
   endRound: () => void;
   getLeaderboard: () => void;
@@ -90,7 +101,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       { code: 'F', label: 'Fix', cost: 60 },
       { code: 'P', label: 'ProRata', cost: 85 },
       { code: 'O', label: 'Pooling', cost: 110 }
-    ]
+    ],
+    currentPhase: 'prePurchase',
+    phaseTime: 600, // 10 minutes for pre-purchase phase
+    totalCapacity: 1000,
+    availableFixSeats: 500,
+    fixSeatPrice: 60,
+    simulationMonths: 12,
+    departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000) // 12 months from now
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -124,7 +142,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
-          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>)
+          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
+          fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
+          poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -144,7 +164,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
-          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>)
+          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
+          fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
+          poolingAllocation: t.decisions?.poolingAllocation ?? 0
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -257,7 +279,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('updateGameSettings', settings);
   };
 
-  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number> }) => {
+  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => {
     // Optimistic local update for snappy UI
     setCurrentTeam(prev => {
       if (!prev) return prev;
@@ -266,7 +288,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         decisions: {
           ...prev.decisions,
           ...(decision.price !== undefined ? { price: decision.price } : {}),
-          ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {})
+          ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
+          ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
+          ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
         }
       };
     });
@@ -282,7 +306,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           decisions: {
             ...t.decisions,
             ...(decision.price !== undefined ? { price: decision.price } : {}),
-            ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {})
+            ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
+            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
+            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
           }
         } : t)
       };
@@ -290,6 +316,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Notify server
     socket?.emit('updateTeamDecision', decision);
+  };
+
+  const startPrePurchasePhase = () => {
+    socket?.emit('startPrePurchasePhase');
+  };
+
+  const startSimulationPhase = () => {
+    socket?.emit('startSimulationPhase');
   };
 
   const startRound = () => {
@@ -330,6 +364,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginAsAdmin,
     updateGameSettings,
     updateTeamDecision,
+    startPrePurchasePhase,
+    startSimulationPhase,
     startRound,
     endRound,
     getLeaderboard,
