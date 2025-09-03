@@ -1,4 +1,4 @@
-import React from 'react';
+// React import not needed with new JSX transform
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminLogin } from '../AdminLogin';
 
@@ -57,13 +57,16 @@ describe('AdminLogin', () => {
       roundHistory: [],
       analyticsData: null,
       registrationError: null,
-      tutorialActive: false,
+  tutorialActive: false,
       tutorialStep: 0,
       startTutorial: jest.fn(),
       skipTutorial: jest.fn(),
       nextTutorialStep: jest.fn(),
       previousTutorialStep: jest.fn(),
-      completeTutorial: jest.fn(),
+  setTutorialStep: jest.fn(),
+  completeTutorial: jest.fn(),
+  adminLoginError: null,
+  logoutAsAdmin: jest.fn(),
       registerTeam: jest.fn(),
       updateGameSettings: jest.fn(),
       updateTeamDecision: jest.fn(),
@@ -85,7 +88,7 @@ describe('AdminLogin', () => {
     expect(screen.getByText('Enter admin password to control the simulation')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter admin password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /login as admin/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /back to team registration/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /zurück zur team-anmeldung/i })).toBeInTheDocument();
   });
 
   test('allows password input', () => {
@@ -183,7 +186,7 @@ describe('AdminLogin', () => {
 
     render(<AdminLogin />);
 
-    const backButton = screen.getByRole('button', { name: /back to team registration/i });
+  const backButton = screen.getByRole('button', { name: /zurück zur team-anmeldung/i });
     fireEvent.click(backButton);
 
     expect(mockReload).toHaveBeenCalled();

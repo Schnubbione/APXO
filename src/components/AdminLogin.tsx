@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Shield, Lightbulb } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
-  const { loginAsAdmin, isAdmin, startTutorial, adminLoginError } = useGame();
+  const { loginAsAdmin, startTutorial, adminLoginError } = useGame();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -87,7 +87,7 @@ export const AdminLogin: React.FC = () => {
                 className="flex-1 bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-medium min-h-[44px] rounded-lg transition-all duration-200"
               >
                 <Lightbulb className="w-4 h-4 mr-2" />
-                Back to Tutorial
+                Zurück zum Tutorial
               </Button>
             </div>
             <Button
@@ -95,7 +95,7 @@ export const AdminLogin: React.FC = () => {
               onClick={() => window.location.reload()}
               className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700/70 hover:text-white hover:border-slate-500 min-h-[44px] rounded-lg transition-all duration-200"
             >
-              ← Back to Team Registration
+              ← Zurück zur Team-Anmeldung
             </Button>
           </div>
         </CardContent>

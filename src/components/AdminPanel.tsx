@@ -47,7 +47,7 @@ interface AdminPanelProps {
   showAdminPanel: boolean;
   setShowAdminPanel: (value: boolean) => void;
   // Analytics data
-  gameState: any;
+  gameState: any; // kept for compatibility; may be used by callers
   roundHistory: any[];
   leaderboard: any[];
   onGetAnalytics?: () => void;
@@ -62,7 +62,7 @@ export default function AdminPanel({
   poolingMarketUpdateInterval, setPoolingMarketUpdateInterval,
   simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
+  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
   const { logoutAsAdmin } = useGame();
   const [activeTab, setActiveTab] = useState("settings");
@@ -112,7 +112,7 @@ export default function AdminPanel({
                 setShowAdminPanel(false);
               }}
               className="h-8 w-8 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
-              title="Logout as Admin"
+              title="Als Admin abmelden"
             >
               <LogOut className="w-4 h-4" />
             </Button>
