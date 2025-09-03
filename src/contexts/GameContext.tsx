@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 interface Team {
@@ -166,8 +166,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tutorialStep, setTutorialStep] = useState(0);
 
   useEffect(() => {
-    // Use environment variable for server URL, fallback to localhost for development
-    const serverUrl = (globalThis as any).import?.meta?.env?.VITE_SERVER_URL || process.env.VITE_SERVER_URL || 'http://localhost:3001';
+    // Resolve server URL: use Vite's build-time env; only fall back to localhost in local dev
+    const envUrl = (import.meta as any)?.env?.VITE_SERVER_URL as string | undefined;
+    const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const serverUrl = envUrl && envUrl.trim().length > 0
+      ? envUrl
+      : (isLocalhost ? 'http://localhost:3001' : '');
+
+    if (!serverUrl) {
+      console.error('VITE_SERVER_URL is not set. Please configure your backend URL in Vercel project envs.');
+      return;
+    }
+
     const newSocket = io(serverUrl);
     setSocket(newSocket);
 
