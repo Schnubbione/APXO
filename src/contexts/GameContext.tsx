@@ -161,7 +161,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Use environment variable for server URL, fallback to localhost for development
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+    const serverUrl = (globalThis as any).import?.meta?.env?.VITE_SERVER_URL || process.env.VITE_SERVER_URL || 'http://localhost:3001';
     const newSocket = io(serverUrl);
     setSocket(newSocket);
 
