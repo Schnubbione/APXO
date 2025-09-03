@@ -280,12 +280,34 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Admin login
+    // Admin login
   socket.on('adminLogin', async (password) => {
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    console.log('Admin login attempt:', { provided: password, expected: expectedPassword, env: process.env.ADMIN_PASSWORD ? 'set' : 'not set' });
+    const expectedPassword = process.env.ADMIN_PASSWORD;
+    const isProduction = process.env.NODE_ENV === 'production';
 
-    if (password === expectedPassword) {
+    // In production, ADMIN_PASSWORD must be set
+    if (isProduction && !expectedPassword) {
+      console.error('SECURITY ERROR: ADMIN_PASSWORD environment variable not set in production!');
+      socket.emit('adminLoginError', 'Admin login is not configured');
+      return;
+    }
+
+    // In development, use default password if not set
+    const finalPassword = expectedPassword || (isProduction ? null : 'admin123');
+
+    if (!finalPassword) {
+      socket.emit('adminLoginError', 'Admin login is not configured');
+      return;
+    }
+
+    console.log('Admin login attempt:', {
+      provided: password,
+      expected: finalPassword,
+      env: expectedPassword ? 'set' : 'not set',
+      environment: process.env.NODE_ENV || 'development'
+    });
+
+    if (password === finalPassword) {
       adminSocket = socket.id;
 
       // Update admin socket in database
