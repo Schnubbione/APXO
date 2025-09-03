@@ -68,14 +68,56 @@ export class GameService {
   // Register a new team
   static async registerTeam(socketId, teamName) {
     try {
-      const existingTeam = await Team.findOne({ where: { name: teamName, isActive: true } });
-      if (existingTeam) {
-        throw new Error('This team name is already in use. Please choose a different name.');
+      // Normalize and validate input
+      const normalizedName = (teamName || '').trim();
+      if (!normalizedName) {
+        throw new Error('Please enter a team name.');
+      }
+      if (normalizedName.length > 64) {
+        throw new Error('Team name is too long (max 64 characters).');
       }
 
+      // Check if any team with this name exists (active or inactive)
+      const anyTeamWithName = await Team.findOne({ where: { name: normalizedName } });
+
+      if (anyTeamWithName) {
+        if (anyTeamWithName.isActive) {
+          // Active team with same name -> block with friendly error
+          throw new Error('This team name is already in use. Please choose a different name.');
+        }
+
+        // Reactivate existing inactive team: reset to a clean state and reuse the row
+        const defaultDecisions = {
+          price: 199,
+          buy: { F: 0, P: 0, O: 0 },
+          fixSeatsPurchased: 0,
+          fixSeatsAllocated: 0,
+          poolingAllocation: 0
+        };
+
+        // Optionally wipe current-session round results for this team to avoid leftovers
+        try {
+          const session = await this.getCurrentGameSession();
+          await RoundResult.destroy({ where: { teamId: anyTeamWithName.id, gameSessionId: session.id } });
+        } catch (e) {
+          // Non-fatal: continue even if cleanup fails
+          console.warn('Warning cleaning old round results for reactivated team:', e?.message || e);
+        }
+
+        await anyTeamWithName.update({
+          socketId,
+          isActive: true,
+          decisions: defaultDecisions,
+          totalProfit: 0
+        });
+
+        return anyTeamWithName;
+      }
+
+      // No existing team with that name -> create fresh
       const team = await Team.create({
         socketId,
-        name: teamName,
+        name: normalizedName,
         decisions: {
           price: 199,
           buy: { F: 0, P: 0, O: 0 },
@@ -87,6 +129,10 @@ export class GameService {
 
       return team;
     } catch (error) {
+      // Map unique constraint errors to a friendly message
+      if (error && (error.name === 'SequelizeUniqueConstraintError' || /unique/i.test(error.message || ''))) {
+        throw new Error('This team name is already in use. Please choose a different name.');
+      }
       throw error;
     }
   }
