@@ -34,13 +34,11 @@ export const MultiUserApp: React.FC = () => {
     isAdmin,
     roundResults,
     leaderboard,
-    roundHistory,
-    analyticsData,
+  roundHistory,
     updateTeamDecision,
     updateGameSettings,
     startPrePurchasePhase,
     startSimulationPhase,
-    startRound,
     endRound,
     getLeaderboard,
     getAnalytics,
@@ -50,12 +48,9 @@ export const MultiUserApp: React.FC = () => {
     tutorialStep,
     startTutorial,
     skipTutorial,
-    nextTutorialStep,
-    previousTutorialStep,
     setTutorialStep,
     completeTutorial,
-    registerTeam,
-    loginAsAdmin
+  logoutAsAdmin
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -187,6 +182,19 @@ export const MultiUserApp: React.FC = () => {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        {/* Top-right Admin Logout */}
+        <div className="fixed top-4 right-4 z-50">
+          <Button
+            variant="outline"
+            onClick={() => {
+              logoutAsAdmin();
+            }}
+            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[40px] text-sm"
+            title="Logout as Admin"
+          >
+            ← Logout
+          </Button>
+        </div>
         <AdminPanel
           numTeams={gameState.teams.length}
           setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
