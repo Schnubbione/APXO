@@ -4,7 +4,7 @@ import { TeamRegistration } from './MultiUserTeamRegistration';
 import { AdminLogin } from './AdminLogin';
 import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
-import Tutorial from './Tutorial';
+import TutorialTour from './TutorialTour';
 import AchievementSystem from './AchievementSystem';
 import StreakCounter from './StreakCounter';
 import MotivationalMessages from './MotivationalMessages';
@@ -44,7 +44,14 @@ export const MultiUserApp: React.FC = () => {
     getLeaderboard,
     getAnalytics,
     resetAllData,
-    resetCurrentGame
+    resetCurrentGame,
+    tutorialActive,
+    tutorialStep,
+    startTutorial,
+    skipTutorial,
+    nextTutorialStep,
+    previousTutorialStep,
+    completeTutorial
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -76,6 +83,18 @@ export const MultiUserApp: React.FC = () => {
     setShowTutorial(true);
   }, []);
 
+  // Start interactive tutorial for new users
+  useEffect(() => {
+    const tutorialCompleted = localStorage.getItem('tutorialCompleted');
+    if (!tutorialCompleted && !currentTeam && !isAdmin) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        startTutorial();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTeam, isAdmin, startTutorial]);
+
   // Get leaderboard when round ends
   useEffect(() => {
     if (roundResults) {
@@ -96,6 +115,32 @@ export const MultiUserApp: React.FC = () => {
       setShowTutorial(false);
       // Don't set localStorage since we want tutorial to show every time
     }} />;
+  }
+
+  // Show interactive tutorial for new users
+  if (tutorialActive) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="flex justify-center pt-8">
+          <Button
+            variant="outline"
+            onClick={() => setShowAdminLogin(true)}
+            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px]"
+            data-tutorial="admin-login"
+          >
+            Admin Login
+          </Button>
+        </div>
+        <TeamRegistration />
+        <TutorialTour
+          isActive={tutorialActive}
+          onComplete={completeTutorial}
+          onSkip={skipTutorial}
+          currentStep={tutorialStep}
+          onStepChange={nextTutorialStep}
+        />
+      </div>
+    );
   }
 
   // 2) Explicitly show Admin Login when requested (takes precedence over registration/team views)
@@ -125,6 +170,7 @@ export const MultiUserApp: React.FC = () => {
             variant="outline"
             onClick={() => setShowAdminLogin(true)}
             className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px]"
+            data-tutorial="admin-login"
           >
             Admin Login
           </Button>
@@ -172,6 +218,7 @@ export const MultiUserApp: React.FC = () => {
           roundTime={roundTimeMinutes}
           isActive={gameState.isActive}
           onTimeUp={endRound}
+          currentPhase={gameState.currentPhase}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -359,6 +406,7 @@ export const MultiUserApp: React.FC = () => {
           roundTime={roundTimeMinutes}
           isActive={gameState.isActive}
           onTimeUp={() => {}}
+          currentPhase={gameState.currentPhase}
         />
 
         <AdminPanel
@@ -415,7 +463,7 @@ export const MultiUserApp: React.FC = () => {
               </div>
             </div>
           </header>          {/* Phase Status */}
-          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="phase-status">
             <CardContent className="pt-6 sm:pt-8">
               <div className="text-center">
                 <div className="text-4xl sm:text-5xl font-bold text-white mb-2">
@@ -441,7 +489,7 @@ export const MultiUserApp: React.FC = () => {
           </Card>
 
           {/* Team Decision Making */}
-          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
                 <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -598,7 +646,7 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Leaderboard */}
           {leaderboard && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="leaderboard">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
@@ -633,6 +681,15 @@ export const MultiUserApp: React.FC = () => {
             </Card>
           )}
         </div>
+
+        {/* Tutorial Tour */}
+        <TutorialTour
+          isActive={tutorialActive}
+          onComplete={completeTutorial}
+          onSkip={skipTutorial}
+          currentStep={tutorialStep}
+          onStepChange={nextTutorialStep}
+        />
       </div>
     );
   }

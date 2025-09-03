@@ -60,6 +60,15 @@ interface GameContextType {
   analyticsData: any;
   registrationError: string | null;
 
+  // Tutorial state
+  tutorialActive: boolean;
+  tutorialStep: number;
+  startTutorial: () => void;
+  skipTutorial: () => void;
+  nextTutorialStep: () => void;
+  previousTutorialStep: () => void;
+  completeTutorial: () => void;
+
   // Actions
   registerTeam: (name: string) => void;
   loginAsAdmin: (password: string) => void;
@@ -118,6 +127,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roundHistory, setRoundHistory] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
+
+  // Tutorial state
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
 
   useEffect(() => {
     // Use environment variable for server URL, fallback to localhost for development
@@ -361,6 +374,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('resetCurrentGame');
   };
 
+  // Tutorial functions
+  const startTutorial = () => {
+    setTutorialActive(true);
+    setTutorialStep(0);
+  };
+
+  const skipTutorial = () => {
+    setTutorialActive(false);
+    setTutorialStep(0);
+    localStorage.setItem('tutorialCompleted', 'true');
+  };
+
+  const nextTutorialStep = () => {
+    setTutorialStep(prev => prev + 1);
+  };
+
+  const previousTutorialStep = () => {
+    setTutorialStep(prev => Math.max(0, prev - 1));
+  };
+
+  const completeTutorial = () => {
+    setTutorialActive(false);
+    setTutorialStep(0);
+    localStorage.setItem('tutorialCompleted', 'true');
+  };
+
   const value: GameContextType = {
     socket,
     gameState,
@@ -371,6 +410,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     roundHistory,
     analyticsData,
     registrationError,
+    tutorialActive,
+    tutorialStep,
+    startTutorial,
+    skipTutorial,
+    nextTutorialStep,
+    previousTutorialStep,
+    completeTutorial,
     registerTeam,
     loginAsAdmin,
     updateGameSettings,

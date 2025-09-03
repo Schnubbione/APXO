@@ -67,7 +67,7 @@ export class GameService {
     try {
       const existingTeam = await Team.findOne({ where: { name: teamName, isActive: true } });
       if (existingTeam) {
-        throw new Error('Team name already taken');
+        throw new Error('This team name is already in use. Please choose a different name.');
       }
 
       const team = await Team.create({

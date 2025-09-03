@@ -6,9 +6,10 @@ interface RoundTimerProps {
   roundTime: number; // in minutes
   isActive: boolean;
   onTimeUp: () => void;
+  currentPhase?: 'prePurchase' | 'simulation' | 'setup';
 }
 
-export default function RoundTimer({ roundTime, isActive, onTimeUp }: RoundTimerProps) {
+export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase }: RoundTimerProps) {
   const [timeLeft, setTimeLeft] = useState(roundTime * 60); // in seconds
   const [progress, setProgress] = useState(100);
 
@@ -67,7 +68,16 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp }: RoundTimer
     if (isUrgent) return "⚡ Time's almost up! Final decisions!";
     if (isWarning) return "🚨 Last minute! Lock in your strategy!";
     if (isHalfway) return "🎯 Halfway there! Review your choices.";
-    return "⏰ Round in progress. Make your moves!";
+
+    // Phase-specific messages
+    if (currentPhase === 'prePurchase') {
+      return "⏰ Pre-purchase phase active. Buy fix seats!";
+    }
+    if (currentPhase === 'simulation') {
+      return "🚀 Simulation running. Monitor your bookings!";
+    }
+
+    return "⏰ Phase in progress. Make your moves!";
   };
 
   return (

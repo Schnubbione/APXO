@@ -35,7 +35,7 @@ export const TeamRegistration: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" data-tutorial="team-registration">
             <div className="space-y-3">
               <Label htmlFor="teamName" className="text-slate-300 text-sm font-medium">Team Name</Label>
               <Input
@@ -57,6 +57,7 @@ export const TeamRegistration: React.FC = () => {
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200"
+              data-tutorial="join-button"
             >
               Join Game
             </Button>
