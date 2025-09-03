@@ -108,7 +108,9 @@ export default function TutorialTour({
   useEffect(() => {
     if (isActive) {
       setIsVisible(true);
-      setStableStep(currentStep);
+      // Ensure currentStep is within valid range
+      const validStep = Math.max(0, Math.min(currentStep, tutorialSteps.length - 1));
+      setStableStep(validStep);
     } else {
       setIsVisible(false);
     }
@@ -116,28 +118,40 @@ export default function TutorialTour({
 
   // Update stable step when currentStep changes, but only if tutorial is active
   useEffect(() => {
-    if (isActive) {
+    if (isActive && currentStep >= 0 && currentStep < tutorialSteps.length) {
       setStableStep(currentStep);
     }
   }, [currentStep, isActive]);
 
-  if (!isActive || !isVisible) return null;
+  if (!isActive || !isVisible || tutorialSteps.length === 0) return null;
 
   const currentTutorialStep = tutorialSteps[stableStep];
   const isFirstStep = stableStep === 0;
   const isLastStep = stableStep === tutorialSteps.length - 1;
 
+  // Safety check - if currentTutorialStep is undefined or stableStep is out of bounds, return null
+  if (!currentTutorialStep || stableStep < 0 || stableStep >= tutorialSteps.length) {
+    console.warn('Tutorial step not found or out of bounds:', stableStep, 'max:', tutorialSteps.length - 1);
+    return null;
+  }
+
   const handleNext = () => {
     if (isLastStep) {
       onComplete();
     } else {
-      onStepChange(stableStep + 1);
+      const newStep = stableStep + 1;
+      if (newStep < tutorialSteps.length) {
+        console.log('Going to next step:', newStep);
+        onStepChange(newStep);
+      }
     }
   };
 
   const handlePrevious = () => {
     if (stableStep > 0) {
-      onStepChange(stableStep - 1);
+      const newStep = stableStep - 1;
+      console.log('Going to previous step:', newStep);
+      onStepChange(newStep);
     }
   };
 
@@ -233,7 +247,7 @@ export default function TutorialTour({
             <div className="mt-4 w-full bg-slate-700 rounded-full h-1">
               <div
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full transition-all duration-300"
-                style={{ width: `${((stableStep + 1) / tutorialSteps.length) * 100}%` }}
+                style={{ width: `${tutorialSteps.length > 0 ? ((stableStep + 1) / tutorialSteps.length) * 100 : 0}%` }}
               />
             </div>
           </CardContent>
@@ -245,6 +259,11 @@ export default function TutorialTour({
 
 // Helper function to get target element position for highlighting
 function getTargetPosition(selector: string) {
+  // Safety check - if selector is undefined or empty, return empty object
+  if (!selector) {
+    return {};
+  }
+
   try {
     const element = document.querySelector(selector);
     if (element) {
@@ -264,6 +283,11 @@ function getTargetPosition(selector: string) {
 
 // Helper function to position the tutorial card
 function getCardPosition(step: TutorialStep) {
+  // Safety check - if step is undefined, return center position
+  if (!step) {
+    return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+  }
+
   const basePosition = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
   if (step.position === 'center') {
