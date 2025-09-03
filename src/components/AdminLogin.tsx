@@ -7,16 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Shield, Lightbulb } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
-  const { loginAsAdmin, isAdmin, startTutorial } = useGame();
+  const { loginAsAdmin, isAdmin, startTutorial, adminLoginError } = useGame();
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password.trim()) {
       setLoading(true);
-      setError('');
       loginAsAdmin(password.trim());
       setPassword('');
       // Reset loading after a short delay
@@ -61,7 +59,7 @@ export const AdminLogin: React.FC = () => {
                 className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg min-h-[52px] rounded-xl"
                 disabled={loading}
               />
-              {error && <p className="text-sm text-red-400 font-medium">{error}</p>}
+              {adminLoginError && <p className="text-sm text-red-400 font-medium">{adminLoginError}</p>}
             </div>
 
             <Button

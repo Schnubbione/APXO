@@ -74,6 +74,7 @@ interface GameContextType {
   roundHistory: any[];
   analyticsData: any;
   registrationError: string | null;
+  adminLoginError: string | null;
 
   // Tutorial state
   tutorialActive: boolean;
@@ -82,11 +83,13 @@ interface GameContextType {
   skipTutorial: () => void;
   nextTutorialStep: () => void;
   previousTutorialStep: () => void;
+  setTutorialStep: (step: number) => void;
   completeTutorial: () => void;
 
   // Actions
   registerTeam: (name: string) => void;
   loginAsAdmin: (password: string) => void;
+  logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
   updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => void;
   startPrePurchasePhase: () => void;
@@ -156,6 +159,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roundHistory, setRoundHistory] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
 
   // Tutorial state
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -245,7 +249,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for admin login error
     newSocket.on('adminLoginError', (error: string) => {
       console.error('Admin login error:', error);
-      // Could emit an event or set an error state here
+      setAdminLoginError(error);
     });
 
     // Listen for round events
@@ -326,7 +330,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAsAdmin = (password: string) => {
+    setAdminLoginError(null); // Clear any previous error
     socket?.emit('adminLogin', password);
+  };
+
+  const logoutAsAdmin = () => {
+    setIsAdmin(false);
+    setAdminLoginError(null);
+    // Navigate back to team registration by reloading the page
+    window.location.reload();
   };
 
   const updateGameSettings = (settings: Partial<GameState>) => {
@@ -442,6 +454,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('tutorialCompleted', 'true');
   }, []);
 
+  const setTutorialStepDirect = useCallback((step: number) => {
+    console.log('Setting tutorial step to:', step);
+    setTutorialStep(step);
+  }, []);
+
   const value: GameContextType = {
     socket,
     gameState,
@@ -452,15 +469,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     roundHistory,
     analyticsData,
     registrationError,
+    adminLoginError,
     tutorialActive,
     tutorialStep,
     startTutorial,
     skipTutorial,
     nextTutorialStep,
     previousTutorialStep,
+    setTutorialStep: setTutorialStepDirect,
     completeTutorial,
     registerTeam,
     loginAsAdmin,
+    logoutAsAdmin,
     updateGameSettings,
     updateTeamDecision,
     startPrePurchasePhase,

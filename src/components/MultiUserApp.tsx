@@ -51,6 +51,8 @@ export const MultiUserApp: React.FC = () => {
     startTutorial,
     skipTutorial,
     nextTutorialStep,
+    previousTutorialStep,
+    setTutorialStep,
     completeTutorial,
     registerTeam,
     loginAsAdmin
@@ -137,7 +139,7 @@ export const MultiUserApp: React.FC = () => {
           onComplete={completeTutorial}
           onSkip={skipTutorial}
           currentStep={tutorialStep}
-          onStepChange={nextTutorialStep}
+          onStepChange={(step) => setTutorialStep(step)}
         />
       </div>
     );
@@ -232,7 +234,7 @@ export const MultiUserApp: React.FC = () => {
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Touristic Procurement & Demand Simulation
+                Airline Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-4 text-slate-400">
@@ -453,7 +455,7 @@ export const MultiUserApp: React.FC = () => {
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Touristic Procurement & Demand Simulation
+                Airline Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-400">
@@ -860,7 +862,7 @@ export const MultiUserApp: React.FC = () => {
           onComplete={completeTutorial}
           onSkip={skipTutorial}
           currentStep={tutorialStep}
-          onStepChange={nextTutorialStep}
+          onStepChange={(step) => setTutorialStep(step)}
         />
       </div>
     );
