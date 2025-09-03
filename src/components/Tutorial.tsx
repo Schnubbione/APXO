@@ -32,9 +32,8 @@ export default function Tutorial({ onStart }: TutorialProps) {
                 <h3 className="text-xl font-semibold text-white">Game Objective</h3>
               </div>
               <p className="text-slate-300 leading-relaxed">
-                As tour operator teams, you purchase different fare classes from the airline and set end-customer prices.
-                Customer demand is simulated based on their Willingness to Pay (WTP).
-                <span className="text-green-400 font-semibold"> Goal: Achieve the highest profit (revenue - procurement costs)!</span>
+                As tour operator teams, you compete in a two-phase game to maximize profits through strategic procurement and pricing decisions.
+                <span className="text-green-400 font-semibold"> Goal: Achieve the highest profit by balancing procurement costs and customer demand!</span>
               </p>
             </div>
 
@@ -43,20 +42,16 @@ export default function Tutorial({ onStart }: TutorialProps) {
                 <div className="p-2 bg-purple-500/20 rounded-lg">
                   <ShoppingCart className="w-6 h-6 text-purple-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-white">Procurement Products</h3>
+                <h3 className="text-xl font-semibold text-white">Two-Phase System</h3>
               </div>
               <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-green-400">Fix (€60/seat)</div>
-                  <div className="text-sm">Cheapest option, but must be paid regardless of demand. Lowest risk for airline, highest risk for tour operator.</div>
+                  <div className="font-semibold text-green-400">Phase 1: Pre-Purchase (Limited Time)</div>
+                  <div className="text-sm">Purchase fixed seats at €60 each. Only 500 seats available total - first come, first served! These seats are guaranteed but must be paid regardless of demand.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-yellow-400">ProRata (€85/seat)</div>
-                  <div className="text-sm">More expensive, but can be returned until 60 days before departure if not booked. Medium risk for both parties.</div>
-                </div>
-                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-red-400">Pooling (€110/seat)</div>
-                  <div className="text-sm">Highest price, daily price and availability updates, not guaranteed, only paid if actual demand exists.</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Simulation (12 Months)</div>
+                  <div className="text-sm">Set customer prices and allocate pooling capacity. Customer demand increases as departure approaches. Compete with other teams for market share!</div>
                 </div>
               </div>
             </div>
@@ -71,21 +66,21 @@ export default function Tutorial({ onStart }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li>Select your procurement quantities per fare class</li>
-                <li>Set end-customer prices</li>
-                <li>Start the round – simulation calculates sales and profit</li>
-                <li>Random factors influence demand</li>
-                <li>Play multiple rounds and compare results</li>
+                <li><strong>Phase 1:</strong> Purchase fixed seats (€60 each, limited to 500 total)</li>
+                <li><strong>Phase 2:</strong> Set customer prices and pooling allocation</li>
+                <li>Simulation runs for 12 months with increasing demand</li>
+                <li>Monthly results show sales, revenue, and profits</li>
+                <li>Compare final results across all teams</li>
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Balance risk and reward</div>
+                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Buy early in Phase 1 - seats are limited!</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Watch demand patterns</div>
+                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Balance fixed costs with flexible capacity</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> Maximize profit margins</div>
+                  <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> Optimize pricing as departure nears</div>
                 </div>
               </div>
             </div>
@@ -100,21 +95,21 @@ export default function Tutorial({ onStart }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                <div className="text-red-400 font-semibold mb-2">⚠️ Price too high</div>
-                <div className="text-sm text-slate-300">Low sales volume</div>
+                <div className="text-red-400 font-semibold mb-2">⚠️ Too few fixed seats</div>
+                <div className="text-sm text-slate-300">Miss out on guaranteed capacity</div>
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                <div className="text-orange-400 font-semibold mb-2">⚠️ Price too low</div>
-                <div className="text-sm text-slate-300">Wasted profit margins</div>
+                <div className="text-orange-400 font-semibold mb-2">⚠️ Too many fixed seats</div>
+                <div className="text-sm text-slate-300">High fixed costs if demand is low</div>
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                <div className="text-green-400 font-semibold mb-2">✅ Optimal pricing</div>
-                <div className="text-sm text-slate-300">Balance volume & margins</div>
+                <div className="text-green-400 font-semibold mb-2">✅ Optimal balance</div>
+                <div className="text-sm text-slate-300">Mix fixed & flexible capacity</div>
               </div>
             </div>
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
-                <strong>Advanced:</strong> Use the seed for reproducible simulations to test different strategies
+                <strong>Advanced:</strong> Monitor demand patterns over 12 months and adjust pricing dynamically to maximize profits
               </div>
             </div>
           </div>

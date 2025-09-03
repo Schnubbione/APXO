@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Users } from 'lucide-react';
 
 export const TeamRegistration: React.FC = () => {
-  const { registerTeam, gameState } = useGame();
+  const { registerTeam, gameState, registrationError } = useGame();
   const [teamName, setTeamName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,6 +47,11 @@ export const TeamRegistration: React.FC = () => {
                 required
                 className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg min-h-[52px] rounded-xl"
               />
+              {registrationError && (
+                <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  {registrationError}
+                </div>
+              )}
             </div>
 
             <Button

@@ -58,6 +58,7 @@ interface GameContextType {
   leaderboard: Array<{ name: string; profit: number }> | null;
   roundHistory: any[];
   analyticsData: any;
+  registrationError: string | null;
 
   // Actions
   registerTeam: (name: string) => void;
@@ -116,6 +117,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [leaderboard, setLeaderboard] = useState<Array<{ name: string; profit: number }> | null>(null);
   const [roundHistory, setRoundHistory] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
   useEffect(() => {
     // Use environment variable for server URL, fallback to localhost for development
@@ -181,6 +183,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('registrationSuccess', (team: Team) => {
       console.log('Team registered:', team);
       setCurrentTeam(team);
+      setRegistrationError(null); // Clear any previous error
+    });
+
+    // Listen for registration error
+    newSocket.on('registrationError', (error: string) => {
+      console.error('Registration error:', error);
+      setRegistrationError(error);
     });
 
     // Listen for admin login
@@ -268,6 +277,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const registerTeam = (name: string) => {
+    setRegistrationError(null); // Clear any previous error
     socket?.emit('registerTeam', name);
   };
 
@@ -360,6 +370,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     leaderboard,
     roundHistory,
     analyticsData,
+    registrationError,
     registerTeam,
     loginAsAdmin,
     updateGameSettings,
