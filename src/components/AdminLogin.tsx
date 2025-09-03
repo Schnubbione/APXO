@@ -87,7 +87,7 @@ export const AdminLogin: React.FC = () => {
                 className="flex-1 bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-medium min-h-[44px] rounded-lg transition-all duration-200"
               >
                 <Lightbulb className="w-4 h-4 mr-2" />
-                Take Tour
+                Back to Tutorial
               </Button>
             </div>
             <Button

@@ -191,7 +191,6 @@ async function broadcastGameState() {
         currentRound: gameSession.currentRound,
         totalRounds: gameSession.totalRounds,
         isActive: gameSession.isActive,
-        adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
         ...gameSession.settings,
         fares: [
           { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
@@ -244,7 +243,6 @@ io.on('connection', async (socket) => {
       currentRound: gameSession.currentRound,
       totalRounds: gameSession.totalRounds,
       isActive: gameSession.isActive,
-      adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
       ...gameSession.settings,
       fares: [
         { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
@@ -284,7 +282,10 @@ io.on('connection', async (socket) => {
 
   // Admin login
   socket.on('adminLogin', async (password) => {
-    if (password === (process.env.ADMIN_PASSWORD || 'admin123')) {
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    console.log('Admin login attempt:', { provided: password, expected: expectedPassword, env: process.env.ADMIN_PASSWORD ? 'set' : 'not set' });
+
+    if (password === expectedPassword) {
       adminSocket = socket.id;
 
       // Update admin socket in database
@@ -292,9 +293,10 @@ io.on('connection', async (socket) => {
       await session.update({ adminSocketId: socket.id });
 
       socket.emit('adminLoginSuccess');
-      console.log('Admin logged in');
+      console.log('Admin logged in successfully');
     } else {
       socket.emit('adminLoginError', 'Invalid password');
+      console.log('Admin login failed - invalid password');
     }
   });
 
