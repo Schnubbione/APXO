@@ -112,7 +112,7 @@ export default function AdminPanel({
                 setShowAdminPanel(false);
               }}
               className="h-8 w-8 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
-              title="Als Admin abmelden"
+              title="Logout as Admin"
             >
               <LogOut className="w-4 h-4" />
             </Button>

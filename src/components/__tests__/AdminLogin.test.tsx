@@ -88,7 +88,7 @@ describe('AdminLogin', () => {
     expect(screen.getByText('Enter admin password to control the simulation')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Enter admin password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /login as admin/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /zurück zur team-anmeldung/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /back to team registration/i })).toBeInTheDocument();
   });
 
   test('allows password input', () => {
@@ -186,7 +186,7 @@ describe('AdminLogin', () => {
 
     render(<AdminLogin />);
 
-  const backButton = screen.getByRole('button', { name: /zurück zur team-anmeldung/i });
+  const backButton = screen.getByRole('button', { name: /back to team registration/i });
     fireEvent.click(backButton);
 
     expect(mockReload).toHaveBeenCalled();
