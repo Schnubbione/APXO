@@ -34,6 +34,7 @@ describe('AdminLogin', () => {
         currentPhase: 'prePurchase',
         phaseTime: 600,
         totalCapacity: 1000,
+        totalFixSeats: 500,
         availableFixSeats: 500,
         fixSeatPrice: 60,
         simulationMonths: 12,

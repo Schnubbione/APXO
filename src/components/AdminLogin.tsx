@@ -4,10 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Shield } from 'lucide-react';
+import { Shield, Lightbulb } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
-  const { loginAsAdmin, isAdmin } = useGame();
+  const { loginAsAdmin, isAdmin, startTutorial } = useGame();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +22,10 @@ export const AdminLogin: React.FC = () => {
       // Reset loading after a short delay
       setTimeout(() => setLoading(false), 2000);
     }
+  };
+
+  const handleStartTour = () => {
+    startTutorial();
   };
 
   // If admin login was successful, this component won't be rendered anymore
@@ -76,7 +80,18 @@ export const AdminLogin: React.FC = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                onClick={handleStartTour}
+                variant="outline"
+                className="flex-1 bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-medium min-h-[44px] rounded-lg transition-all duration-200"
+              >
+                <Lightbulb className="w-4 h-4 mr-2" />
+                Take Tour
+              </Button>
+            </div>
             <Button
               variant="outline"
               onClick={() => window.location.reload()}

@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Pre-Purchase - Buy fixed seats (€60 each, limited availability). Phase 2: Simulation - Set prices and pooling allocation for 365 days with real-time market monitoring.',
+    description: 'Phase 1: Pre-Purchase - Buy fixed seats (€60 each, limited availability - you won\'t know exact numbers!). Phase 2: Simulation - Set prices and pooling allocation for 365 days with real-time market monitoring.',
     position: 'center'
   },
   {
@@ -63,7 +63,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-decisions',
     title: 'Your Decisions',
-    description: 'Make strategic decisions based on the current phase. In pre-purchase: buy fix seats. In simulation: set prices and pooling allocation.',
+    description: 'Make strategic decisions based on the current phase. In pre-purchase: buy fix seats (limited availability - you won\'t know exact numbers!). In simulation: set prices and pooling allocation.',
     target: '[data-tutorial="team-decisions"]',
     position: 'top'
   },
@@ -76,8 +76,8 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     id: 'market-insights',
-    title: 'Market Insights',
-    description: 'Use the pooling market data to inform your strategy. Watch price trends and demand patterns to optimize your pricing and capacity allocation. Remember to set your initial price before the simulation begins!',
+    title: 'Market Intelligence & Strategic Decision-Making',
+    description: 'Use market intelligence to inform your strategy under information asymmetry. You won\'t see exact fix seat availability - watch competitor behavior, assess market capacity, and make strategic risk decisions. Balance guaranteed capacity vs. flexible options!',
     position: 'center'
   },
   {
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You\'re all set! Remember: balance risk and reward, monitor demand patterns, watch the live pooling market (updates every second = 1 day), and make strategic decisions to maximize your profits. Don\'t forget to set your initial price before the simulation starts!',
+    description: 'You\'re all set! Remember: balance risk and reward under information asymmetry, monitor demand patterns, watch the live pooling market (updates every second = 1 day), and make strategic decisions to maximize your profits. Don\'t forget to set your initial price before the simulation starts!',
     position: 'center'
   }
 ];
@@ -103,32 +103,41 @@ export default function TutorialTour({
   onStepChange
 }: TutorialTourProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [stableStep, setStableStep] = useState(currentStep);
 
   useEffect(() => {
     if (isActive) {
       setIsVisible(true);
+      setStableStep(currentStep);
     } else {
       setIsVisible(false);
     }
-  }, [isActive]);
+  }, [isActive, currentStep]);
+
+  // Update stable step when currentStep changes, but only if tutorial is active
+  useEffect(() => {
+    if (isActive) {
+      setStableStep(currentStep);
+    }
+  }, [currentStep, isActive]);
 
   if (!isActive || !isVisible) return null;
 
-  const currentTutorialStep = tutorialSteps[currentStep];
-  const isFirstStep = currentStep === 0;
-  const isLastStep = currentStep === tutorialSteps.length - 1;
+  const currentTutorialStep = tutorialSteps[stableStep];
+  const isFirstStep = stableStep === 0;
+  const isLastStep = stableStep === tutorialSteps.length - 1;
 
   const handleNext = () => {
     if (isLastStep) {
       onComplete();
     } else {
-      onStepChange(currentStep + 1);
+      onStepChange(stableStep + 1);
     }
   };
 
   const handlePrevious = () => {
-    if (currentStep > 0) {
-      onStepChange(currentStep - 1);
+    if (stableStep > 0) {
+      onStepChange(stableStep - 1);
     }
   };
 
@@ -167,7 +176,7 @@ export default function TutorialTour({
                     {currentTutorialStep.title}
                   </h3>
                   <div className="text-sm text-slate-400">
-                    Step {currentStep + 1} of {tutorialSteps.length}
+                    Step {stableStep + 1} of {tutorialSteps.length}
                   </div>
                 </div>
               </div>
@@ -224,7 +233,7 @@ export default function TutorialTour({
             <div className="mt-4 w-full bg-slate-700 rounded-full h-1">
               <div
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full transition-all duration-300"
-                style={{ width: `${((currentStep + 1) / tutorialSteps.length) * 100}%` }}
+                style={{ width: `${((stableStep + 1) / tutorialSteps.length) * 100}%` }}
               />
             </div>
           </CardContent>

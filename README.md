@@ -11,6 +11,9 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 - **Round-Based Gameplay**: Timed rounds with automatic progression
 - **Live Leaderboard**: Real-time standings and results
 - **Responsive Design**: Works on desktop and mobile devices
+- **Strategic Information Asymmetry**: Teams don't see exact available capacity, promoting strategic decision-making
+- **Market Intelligence**: Real-time market data and competitor analysis
+- **Risk Management**: Balance guaranteed capacity vs. flexible procurement strategies
 
 ## Quick Start
 
@@ -57,8 +60,10 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 1. Open http://localhost:5173 in your browser
 2. Enter your unique team name
 3. Wait for the admin to start the round
-4. Set your retail price and procurement quantities
-5. Monitor your results and leaderboard in real-time
+4. **Phase 1**: Make strategic fix seat purchases under information asymmetry (you won't see exact availability!)
+5. **Phase 2**: Set customer prices and pooling allocation based on market intelligence
+6. Monitor your results and leaderboard in real-time
+7. **Strategic Challenge**: Balance guaranteed capacity vs. flexible options without complete information
 
 ### For Admins
 1. Open http://localhost:5173 in your browser
@@ -71,9 +76,11 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 
 The simulation features three different procurement products with varying risk profiles:
 
-- **Fix (€60/seat)**: Cheapest option, but must be paid regardless of demand. Lowest risk for airline, highest risk for tour operator.
+- **Fix (€60/seat)**: Cheapest option, but must be paid regardless of demand. Lowest risk for airline, highest risk for tour operator. **Strategic consideration**: Limited availability creates competition - you won't know exact numbers!
 - **ProRata (€85/seat)**: More expensive, but can be returned until 60 days before departure if not booked. Medium risk for both parties.
 - **Pooling (€110/seat)**: Highest price, daily price and availability updates, not guaranteed, only paid if actual demand exists. Highest risk for airline, lowest risk for tour operator.
+
+**Key Strategic Element**: Fix seats are purchased under information asymmetry - teams see market intelligence but not exact availability, promoting strategic decision-making and risk assessment.
 
 ## Game Mechanics
 
@@ -82,6 +89,9 @@ The simulation features three different procurement products with varying risk p
 - **Demand**: Random customer demand based on willingness-to-pay (WTP) distribution
 - **Competition**: In shared market mode, customers choose the cheapest available option
 - **Profit Calculation**: Revenue minus procurement costs (depending on product type and actual demand)
+- **Information Asymmetry**: Teams don't see exact available fix seat capacity, only market intelligence
+- **Strategic Decision-Making**: Balance risk vs. reward under uncertainty
+- **Market Intelligence**: Real-time competitor analysis and capacity insights
 
 ## Architecture
 

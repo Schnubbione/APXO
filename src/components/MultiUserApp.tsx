@@ -51,8 +51,9 @@ export const MultiUserApp: React.FC = () => {
     startTutorial,
     skipTutorial,
     nextTutorialStep,
-    previousTutorialStep,
-    completeTutorial
+    completeTutorial,
+    registerTeam,
+    loginAsAdmin
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -86,18 +87,6 @@ export const MultiUserApp: React.FC = () => {
     setShowTutorial(true);
   }, []);
 
-  // Start interactive tutorial for new users
-  useEffect(() => {
-    const tutorialCompleted = localStorage.getItem('tutorialCompleted');
-    if (!tutorialCompleted && !currentTeam && !isAdmin) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        startTutorial();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentTeam, isAdmin, startTutorial]);
-
   // Get leaderboard when round ends
   useEffect(() => {
     if (roundResults) {
@@ -105,19 +94,27 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [roundResults, getLeaderboard]);
 
-  // If admin login was successful, reset showAdminLogin (hook must be before any returns)
-  React.useEffect(() => {
-    if (isAdmin && showAdminLogin) {
-      setShowAdminLogin(false);
+  // Reset tutorial when not active
+  useEffect(() => {
+    if (!tutorialActive && tutorialStep !== 0) {
+      console.log('Resetting tutorial step to 0');
+      // Note: We don't call the context function here to avoid loops
     }
-  }, [isAdmin, showAdminLogin]);
+  }, [tutorialActive, tutorialStep]);
 
   // 1) Tutorial first
   if (showTutorial) {
-    return <Tutorial onStart={() => {
-      setShowTutorial(false);
-      // Don't set localStorage since we want tutorial to show every time
-    }} />;
+    return <Tutorial
+      onStart={() => {
+        setShowTutorial(false);
+        // Don't set localStorage since we want tutorial to show every time
+      }}
+      onStartTour={() => {
+        setShowTutorial(false);
+        // Start the interactive tutorial
+        startTutorial();
+      }}
+    />;
   }
 
   // Show interactive tutorial for new users
@@ -516,8 +513,90 @@ export const MultiUserApp: React.FC = () => {
             </div>
           )}
 
-          {/* Team Decision Making */}
-          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
+          {/* Fix Market - Show during Pre-Purchase Phase */}
+          {gameState.currentPhase === 'prePurchase' && (
+            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="fix-market">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl text-white">
+                  <div className="p-2 bg-red-500/20 rounded-lg">
+                    <Award className="w-5 h-5 text-red-400" />
+                  </div>
+                  Fix Market Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-xl border border-red-500/30">
+                    <div className="text-2xl font-bold text-red-400 mb-2">
+                      {gameState.totalFixSeats || 500}
+                    </div>
+                    <div className="text-slate-300 text-sm">Total Fix Seats Available</div>
+                  </div>
+                  <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
+                    <div className="text-2xl font-bold text-orange-400 mb-2">
+                      {gameState.availableFixSeats}
+                    </div>
+                    <div className="text-slate-300 text-sm">Still Available</div>
+                  </div>
+                  <div className="text-center p-4 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-xl border border-green-500/30">
+                    <div className="text-2xl font-bold text-green-400 mb-2">
+                      {Math.round(((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}%
+                    </div>
+                    <div className="text-slate-300 text-sm">Market Utilization</div>
+                  </div>
+                </div>
+
+                {/* Progress Bar for Fix Seat Availability */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-slate-400">
+                    <span>Fix Seats Purchased</span>
+                    <span>{(gameState.totalFixSeats || 500) - gameState.availableFixSeats} / {gameState.totalFixSeats || 500}</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-3">
+                    <div
+                      className="bg-gradient-to-r from-red-500 to-orange-500 h-3 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, ((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Team Purchase Summary (Anonymized) */}
+                <div className="space-y-3">
+                  <Label className="text-slate-300 text-sm font-medium">Team Activity Overview</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {gameState.teams
+                      .filter(team => team.decisions.fixSeatsPurchased > 0)
+                      .sort((a, b) => b.decisions.fixSeatsPurchased - a.decisions.fixSeatsPurchased)
+                      .slice(0, 4)
+                      .map((team, index) => (
+                        <div key={team.id} className="text-center p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                          <div className="text-lg font-bold text-indigo-400 mb-1">
+                            {team.decisions.fixSeatsPurchased}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            Team {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                  {gameState.teams.filter(team => team.decisions.fixSeatsPurchased > 0).length === 0 && (
+                    <div className="text-center text-slate-500 py-4">
+                      No teams have purchased fix seats yet
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
+                  <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
+                  <div>• Fix seats are purchased at €{gameState.fixSeatPrice} each (guaranteed capacity)</div>
+                  <div>• {gameState.availableFixSeats} seats still available for purchase</div>
+                  <div>• {Math.round(((gameState.totalFixSeats || 500) - gameState.availableFixSeats) / (gameState.totalFixSeats || 500) * 100)}% of fix capacity has been secured</div>
+                  <div>• First come, first served - act quickly to secure your capacity!</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
                 <div className="p-2 bg-blue-500/20 rounded-lg">

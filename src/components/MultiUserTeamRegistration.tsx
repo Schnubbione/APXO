@@ -4,10 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Users } from 'lucide-react';
+import { Users, Lightbulb } from 'lucide-react';
 
 export const TeamRegistration: React.FC = () => {
-  const { registerTeam, gameState, registrationError } = useGame();
+  const { registerTeam, gameState, registrationError, startTutorial } = useGame();
   const [teamName, setTeamName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -16,6 +16,10 @@ export const TeamRegistration: React.FC = () => {
       registerTeam(teamName.trim());
       setTeamName('');
     }
+  };
+
+  const handleStartTour = () => {
+    startTutorial();
   };
 
   return (
@@ -61,6 +65,18 @@ export const TeamRegistration: React.FC = () => {
             >
               Join Game
             </Button>
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                onClick={handleStartTour}
+                variant="outline"
+                className="flex-1 bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-medium min-h-[44px] rounded-xl transition-all duration-200"
+              >
+                <Lightbulb className="w-4 h-4 mr-2" />
+                Take Tour
+              </Button>
+            </div>
           </form>
 
           <div className="mt-8 pt-6 border-t border-slate-600">

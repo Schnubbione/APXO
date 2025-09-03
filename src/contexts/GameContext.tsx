@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 interface Team {
@@ -35,6 +35,7 @@ interface GameState {
   currentPhase: 'prePurchase' | 'simulation';
   phaseTime: number;
   totalCapacity: number;
+  totalFixSeats: number;
   availableFixSeats: number;
   fixSeatPrice: number;
   simulationMonths: number;
@@ -129,6 +130,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentPhase: 'prePurchase',
     phaseTime: 600, // 10 minutes for pre-purchase phase
     totalCapacity: 1000,
+    totalFixSeats: 500,
     availableFixSeats: 500,
     fixSeatPrice: 60,
     simulationMonths: 12,
@@ -404,30 +406,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Tutorial functions
-  const startTutorial = () => {
+  const startTutorial = useCallback(() => {
+    console.log('Starting tutorial');
     setTutorialActive(true);
     setTutorialStep(0);
-  };
+  }, []);
 
-  const skipTutorial = () => {
+  const skipTutorial = useCallback(() => {
+    console.log('Skipping tutorial');
     setTutorialActive(false);
     setTutorialStep(0);
     localStorage.setItem('tutorialCompleted', 'true');
-  };
+  }, []);
 
-  const nextTutorialStep = () => {
-    setTutorialStep(prev => prev + 1);
-  };
+  const nextTutorialStep = useCallback(() => {
+    setTutorialStep(prev => {
+      const nextStep = prev + 1;
+      console.log('Moving to tutorial step:', nextStep);
+      return nextStep;
+    });
+  }, []);
 
-  const previousTutorialStep = () => {
-    setTutorialStep(prev => Math.max(0, prev - 1));
-  };
+  const previousTutorialStep = useCallback(() => {
+    setTutorialStep(prev => {
+      const prevStep = Math.max(0, prev - 1);
+      console.log('Moving to tutorial step:', prevStep);
+      return prevStep;
+    });
+  }, []);
 
-  const completeTutorial = () => {
+  const completeTutorial = useCallback(() => {
+    console.log('Completing tutorial');
     setTutorialActive(false);
     setTutorialStep(0);
     localStorage.setItem('tutorialCompleted', 'true');
-  };
+  }, []);
 
   const value: GameContextType = {
     socket,
