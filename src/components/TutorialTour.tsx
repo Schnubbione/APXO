@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, ChevronLeft, ChevronRight, Play, SkipForward } from 'lucide-react';
@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Pre-Purchase - Buy fixed seats (€60 each, limited availability - you won\'t know exact numbers!). Phase 2: Simulation - Set prices and pooling allocation for 365 days with real-time market monitoring.',
+  description: 'Phase 1: Pre-Purchase — Buy fixed seats (€60) under information asymmetry; exact remaining availability and others\' purchases are hidden. Equal hotel capacity is assigned per team. Phase 2: Simulation — Set prices and pooling allocation for 365 days with real-time market monitoring; fix allocation becomes visible after the first round.',
     position: 'center'
   },
   {
@@ -63,7 +63,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-decisions',
     title: 'Your Decisions',
-    description: 'Make strategic decisions based on the current phase. In pre-purchase: buy fix seats (limited availability - you won\'t know exact numbers!). In simulation: set prices and pooling allocation.',
+  description: 'Make strategic decisions by phase. Pre-purchase: buy fix seats without seeing exact remaining availability; equal hotel capacity is assigned and empty beds later cost money. Simulation: set prices and pooling allocation; fix allocation details are shown after the first round.',
     target: '[data-tutorial="team-decisions"]',
     position: 'top'
   },
@@ -77,7 +77,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'market-insights',
     title: 'Market Intelligence & Strategic Decision-Making',
-    description: 'Use market intelligence to inform your strategy under information asymmetry. You won\'t see exact fix seat availability - watch competitor behavior, assess market capacity, and make strategic risk decisions. Balance guaranteed capacity vs. flexible options!',
+  description: 'Use market intelligence under information asymmetry. Exact fix availability is hidden in Phase 1 — watch signals and make risk-aware decisions. Balance guaranteed capacity vs. flexible options while accounting for hotel capacity and empty-bed costs.',
     position: 'center'
   },
   {

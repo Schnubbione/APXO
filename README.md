@@ -14,6 +14,8 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 - **Strategic Information Asymmetry**: Teams don't see exact available capacity, promoting strategic decision-making
 - **Market Intelligence**: Real-time market data and competitor analysis
 - **Risk Management**: Balance guaranteed capacity vs. flexible procurement strategies
+- **Hotel Capacity & Costs**: Equal hotel capacity per team; empty beds incur costs, selling beyond hotel capacity is allowed
+- **Production-Safe Admin Auth**: Admin password via environment variables; no hardcoded defaults in production
 
 ## Quick Start
 
@@ -60,14 +62,15 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 1. Open http://localhost:5173 in your browser
 2. Enter your unique team name
 3. Wait for the admin to start the round
-4. **Phase 1**: Make strategic fix seat purchases under information asymmetry (you won't see exact availability!)
-5. **Phase 2**: Set customer prices and pooling allocation based on market intelligence
-6. Monitor your results and leaderboard in real-time
-7. **Strategic Challenge**: Balance guaranteed capacity vs. flexible options without complete information
+4. **Phase 1**: Buy fixed seats under information asymmetry. Exact remaining availability and other teams’ purchases are hidden.
+5. **Phase 2**: Set customer prices and pooling allocation based on market intelligence. Allocation details become visible after the first simulation round.
+6. Each team receives an equal share of hotel capacity at pre-purchase. Empty beds incur a per-bed cost; sales above hotel capacity are allowed and still profitable (minus seat costs).
+7. Monitor your results and leaderboard in real-time
+8. **Strategic Challenge**: Balance guaranteed capacity, flexible options, and hotel capacity costs under incomplete information
 
 ### For Admins
 1. Open http://localhost:5173 in your browser
-2. Click "Admin Login" and use password: `admin123`
+2. Click "Admin Login" and enter the password from your environment (see Environment Setup). In production there is no default password.
 3. Configure game parameters (demand, rounds, timing, etc.)
 4. Start rounds and monitor all teams
 5. View comprehensive admin dashboard with team decisions
@@ -81,17 +84,21 @@ The simulation features three different procurement products with varying risk p
 - **Pooling (€110/seat)**: Highest price, daily price and availability updates, not guaranteed, only paid if actual demand exists. Highest risk for airline, lowest risk for tour operator.
 
 **Key Strategic Element**: Fix seats are purchased under information asymmetry - teams see market intelligence but not exact availability, promoting strategic decision-making and risk assessment.
+ 
+**Key Strategic Elements**
+- Fix seats are purchased under information asymmetry — exact remaining availability is hidden. Allocation details become visible after the first simulation round.
+- Equal hotel capacity is assigned per team in pre-purchase; empty beds incur a cost. Sales beyond hotel capacity are permitted and only subject to seat costs.
 
 ## Game Mechanics
 
-- **Procurement**: Teams buy seat capacity using different risk products
-- **Pricing**: Teams set retail prices for their seats
-- **Demand**: Random customer demand based on willingness-to-pay (WTP) distribution
-- **Competition**: In shared market mode, customers choose the cheapest available option
-- **Profit Calculation**: Revenue minus procurement costs (depending on product type and actual demand)
-- **Information Asymmetry**: Teams don't see exact available fix seat capacity, only market intelligence
-- **Strategic Decision-Making**: Balance risk vs. reward under uncertainty
-- **Market Intelligence**: Real-time competitor analysis and capacity insights
+- **Procurement**: Teams buy seat capacity using different risk products.
+- **Pricing**: Teams set retail prices for their seats.
+- **Demand**: Responds to prices (negative elasticity) and the capacity-weighted market price index.
+- **Competition**: In shared market mode, customers choose the cheapest available option given availability.
+- **Costs & Profit**: Profit = Ticket revenue − costs (fixed seats, variable ops, pooling usage at market price, empty hotel beds). No alternative revenue for unsold seats.
+- **Information Asymmetry**: Exact remaining fix capacity and other teams’ purchases are hidden in Phase 1; allocation details are revealed after Round 1.
+- **Hotel Capacity**: Equal hotel capacity per team; empty beds incur a per-bed cost; selling beyond hotel capacity is allowed.
+- **Market Intelligence**: Live pooling market data to guide strategy.
 
 ## Architecture
 
@@ -192,6 +199,8 @@ VITE_SERVER_URL=http://localhost:3001
 PORT=3001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
+# Optional nur lokal
+ADMIN_PASSWORD=admin123
 ```
 
 #### Produktion
@@ -203,6 +212,7 @@ VITE_SERVER_URL=https://your-backend.onrender.com
 PORT=10000
 NODE_ENV=production
 FRONTEND_URL=https://your-frontend.vercel.app
+ADMIN_PASSWORD=your-strong-admin-password
 ```
 
 ### CORS-Konfiguration
@@ -217,12 +227,13 @@ Der Server ist bereits für mehrere Origins konfiguriert:
 - Stellen Sie sicher, dass CORS für Ihre Domain konfiguriert ist
 
 **Problem: Admin Login funktioniert nicht**
-- Standard-Passwort: `admin123`
+- Prüfen Sie, ob `ADMIN_PASSWORD` in Ihrer Produktionsumgebung gesetzt ist
 - Prüfen Sie Server-Logs für Fehler
 
 **Problem: Teams können sich nicht registrieren**
 - Prüfen Sie Socket.IO Verbindung
 - Stellen Sie sicher, dass Backend läuft
+ - Bei doppeltem Teamnamen wird die Registrierung freundlich gemeldet bzw. ein inaktives Team reaktiviert
 
 ### Für Tech Day vorbereiten
 

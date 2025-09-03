@@ -1,4 +1,4 @@
-import React from "react";
+// React import not required with the automatic JSX runtime
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-react";
@@ -48,7 +48,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-green-400">Phase 1: Pre-Purchase (Limited Time)</div>
-                  <div className="text-sm">Purchase fixed seats at €60 each. Limited availability - first come, first served! These seats are guaranteed but must be paid regardless of demand. <span className="text-orange-400 font-semibold">You won't know exact availability - make strategic decisions!</span></div>
+                  <div className="text-sm">Purchase fixed seats at €60 each. Limited availability - first come, first served! These seats are guaranteed but must be paid regardless of demand. <span className="text-orange-400 font-semibold">Exact remaining availability and other teams' purchases are hidden—make strategic decisions under uncertainty.</span> Each team also receives an equal hotel capacity allocation at this stage; empty beds will incur costs later.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-blue-400">Phase 2: Simulation (365 Days)</div>
@@ -68,8 +68,8 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li><strong>Phase 1:</strong> Purchase fixed seats (€60 each, limited availability - you won't know exact numbers!)</li>
-                <li><strong>Phase 2:</strong> Set customer prices and pooling allocation</li>
+                <li><strong>Phase 1:</strong> Purchase fixed seats (€60 each) without seeing exact remaining availability or others’ purchases. Equal hotel capacity per team is assigned.</li>
+                <li><strong>Phase 2:</strong> Set customer prices and pooling allocation. Fix seat allocation details become visible after the first round.</li>
                 <li>Simulation runs for 365 days with increasing demand</li>
                 <li>Monitor live pooling market data (updates every second = 1 simulated day)</li>
                 <li>Monthly results show sales, revenue, and profits</li>
@@ -77,7 +77,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Buy early in Phase 1 - seats are limited! You won't know exact availability, so make strategic decisions based on market intelligence.</div>
+                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Buy early in Phase 1—seats are limited and exact availability is hidden. Use market intelligence and risk assessment.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Balance fixed costs with flexible capacity</div>
@@ -106,7 +106,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-orange-400 font-semibold mb-2">⚠️ Too many fixed seats</div>
-                <div className="text-sm text-slate-300">High fixed costs if demand is low - strategic risk assessment needed</div>
+                <div className="text-sm text-slate-300">High fixed costs if demand is low; watch hotel empty-bed costs when capacity goes unused</div>
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-green-400 font-semibold mb-2">✅ Optimal balance</div>
@@ -115,8 +115,8 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
-                <strong>Advanced:</strong> Monitor demand patterns over 365 days and adjust pricing dynamically to maximize profits.
-                Use the live pooling market data to anticipate market trends and make strategic pricing decisions.
+                <strong>Advanced:</strong> Demand responds to market prices and capacity. Monitor patterns over 365 days and adjust pricing dynamically.
+                Use the live pooling market to anticipate trends; pooling usage costs apply at the current market price. Hotel empty beds incur a cost; selling beyond hotel capacity is allowed and remains profitable (minus seat costs).
                 <span className="text-indigo-300">Set your initial price before the simulation starts, then use the "Update Price" button during the simulation.</span>
                 <span className="text-orange-400 font-semibold"> Remember: Information asymmetry in Phase 1 requires strategic risk assessment!</span>
               </div>

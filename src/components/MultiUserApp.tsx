@@ -11,6 +11,7 @@ import StreakCounter from './StreakCounter';
 import MotivationalMessages from './MotivationalMessages';
 import LiveCompetition from './LiveCompetition';
 import SoundEffects from './SoundEffects';
+import { PracticeMode } from './PracticeMode';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
@@ -59,6 +60,7 @@ export const MultiUserApp: React.FC = () => {
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
+  const [showPractice, setShowPractice] = useState(false);
 
   // Play sound effects for game events
   useEffect(() => {
@@ -414,6 +416,15 @@ export const MultiUserApp: React.FC = () => {
               Admin Login
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPractice(true)}
+            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm"
+            title="Start Practice Mode"
+          >
+            Practice Mode
+          </Button>
         </div>
 
         <RoundTimer
@@ -785,6 +796,11 @@ export const MultiUserApp: React.FC = () => {
             leaderboard={leaderboard || []}
             onPlaySound={setSoundEffect}
           />
+
+          {/* Practice Mode Overlay */}
+          {showPractice && (
+            <PracticeMode onClose={() => setShowPractice(false)} humanTeamName={currentTeam.name} />
+          )}
 
           {/* Leaderboard */}
           {leaderboard && (
