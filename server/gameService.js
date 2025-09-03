@@ -365,6 +365,13 @@ export class GameService {
     const session = await this.getCurrentGameSession();
     const activeTeams = await this.getActiveTeams();
 
+    // Sanitize settings to avoid leaking sensitive keys like adminPassword
+    const sanitizeSettings = (settings) => {
+      if (!settings || typeof settings !== 'object') return {};
+      const { adminPassword, ...safe } = settings;
+      return safe;
+    };
+
     // If socketId is provided, hide other teams' fix seat purchases for privacy
     const teamsData = activeTeams.map(team => {
       if (socketId && team.socketId !== socketId) {
@@ -395,7 +402,7 @@ export class GameService {
       currentRound: session.currentRound,
       totalRounds: session.totalRounds,
       isActive: session.isActive,
-      ...session.settings,
+      ...sanitizeSettings(session.settings),
       fares: [
         { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
         { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },

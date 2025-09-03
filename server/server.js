@@ -94,6 +94,18 @@ async function initializeServer() {
     // Sync database models
     await syncDatabase();
 
+    // Sanitize any persisted settings that might contain legacy secrets
+    try {
+      const session = await GameService.getCurrentGameSession();
+      if (session?.settings && Object.prototype.hasOwnProperty.call(session.settings, 'adminPassword')) {
+        const { adminPassword, ...safeSettings } = session.settings;
+        await session.update({ settings: safeSettings });
+        console.log('🧹 Removed legacy adminPassword from persisted settings');
+      }
+    } catch (e) {
+      console.warn('Warning while sanitizing persisted settings:', e?.message || e);
+    }
+
     console.log('🚀 Server initialized with database connection');
 
     // Start the server
@@ -159,12 +171,19 @@ async function broadcastGameState() {
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
+    // Ensure sensitive settings never leak to clients
+    const sanitizeSettings = (settings) => {
+      if (!settings || typeof settings !== 'object') return {};
+      const { adminPassword, ...safe } = settings; // drop any legacy leak
+      return safe;
+    };
+
     // Get list of all connected sockets
     const connectedSockets = await io.fetchSockets();
 
     // Send personalized game state to each client
     for (const socket of connectedSockets) {
-      const gameState = {
+  const gameState = {
         teams: activeTeams.map(team => {
           if (team.socketId !== socket.id) {
             // Hide fix seat purchases from other teams
@@ -190,8 +209,8 @@ async function broadcastGameState() {
         }),
         currentRound: gameSession.currentRound,
         totalRounds: gameSession.totalRounds,
-        isActive: gameSession.isActive,
-        ...gameSession.settings,
+  isActive: gameSession.isActive,
+  ...sanitizeSettings(gameSession.settings),
         fares: [
           { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
           { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
@@ -215,8 +234,15 @@ io.on('connection', async (socket) => {
     const gameSession = await GameService.getCurrentGameSession();
     const activeTeams = await GameService.getActiveTeams();
 
+    // Ensure sensitive settings never leak to clients
+    const sanitizeSettings = (settings) => {
+      if (!settings || typeof settings !== 'object') return {};
+      const { adminPassword, ...safe } = settings; // drop any legacy leak
+      return safe;
+    };
+
     // Prepare game state for this specific client
-    const gameState = {
+  const gameState = {
       teams: activeTeams.map(team => {
         if (team.socketId !== socket.id) {
           // Hide fix seat purchases from other teams
@@ -242,8 +268,8 @@ io.on('connection', async (socket) => {
       }),
       currentRound: gameSession.currentRound,
       totalRounds: gameSession.totalRounds,
-      isActive: gameSession.isActive,
-      ...gameSession.settings,
+  isActive: gameSession.isActive,
+  ...sanitizeSettings(gameSession.settings),
       fares: [
         { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
         { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
@@ -282,7 +308,7 @@ io.on('connection', async (socket) => {
 
     // Admin login
   socket.on('adminLogin', async (password) => {
-    const expectedPassword = process.env.ADMIN_PASSWORD;
+  const expectedPassword = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD;
     const isProduction = process.env.NODE_ENV === 'production';
 
     // In production, ADMIN_PASSWORD must be set
@@ -293,7 +319,7 @@ io.on('connection', async (socket) => {
     }
 
     // In development, use default password if not set
-    const finalPassword = expectedPassword || (isProduction ? null : 'admin123');
+  const finalPassword = expectedPassword || (isProduction ? null : 'admin123');
 
     if (!finalPassword) {
       socket.emit('adminLoginError', 'Admin login is not configured');
@@ -303,7 +329,7 @@ io.on('connection', async (socket) => {
     console.log('Admin login attempt:', {
       provided: password,
       expected: finalPassword,
-      env: expectedPassword ? 'set' : 'not set',
+      env: expectedPassword ? (process.env.ADMIN_PASSWORD ? 'ADMIN_PASSWORD' : 'APP_PASSWORD') : 'not set',
       environment: process.env.NODE_ENV || 'development'
     });
 
