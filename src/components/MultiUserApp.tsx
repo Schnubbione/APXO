@@ -4,6 +4,7 @@ import { TeamRegistration } from './MultiUserTeamRegistration';
 import { AdminLogin } from './AdminLogin';
 import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
+import Tutorial from './Tutorial';
 import TutorialTour from './TutorialTour';
 import AchievementSystem from './AchievementSystem';
 import StreakCounter from './StreakCounter';
