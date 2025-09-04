@@ -1,29 +1,27 @@
 module.exports = {
   testEnvironment: 'jsdom',
+  setupFiles: ['<rootDir>/src/jest.setup.js'],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/src/__mocks__/fileMock.js',
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^~/lib/utils$': '<rootDir>/src/lib/utils.ts',
-    '^~/components/ui/(.*)$': '<rootDir>/src/components/ui/$1'
+    '^@/(.*)$': '<rootDir>/src/$1'
   },
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: true
+      useESM: true,
+      tsconfig: {
+        jsx: 'react-jsx',
+        moduleResolution: 'node',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true
+      }
     }],
-    '^.+\\.(js|jsx)$': 'babel-jest'
+    '^.+\\.(js|jsx)$': ['babel-jest', { presets: ['@babel/preset-env', '@babel/preset-react'] }]
   },
   transformIgnorePatterns: [
     'node_modules/(?!(socket\\.io-client|@socket\\.io|sequelize|uuid)/)'
   ],
-  globals: {
-    'import.meta': {
-      env: {
-        VITE_SERVER_URL: 'http://localhost:3001'
-      }
-    }
-  },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.(ts|tsx|js)',

@@ -1,14 +1,16 @@
 /// <reference types="jest" />
 import '@testing-library/jest-dom';
 
-// Mock für import.meta
-(globalThis as any).import = {
-  meta: {
-    env: {
-      VITE_SERVER_URL: 'http://localhost:3001'
+// Zusätzliche Sicherstellung für import.meta (falls jest.setup.js nicht ausreicht)
+if (typeof globalThis !== 'undefined' && !(globalThis as any).import?.meta) {
+  (globalThis as any).import = {
+    meta: {
+      env: {
+        VITE_SERVER_URL: 'http://localhost:3001'
+      }
     }
-  }
-};
+  };
+}
 
 // Mock für Socket.IO
 jest.mock('socket.io-client', () => ({
