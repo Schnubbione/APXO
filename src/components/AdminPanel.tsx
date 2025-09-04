@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award, AlertTriangle } from "lucide-react";
+import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -23,8 +23,6 @@ import {
 interface AdminPanelProps {
   numTeams: number;
   setNumTeams: (value: number) => void;
-  rounds: number;
-  setRounds: (value: number) => void;
   baseDemand: number;
   setBaseDemand: (value: number) => void;
   spread: number;
@@ -41,6 +39,8 @@ interface AdminPanelProps {
   setPoolingMarketUpdateInterval: (value: number) => void;
   simulatedWeeksPerUpdate: number;
   setSimulatedWeeksPerUpdate: (value: number) => void;
+  totalAircraftSeats: number;
+  setTotalAircraftSeats: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
@@ -55,13 +55,14 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({
-  numTeams, setNumTeams, rounds, setRounds, baseDemand, setBaseDemand,
+  numTeams, setNumTeams, baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
   poolingMarketUpdateInterval, setPoolingMarketUpdateInterval,
   simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
+  totalAircraftSeats, setTotalAircraftSeats,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
+  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
 
@@ -158,13 +159,13 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Rounds</Label>
-                    <div className="text-xs text-slate-500 mt-1">Total number of rounds (1-12)</div>
+                    <Label className="text-slate-300 text-sm font-medium">Total Aircraft Seats</Label>
+                    <div className="text-xs text-slate-500 mt-1">Total available seats across all aircraft (500-5000)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[rounds]} onValueChange={([v]) => setRounds(v)} min={1} max={12} step={1} className="w-full" />
+                    <Slider value={[totalAircraftSeats]} onValueChange={([v]) => setTotalAircraftSeats(v)} min={500} max={5000} step={100} className="w-full" />
                   </div>
-                  <div className="text-sm text-slate-400 text-center">{rounds} rounds</div>
+                  <div className="text-sm text-slate-400 text-center">{totalAircraftSeats} total seats</div>
                 </div>
 
                 <div className="space-y-3">
@@ -249,58 +250,6 @@ export default function AdminPanel({
                 </div>
               </CardContent>
             </TabsContent>
-
-            {/* Danger Zone */}
-            <div className="px-6 py-4 border-t border-slate-600">
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-red-400 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
-                  Danger Zone
-                </h3>
-                <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-white font-medium">Reset Current Game</h4>
-                      <p className="text-sm text-slate-400 mt-1">
-                        This will deactivate all current teams and reset the game session, but preserve all high scores and team names.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to reset the current game? All current teams will be deactivated, but high scores will be preserved.')) {
-                          onResetCurrentGame?.();
-                        }
-                      }}
-                      variant="outline"
-                      className="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-lg border-orange-600"
-                    >
-                      Reset Current Game
-                    </Button>
-                  </div>
-                </div>
-                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-white font-medium">Reset All Game Data</h4>
-                      <p className="text-sm text-slate-400 mt-1">
-                        This will permanently delete all teams, highscores, round results, and reset the game to its initial state.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to reset ALL game data? This action cannot be undone.')) {
-                          onResetAllData?.();
-                        }
-                      }}
-                      variant="destructive"
-                      className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg"
-                    >
-                      Reset All Data
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <TabsContent value="analytics" className="mt-0">
               <CardContent className="space-y-6 p-6">

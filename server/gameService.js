@@ -18,7 +18,6 @@ export class GameService {
         // Create new session if none exists
         session = await GameSession.create({
           currentRound: 0,
-          totalRounds: 5, // Default value, can be updated via admin panel
           isActive: false,
           settings: {
             baseDemand: 100,
@@ -35,6 +34,7 @@ export class GameService {
             currentPhase: 'prePurchase',
             phaseTime: 600,
             totalCapacity: 1000,
+            totalAircraftSeats: 1000,
             totalFixSeats: 500,
             availableFixSeats: 500,
             fixSeatPrice: 60,
@@ -99,7 +99,6 @@ export class GameService {
         // Reactivate existing inactive team: reset to a clean state and reuse the row
         const defaultDecisions = {
           price: 199,
-          buy: { F: 0, P: 0, O: 0 },
           fixSeatsPurchased: 0,
           fixSeatsAllocated: 0,
           poolingAllocation: 0
@@ -131,7 +130,6 @@ export class GameService {
         name: normalizedName,
         decisions: {
           price: 199,
-          buy: { F: 0, P: 0, O: 0 },
           fixSeatsPurchased: 0,
       poolingAllocation: 0,
       hotelCapacity: perTeamHotel
@@ -155,7 +153,7 @@ export class GameService {
     const teams = await this.getActiveTeams();
     const settings = session.settings || {};
 
-    const totalCapacity = settings.totalCapacity || 1000;
+    const totalCapacity = settings.totalAircraftSeats || 1000;
     const poolingReserveRatio = 0.3; // Airline keeps 30% for pooling
     const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
 
@@ -236,18 +234,40 @@ export class GameService {
   static async updateGameSettings(settings) {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    const updatedSettings = { ...currentSettings, ...settings };
+    let updatedSettings = { ...currentSettings, ...settings };
 
-    // If totalRounds is being updated, also update the session's totalRounds field
-    if (settings.totalRounds !== undefined && settings.totalRounds !== session.totalRounds) {
-      await session.update({
-        settings: updatedSettings,
-        totalRounds: settings.totalRounds
-      });
-    } else {
-      await session.update({ settings: updatedSettings });
+    // If totalAircraftSeats is being updated, adjust related parameters dynamically
+    if (settings.totalAircraftSeats !== undefined) {
+      const newTotalSeats = settings.totalAircraftSeats;
+      const oldTotalSeats = currentSettings.totalAircraftSeats || 1000;
+
+      // Scale totalCapacity proportionally (keep same ratio)
+      const capacityRatio = (currentSettings.totalCapacity || 1000) / oldTotalSeats;
+      updatedSettings.totalCapacity = Math.round(newTotalSeats * capacityRatio);
+
+      // Scale totalFixSeats proportionally (keep same ratio)
+      const fixSeatsRatio = (currentSettings.totalFixSeats || 500) / oldTotalSeats;
+      updatedSettings.totalFixSeats = Math.round(newTotalSeats * fixSeatsRatio);
+      updatedSettings.availableFixSeats = Math.round(newTotalSeats * fixSeatsRatio);
+
+      // Scale pooling reserve capacity proportionally
+      const poolingRatio = (currentSettings.poolingReserveCapacity || 300) / oldTotalSeats;
+      updatedSettings.poolingReserveCapacity = Math.round(newTotalSeats * poolingRatio);
+
+      // Update pooling market if it exists
+      if (updatedSettings.poolingMarket) {
+        updatedSettings.poolingMarket = {
+          ...updatedSettings.poolingMarket,
+          totalPoolingCapacity: Math.round(newTotalSeats * poolingRatio),
+          availablePoolingCapacity: Math.round(newTotalSeats * poolingRatio)
+        };
+      }
+
+      console.log(`✈️ Total aircraft seats updated: ${oldTotalSeats} → ${newTotalSeats}`);
+      console.log(`📊 Adjusted parameters: totalCapacity=${updatedSettings.totalCapacity}, totalFixSeats=${updatedSettings.totalFixSeats}`);
     }
 
+    await session.update({ settings: updatedSettings });
     return session;
   }
 
@@ -255,11 +275,11 @@ export class GameService {
   static async startPrePurchasePhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    // Assign equal hotel capacity per team based on totalCapacity and ratio
+    // Assign equal hotel capacity per team based on totalAircraftSeats and ratio
     const teams = await this.getActiveTeams();
     const ratio = (typeof currentSettings.hotelCapacityRatio === 'number') ? currentSettings.hotelCapacityRatio : 0.6;
-    const totalCapacity = currentSettings.totalCapacity || 1000;
-    const perTeam = teams.length > 0 ? Math.floor((totalCapacity * ratio) / teams.length) : 0;
+    const totalAircraftSeats = currentSettings.totalAircraftSeats || 1000;
+    const perTeam = teams.length > 0 ? Math.floor((totalAircraftSeats * ratio) / teams.length) : 0;
 
     for (const team of teams) {
       const updatedDecisions = {
@@ -343,28 +363,19 @@ export class GameService {
 
     // Increment round number
     const nextRound = session.currentRound + 1;
-    const isGameComplete = nextRound >= session.totalRounds;
 
-    // Update session: increment round or mark as complete
-    if (isGameComplete) {
-      await session.update({
-        currentRound: nextRound,
-        isActive: false
-      });
-      console.log(`🎉 Game completed! All ${session.totalRounds} rounds finished.`);
-    } else {
-      await session.update({
-        currentRound: nextRound,
-        isActive: false
-      });
-      console.log(`Round ${session.currentRound} completed. Moving to round ${nextRound}/${session.totalRounds}.`);
-    }
+    // Update session: increment round (no automatic game completion)
+    await session.update({
+      currentRound: nextRound,
+      isActive: false
+    });
+
+    console.log(`Round ${session.currentRound} completed. Moving to round ${nextRound}. Game continues until admin ends it.`);
 
     return {
       ...savedResults,
-      isGameComplete,
-      currentRound: nextRound,
-      totalRounds: session.totalRounds
+      isGameComplete: false, // Game never completes automatically
+      currentRound: nextRound
     };
   }
 
@@ -430,7 +441,7 @@ export class GameService {
       profit: parseFloat(team.totalProfit || 0),
       marketShare: 0, // Will be calculated if needed
       avgPrice: team.decisions?.price || 199,
-      capacity: Object.values(team.decisions?.buy || {}).reduce((sum, cap) => sum + (cap || 0), 0)
+      capacity: (team.decisions?.fixSeatsPurchased || 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
     })).sort((a, b) => b.profit - a.profit);
 
     return {
@@ -517,14 +528,8 @@ export class GameService {
     return {
       teams: teamsData,
       currentRound: session.currentRound,
-      totalRounds: session.totalRounds,
       isActive: session.isActive,
-      ...sanitizeSettings(session.settings),
-      fares: [
-        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-      ]
+      ...sanitizeSettings(session.settings)
     };
   }
 
@@ -541,7 +546,7 @@ export class GameService {
     // Calculate total pooling capacity offered by teams
     const totalPoolingOffered = teams.reduce((sum, team) => {
       const poolingAllocation = (team.decisions?.poolingAllocation || 0) / 100;
-      const teamPoolingCapacity = Math.round(settings.totalCapacity * poolingAllocation);
+      const teamPoolingCapacity = Math.round((settings.totalAircraftSeats || 1000) * poolingAllocation);
       return sum + teamPoolingCapacity;
     }, 0);
 
@@ -634,6 +639,7 @@ export class GameService {
           currentPhase: 'prePurchase',
           phaseTime: 600,
           totalCapacity: 1000,
+          totalAircraftSeats: 1000,
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,
@@ -702,6 +708,7 @@ export class GameService {
           currentPhase: 'prePurchase',
           phaseTime: 600,
           totalCapacity: 1000,
+          totalAircraftSeats: 1000,
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,

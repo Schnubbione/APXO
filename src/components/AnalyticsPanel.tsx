@@ -145,7 +145,7 @@ export default function AnalyticsPanel({
                       <h3 className="text-xl font-semibold text-white">Current Round</h3>
                     </div>
                     <div className="text-3xl font-bold text-green-400">{gameState.currentRound}</div>
-                    <p className="text-slate-400 text-sm mt-2">of {gameState.totalRounds} total</p>
+                    <p className="text-slate-400 text-sm mt-2">Current Round</p>
                   </CardContent>
                 </Card>
 

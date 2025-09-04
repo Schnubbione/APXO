@@ -21,7 +21,9 @@ export const Team = sequelize.define('Team', {
     type: DataTypes.JSON,
     defaultValue: {
       price: 199,
-      buy: { F: 0, P: 0, O: 0 }
+      fixSeatsPurchased: 0,
+      fixSeatsAllocated: 0,
+      poolingAllocation: 0
     }
   },
   totalProfit: {
@@ -52,10 +54,6 @@ export const GameSession = sequelize.define('GameSession', {
   currentRound: {
     type: DataTypes.INTEGER,
     defaultValue: 0
-  },
-  totalRounds: {
-    type: DataTypes.INTEGER,
-    defaultValue: 5
   },
   isActive: {
     type: DataTypes.BOOLEAN,

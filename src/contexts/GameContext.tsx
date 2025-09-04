@@ -24,7 +24,6 @@ interface Fare {
 interface GameState {
   teams: Team[];
   currentRound: number;
-  totalRounds: number;
   isActive: boolean;
   baseDemand: number;
   spread: number;
@@ -36,6 +35,7 @@ interface GameState {
   currentPhase: 'prePurchase' | 'simulation';
   phaseTime: number;
   totalCapacity: number;
+  totalAircraftSeats: number;
   totalFixSeats: number;
   availableFixSeats: number;
   fixSeatPrice: number;
@@ -129,7 +129,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [gameState, setGameState] = useState<GameState>({
     teams: [],
     currentRound: 0,
-    totalRounds: 5,
     isActive: false,
     baseDemand: 100,
     spread: 50,
@@ -137,14 +136,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sharedMarket: true,
     seed: 42,
     roundTime: 300,
-    fares: [
-      { code: 'F', label: 'Fix', cost: 60 },
-      { code: 'P', label: 'ProRata', cost: 85 },
-      { code: 'O', label: 'Pooling', cost: 110 }
-    ],
+    fares: [], // No longer used - simplified to Fix Seats + Pooling only
     currentPhase: 'prePurchase',
     phaseTime: 600, // 10 minutes for pre-purchase phase
     totalCapacity: 1000,
+    totalAircraftSeats: 1000,
     totalFixSeats: 500,
     availableFixSeats: 500,
     fixSeatPrice: 60,

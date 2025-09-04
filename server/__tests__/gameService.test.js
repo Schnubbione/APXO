@@ -128,8 +128,8 @@ describe('GameService', () => {
         sessionId: 1,
         decisions: {
           price: 199,
-          buy: { F: 0, P: 0, O: 0 },
           fixSeatsPurchased: 0,
+          fixSeatsAllocated: 0,
           poolingAllocation: 0
         },
         totalProfit: 0
@@ -145,8 +145,8 @@ describe('GameService', () => {
         sessionId: 1,
         decisions: {
           price: 199,
-          buy: { F: 0, P: 0, O: 0 },
           fixSeatsPurchased: 0,
+          fixSeatsAllocated: 0,
           poolingAllocation: 0
         },
         totalProfit: 0
@@ -191,20 +191,21 @@ describe('GameService', () => {
     test('should update team decision', async () => {
       const mockTeam = {
         id: 1,
-        decisions: { price: 199, buy: { F: 0, P: 0, O: 0 } },
+        decisions: { price: 199, fixSeatsPurchased: 0, fixSeatsAllocated: 0, poolingAllocation: 0 },
         update: jest.fn().mockResolvedValue(true)
       };
 
       Team.findOne.mockResolvedValue(mockTeam);
 
-      const decision = { price: 250, buy: { F: 10, P: 5, O: 15 } };
+      const decision = { price: 250, fixSeatsPurchased: 10, poolingAllocation: 30 };
       const result = await GameService.updateTeamDecision(1, decision);
 
       expect(Team.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
       expect(mockTeam.update).toHaveBeenCalledWith({
         decisions: {
           price: 250,
-          buy: { F: 10, P: 5, O: 15 }
+          fixSeatsPurchased: 10,
+          poolingAllocation: 30
         }
       });
       expect(result).toBe(true);

@@ -357,15 +357,9 @@ async function broadcastGameState() {
           }
         }),
         currentRound: gameSession.currentRound,
-        totalRounds: gameSession.totalRounds,
   isActive: gameSession.isActive,
   remainingTime: remainingTime,
-  ...sanitizeSettings(gameSession.settings),
-        fares: [
-          { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-          { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-          { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-        ]
+  ...sanitizeSettings(gameSession.settings)
       };
 
       socket.emit('gameStateUpdate', gameState);
@@ -426,15 +420,9 @@ io.on('connection', async (socket) => {
         }
       }),
       currentRound: gameSession.currentRound,
-      totalRounds: gameSession.totalRounds,
   isActive: gameSession.isActive,
   remainingTime: remainingTime,
-  ...sanitizeSettings(gameSession.settings),
-      fares: [
-        { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
-        { code: 'P', label: 'ProRata', cost: 85, demandFactor: 1.0 },
-        { code: 'O', label: 'Pooling', cost: 110, demandFactor: 0.8 }
-      ]
+  ...sanitizeSettings(gameSession.settings)
     };
 
     // Send current game state to new connection
@@ -566,7 +554,7 @@ io.on('connection', async (socket) => {
         demandVolatility: rnd(0.05, 0.2),
         priceElasticity: -(rnd(0.9, 2.7)),
         marketConcentration: rnd(0.6, 0.9),
-        totalCapacity: irnd(600, 1400),
+        totalAircraftSeats: irnd(600, 1400),
         fixSeatPrice: irnd(50, 80),
         hotelBedCost: irnd(30, 70),
         costVolatility: rnd(0.03, 0.1),
@@ -575,15 +563,10 @@ io.on('connection', async (socket) => {
 
       // Build ephemeral team list: human + randomized AIs
       const totalTeams = aiCount + 1;
-      const perTeamHotel = Math.floor((settings.totalCapacity * 0.6) / totalTeams);
+      const perTeamHotel = Math.floor(((settings.totalAircraftSeats || 1000) * 0.6) / totalTeams);
 
       const humanDecisions = {
         price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
-        buy: {
-          F: Number(humanTeam.decisions?.buy?.F || 0),
-          P: Number(humanTeam.decisions?.buy?.P || 0),
-          O: Number(humanTeam.decisions?.buy?.O || 0)
-        },
         fixSeatsPurchased: Number(humanTeam.decisions?.fixSeatsPurchased || 0),
         fixSeatsAllocated: Number(humanTeam.decisions?.fixSeatsAllocated || 0),
         poolingAllocation: Number(humanTeam.decisions?.poolingAllocation || 0),
@@ -600,15 +583,33 @@ io.on('connection', async (socket) => {
       ];
 
       for (let i = 0; i < aiCount; i++) {
+        // AI teams make more strategic decisions based on market conditions
+        const aiStrategy = Math.random();
+        let aiPooling = 0;
+        let aiFixSeats = 0;
+        
+        if (aiStrategy < 0.3) {
+          // Conservative strategy: focus on fix seats
+          aiFixSeats = irnd(50, 120);
+          aiPooling = irnd(10, 30);
+        } else if (aiStrategy < 0.7) {
+          // Balanced strategy: mix of fix and pooling
+          aiFixSeats = irnd(20, 80);
+          aiPooling = irnd(30, 60);
+        } else {
+          // Aggressive strategy: heavy pooling usage
+          aiFixSeats = irnd(10, 40);
+          aiPooling = irnd(50, 80);
+        }
+        
         teams.push({
           id: `AI_${i + 1}`,
           name: `AI Team ${i + 1}`,
           decisions: {
-            price: irnd(150, 350),
-            buy: { F: irnd(0, 180), P: irnd(0, 100), O: irnd(0, 60) },
-            fixSeatsPurchased: 0,
-            fixSeatsAllocated: 0,
-            poolingAllocation: irnd(0, 70),
+            price: irnd(180, 280), // More realistic price range
+            fixSeatsPurchased: aiFixSeats,
+            fixSeatsAllocated: aiFixSeats, // AI teams allocate all purchased seats
+            poolingAllocation: aiPooling,
             hotelCapacity: perTeamHotel
           },
           totalProfit: 0
@@ -696,15 +697,14 @@ io.on('connection', async (socket) => {
             phaseNumber: 2,
             isFinalPhase: roundResult.isGameComplete,
             currentRound: roundResult.currentRound,
-            totalRounds: roundResult.totalRounds,
             isGameComplete: roundResult.isGameComplete
           });
 
           console.log(`Simulation phase ended with ${roundResult.reduce((sum, r) => sum + r.sold, 0)} total sales`);
           if (roundResult.isGameComplete) {
-            console.log(`🎉 Game completed! All ${roundResult.totalRounds} rounds finished.`);
+            console.log(`🎉 Game completed! All rounds finished.`);
           } else {
-            console.log(`Round ${roundResult.currentRound - 1}/${roundResult.totalRounds} completed.`);
+            console.log(`Round ${roundResult.currentRound - 1} completed.`);
           }
         } else {
           // For pre-purchase phase, just broadcast phase ended
@@ -722,12 +722,10 @@ io.on('connection', async (socket) => {
         // Stop round timer when phase ends
         stopRoundTimer();
 
-        // Additional logging for phase completion
-        if (currentPhase === 'simulation') {
-          console.log('🎉 Game completed! All phases finished.');
-        }
-
-      } catch (error) {
+    // Additional logging for phase completion
+    if (currentPhase === 'simulation') {
+      console.log('🎉 Game round completed! Admin can start next round.');
+    }      } catch (error) {
         console.error('Error ending phase:', error);
         socket.emit('error', `Failed to end phase: ${error.message}`);
       }
@@ -975,7 +973,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
     // Calculate available capacity (fix seats + pooling allocation)
     const fixSeats = team.decisions.fixSeatsPurchased || 0;
     const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
-    const totalPoolingCapacity = Math.round(settings.totalCapacity * poolingAllocation);
+    const totalPoolingCapacity = Math.round((settings.totalAircraftSeats || 1000) * poolingAllocation);
     const availableCapacity = fixSeats + totalPoolingCapacity;
 
     // Calculate actual sales
@@ -1135,12 +1133,12 @@ function calculateAveragePrice(team) {
 
 // Calculate team's total capacity
 function calculateTeamCapacity(team, settings = {}) {
-  const buy = team.decisions.buy || {};
-  const purchased = Object.values(buy).reduce((sum, capacity) => sum + (capacity || 0), 0);
+  // Only fix seats and pooling allocation now
+  const fixSeats = team.decisions.fixSeatsPurchased || 0;
   const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
-  const totalCapacity = settings.totalCapacity || 1000;
+  const totalCapacity = settings.totalAircraftSeats || 1000;
   const poolingCapacity = Math.round(totalCapacity * poolingAllocation);
-  return purchased + poolingCapacity;
+  return fixSeats + poolingCapacity;
 }
 
 // Calculate revenue based on sales and pricing strategy
@@ -1152,20 +1150,10 @@ function calculateRevenue(team, sold) {
 
 // Calculate costs with fixed and variable components
 function calculateCosts(team, sold, settings = {}) {
-  const buy = team.decisions.buy || {};
-  const fares = [
-    { code: 'F', cost: 60, demandFactor: 1.2 },
-    { code: 'P', cost: 85, demandFactor: 1.0 },
-    { code: 'O', cost: 110, demandFactor: 0.8 }
-  ];
-
-  let totalCost = 0;
-
-  // Capacity acquisition costs
-  fares.forEach(fare => {
-    const capacity = buy[fare.code] || 0;
-    totalCost += capacity * fare.cost;
-  });
+  // Fix seat costs (€60 per seat purchased)
+  const fixSeatsPurchased = team.decisions.fixSeatsPurchased || 0;
+  const fixSeatCost = fixSeatsPurchased * (settings.fixSeatPrice || 60);
+  let totalCost = fixSeatCost;
 
   // Fixed operational costs (independent of sales)
   const totalCapacity = calculateTeamCapacity(team);
@@ -1175,7 +1163,7 @@ function calculateCosts(team, sold, settings = {}) {
   const variableCosts = sold * 15; // $15 per passenger for variable costs
 
   // Pooling usage costs: pay per used pooled seat at current pooling price
-  const totalCapacitySetting = settings.totalCapacity || 1000;
+  const totalCapacitySetting = settings.totalAircraftSeats || 1000;
   const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
   const poolingCapacity = Math.round(totalCapacitySetting * poolingAllocation);
   const fixSeats = team.decisions.fixSeatsPurchased || 0;
@@ -1198,7 +1186,7 @@ function calculateCosts(team, sold, settings = {}) {
   const costMultiplier = 1 + generateNormalRandom(0, costVolatility);
 
   // Add economies of scale (lower costs per unit with higher capacity)
-  const scaleFactor = Math.max(0.85, Math.min(1.0, 1 - (totalCapacity / 200) * 0.1));
+  const scaleFactor = Math.max(0.85, Math.min(1.0, 1 - ((settings.totalAircraftSeats || 1000) / 200) * 0.1));
 
   return (totalCost + fixedCosts + variableCosts + poolingUsageCost + hotelEmptyBedCost) * costMultiplier * scaleFactor;
 }

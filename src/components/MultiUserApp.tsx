@@ -200,8 +200,6 @@ export const MultiUserApp: React.FC = () => {
         <AdminPanel
           numTeams={gameState.teams.length}
           setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
-          rounds={gameState.totalRounds}
-          setRounds={(v) => updateGameSettings({ totalRounds: v })}
           baseDemand={gameState.baseDemand}
           setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
           spread={gameState.spread}
@@ -218,6 +216,8 @@ export const MultiUserApp: React.FC = () => {
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
+          totalAircraftSeats={gameState.totalAircraftSeats || 1000}
+          setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
           isAdmin={true}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
@@ -439,8 +439,6 @@ export const MultiUserApp: React.FC = () => {
         <AdminPanel
           numTeams={gameState.teams.length}
           setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
-          rounds={gameState.totalRounds}
-          setRounds={(v) => updateGameSettings({ totalRounds: v })}
           baseDemand={gameState.baseDemand}
           setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
           spread={gameState.spread}
@@ -457,6 +455,8 @@ export const MultiUserApp: React.FC = () => {
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
+          totalAircraftSeats={gameState.totalAircraftSeats || 1000}
+          setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
           isAdmin={isAdmin}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
@@ -711,7 +711,7 @@ export const MultiUserApp: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-slate-400">
-                    Your Fix Seats: {currentTeam.decisions.fixSeatsAllocated !== undefined ? currentTeam.decisions.fixSeatsAllocated : (currentTeam.decisions.fixSeatsPurchased || 0)} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * gameState.totalCapacity)}
+                    Your Fix Seats: {currentTeam.decisions.fixSeatsAllocated !== undefined ? currentTeam.decisions.fixSeatsAllocated : (currentTeam.decisions.fixSeatsPurchased || 0)} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * (gameState.totalAircraftSeats || 1000))}
                   </div>
                 </div>
               ) : (

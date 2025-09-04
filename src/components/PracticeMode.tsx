@@ -24,11 +24,12 @@ type PracticeSettings = {
   demandVolatility: number;
   priceElasticity: number; // negative
   marketConcentration: number;
-  totalCapacity: number;
+  totalAircraftSeats: number;
   fixSeatPrice: number;
   hotelBedCost: number;
   costVolatility: number;
   poolingMarket?: { currentPrice: number };
+  // No more fare classes - simplified to Fix Seats + Pooling only
 };
 
 export function PracticeMode({
@@ -86,7 +87,11 @@ export function PracticeMode({
           {!hasStarted && (
             <div className="space-y-4">
               <div className="text-slate-300 text-sm">
-                Compete against randomly generated AI teams. Rounds start automatically; parameters are randomized.
+                Compete against AI teams with realistic strategies. Practice all game mechanics including:
+                <br/>• Fix Seat allocation and Pooling market usage
+                <br/>• Hotel capacity management and costs
+                <br/>• Dynamic pricing and market share competition
+                <br/>Rounds start automatically; parameters are randomized for each session.
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -97,7 +102,8 @@ export function PracticeMode({
                 <div className="text-sm text-slate-400">
                   Opponents: {teams.length > 0 ? teams.length - 1 : '—'}
                   <br/>Base Demand: {settings?.baseDemand ?? '—'}
-                  <br/>Total Capacity: {settings?.totalCapacity ?? '—'}
+                  <br/>Aircraft Seats: {settings?.totalAircraftSeats ?? '—'}
+                  <br/>Hotel Beds/Team: {settings && teams.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / teams.length) : '—'}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -113,12 +119,31 @@ export function PracticeMode({
 
           {results && (
             <div className="space-y-4">
-              <div className="text-lg font-semibold">Results</div>
+              <div className="text-lg font-semibold">Practice Session Summary</div>
+              
+              {/* Market Overview */}
+              <div className="p-3 bg-slate-700/30 rounded border border-slate-600">
+                <div className="text-sm font-medium text-slate-300 mb-2">Market Conditions</div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
+                  <div>Total Aircraft Seats: {settings?.totalAircraftSeats}</div>
+                  <div>Base Demand: {settings?.baseDemand}</div>
+                  <div>Hotel Beds/Team: {settings && results.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / results.length) : '—'}</div>
+                  <div>Fix Seat Price: €{settings?.fixSeatPrice}</div>
+                </div>
+              </div>
+              
+              {/* Team Results */}
+              <div className="text-lg font-semibold">Team Performance</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {results.map(r => (
                   <div key={r.teamId} className="p-3 bg-slate-700/40 rounded border border-slate-600">
                     <div className="font-medium">{String(r.teamName || r.teamId)}</div>
-                    <div className="text-sm text-slate-300">Sold: {r.sold} | Demand: {r.demand} | Capacity: {r.capacity}</div>
+                    <div className="text-sm text-slate-300">
+                      Sold: {r.sold} | Demand: {r.demand} | Capacity: {r.capacity}
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Price: €{r.avgPrice || r.price} | Market Share: {(r.marketShare * 100).toFixed(1)}%
+                    </div>
                     <div className="text-sm text-green-400">Profit: €{r.profit}</div>
                   </div>
                 ))}
