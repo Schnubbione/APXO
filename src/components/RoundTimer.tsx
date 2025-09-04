@@ -7,47 +7,47 @@ interface RoundTimerProps {
   isActive: boolean;
   onTimeUp: () => void;
   currentPhase?: 'prePurchase' | 'simulation' | 'setup';
+  remainingTime?: number; // in seconds, from server
 }
 
-export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase }: RoundTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(roundTime * 60); // in seconds
+export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase, remainingTime }: RoundTimerProps) {
+  const [timeLeft, setTimeLeft] = useState(remainingTime || roundTime * 60); // in seconds
   const [progress, setProgress] = useState(100);
 
+  // Update time when remainingTime from server changes
   useEffect(() => {
-    // Reset when roundTime changes (e.g., new phase/round)
-    setTimeLeft(roundTime * 60);
-    setProgress(100);
-  }, [roundTime]);
-
-  useEffect(() => {
-    let timer: any = null;
-    if (isActive) {
-      // When (re)activated, ensure timer is aligned with current timeLeft
-      timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            onTimeUp();
-            return 0;
-          }
-          const newTime = prev - 1;
-          setProgress((newTime / (roundTime * 60)) * 100);
-          return newTime;
-        });
-      }, 1000);
+    if (remainingTime !== undefined) {
+      setTimeLeft(remainingTime);
+      setProgress((remainingTime / (roundTime * 60)) * 100);
     }
-    // If deactivated, make sure timer stops immediately
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isActive, onTimeUp, roundTime]);
+  }, [remainingTime, roundTime]);
 
-  // If the phase changes from active to inactive, freeze the clock visually
+  // Reset when roundTime changes (e.g., new phase/round)
   useEffect(() => {
-    if (!isActive) {
-      setProgress((timeLeft / (roundTime * 60)) * 100);
+    if (remainingTime === undefined) {
+      setTimeLeft(roundTime * 60);
+      setProgress(100);
     }
-  }, [isActive, timeLeft, roundTime]);
+  }, [roundTime, remainingTime]);
+
+  // Only run local timer if no server time is available (fallback)
+  useEffect(() => {
+    if (!isActive || remainingTime !== undefined) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          onTimeUp();
+          return 0;
+        }
+        const newTime = prev - 1;
+        setProgress((newTime / (roundTime * 60)) * 100);
+        return newTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isActive, onTimeUp, roundTime, remainingTime]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

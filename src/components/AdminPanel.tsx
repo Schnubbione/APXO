@@ -150,13 +150,13 @@ export default function AdminPanel({
               <CardContent className="space-y-5 p-6">
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Round Time</Label>
-                    <div className="text-xs text-slate-500 mt-1">Slider from 1-30 minutes</div>
+                    <Label className="text-slate-300 text-sm font-medium">Phase Time</Label>
+                    <div className="text-xs text-slate-500 mt-1">Time limit for both Pre-Purchase and Simulation phases (1-30 minutes)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
                   </div>
-                  <div className="text-sm text-slate-400 text-center">{roundTime} minutes</div>
+                  <div className="text-sm text-slate-400 text-center">{roundTime} minutes per phase</div>
                 </div>
 
                 <div className="space-y-3">

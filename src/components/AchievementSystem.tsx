@@ -18,6 +18,7 @@ interface AchievementSystemProps {
   currentTeam: any;
   roundResults: any[];
   leaderboard: any[];
+  gameState: any;
   onPlaySound?: (sound: 'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error') => void;
 }
 
@@ -32,9 +33,11 @@ const ACHIEVEMENT_TYPES = {
   CAPACITY_MASTER: 'capacity_master'
 };
 
-export default function AchievementSystem({ currentTeam, roundResults, leaderboard, onPlaySound }: AchievementSystemProps) {
+export default function AchievementSystem({ currentTeam, roundResults, leaderboard, gameState, onPlaySound }: AchievementSystemProps) {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [showNewAchievement, setShowNewAchievement] = useState<string | null>(null);
+  const [lastRoundChecked, setLastRoundChecked] = useState<number>(0);
+  const [wasActive, setWasActive] = useState<boolean>(false);
 
   // Initialize achievements
   useEffect(() => {
@@ -111,8 +114,25 @@ export default function AchievementSystem({ currentTeam, roundResults, leaderboa
     setAchievements(initialAchievements);
   }, []);
 
-  // Check for achievements when round results change
+  // Check for achievements only at the end of rounds (when isActive changes from true to false)
+  // and only after round 2
   useEffect(() => {
+    if (!currentTeam || !gameState || gameState.currentRound < 2) return;
+
+    const isRoundEnding = wasActive && !gameState.isActive;
+    const isNewRound = gameState.currentRound > lastRoundChecked;
+
+    // Only check achievements when a round ends and it's a new round we haven't checked yet
+    if (isRoundEnding && isNewRound) {
+      setLastRoundChecked(gameState.currentRound);
+      checkAchievements();
+    }
+
+    setWasActive(gameState.isActive);
+  }, [gameState.isActive, gameState.currentRound, currentTeam, wasActive, lastRoundChecked]);
+
+  // Separate function to check achievements
+  const checkAchievements = () => {
     if (!currentTeam || !roundResults.length) return;
 
     const teamResults = roundResults.filter(r => r.teamId === currentTeam.id);
@@ -177,17 +197,18 @@ export default function AchievementSystem({ currentTeam, roundResults, leaderboa
         }
       }
 
-        if (newUnlock) {
-          setShowNewAchievement(newUnlock);
-          onPlaySound?.('achievement');
-          setTimeout(() => setShowNewAchievement(null), 3000);
-        }      return updated;
+      if (newUnlock) {
+        setShowNewAchievement(newUnlock);
+        onPlaySound?.('achievement');
+        setTimeout(() => setShowNewAchievement(null), 3000);
+      }
+      return updated;
     });
-  }, [roundResults, currentTeam]);
+  };
 
-  // Check Market Leader
+  // Check Market Leader only after round 2 and when leaderboard changes
   useEffect(() => {
-    if (!leaderboard.length || !currentTeam) return;
+    if (!leaderboard.length || !currentTeam || !gameState || gameState.currentRound < 2) return;
 
     const isLeader = leaderboard[0]?.name === currentTeam.name;
     if (isLeader) {
@@ -203,7 +224,7 @@ export default function AchievementSystem({ currentTeam, roundResults, leaderboa
         return updated;
       });
     }
-  }, [leaderboard, currentTeam]);
+  }, [leaderboard, currentTeam, gameState?.currentRound]);
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -217,6 +238,31 @@ export default function AchievementSystem({ currentTeam, roundResults, leaderboa
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
   const totalCount = achievements.length;
+
+  // Don't show achievements until round 2
+  if (!gameState || gameState.currentRound < 2) {
+    return (
+      <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-xl text-white">
+            <div className="p-2 bg-yellow-500/20 rounded-lg">
+              <Trophy className="w-5 h-5 text-yellow-400" />
+            </div>
+            Achievements
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <div className="text-slate-400 text-lg font-medium mb-2">Achievements Available Soon</div>
+            <div className="text-slate-500 text-sm">
+              Complete Round 2 to unlock the achievement system and start earning rewards!
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>

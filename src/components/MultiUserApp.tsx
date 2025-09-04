@@ -213,7 +213,7 @@ export const MultiUserApp: React.FC = () => {
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
           roundTime={roundTimeMinutes}
-          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
+          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60, phaseTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
@@ -235,6 +235,7 @@ export const MultiUserApp: React.FC = () => {
           isActive={gameState.isActive}
           onTimeUp={endRound}
           currentPhase={gameState.currentPhase}
+          remainingTime={gameState.remainingTime}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -432,6 +433,7 @@ export const MultiUserApp: React.FC = () => {
           isActive={gameState.isActive}
           onTimeUp={() => {}}
           currentPhase={gameState.currentPhase}
+          remainingTime={gameState.remainingTime}
         />
 
         <AdminPanel
@@ -450,7 +452,7 @@ export const MultiUserApp: React.FC = () => {
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
           roundTime={roundTimeMinutes}
-          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
+          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60, phaseTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
@@ -709,7 +711,7 @@ export const MultiUserApp: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-slate-400">
-                    Your Fix Seats: {currentTeam.decisions.fixSeatsPurchased || 0} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * gameState.totalCapacity)}
+                    Your Fix Seats: {currentTeam.decisions.fixSeatsAllocated !== undefined ? currentTeam.decisions.fixSeatsAllocated : (currentTeam.decisions.fixSeatsPurchased || 0)} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * gameState.totalCapacity)}
                   </div>
                 </div>
               ) : (
@@ -827,6 +829,7 @@ export const MultiUserApp: React.FC = () => {
             currentTeam={currentTeam}
             roundResults={roundResults || []}
             leaderboard={leaderboard || []}
+            gameState={gameState}
             onPlaySound={setSoundEffect}
           />
 

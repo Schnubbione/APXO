@@ -81,6 +81,12 @@ export class GameService {
         throw new Error('Team name is too long (max 64 characters).');
       }
 
+      // Check if a round is currently active
+      const session = await this.getCurrentGameSession();
+      if (session.isActive) {
+        throw new Error('Cannot join the game while a round is in progress. Please wait for the current round to end.');
+      }
+
       // Check if any team with this name exists (active or inactive)
       const anyTeamWithName = await Team.findOne({ where: { name: normalizedName } });
 
@@ -119,7 +125,6 @@ export class GameService {
       }
 
     // No existing team with that name -> create fresh
-    const session = await this.getCurrentGameSession();
     const perTeamHotel = session.settings?.hotelCapacityAssigned ? (session.settings.hotelCapacityPerTeam || 0) : 0;
       const team = await Team.create({
         socketId,
@@ -707,6 +712,8 @@ export class GameService {
       throw new Error('Failed to reset current game');
     }
   }
+
+
 }
 
 export default GameService;

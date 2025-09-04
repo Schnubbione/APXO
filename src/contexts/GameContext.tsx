@@ -58,6 +58,8 @@ interface GameState {
   hotelBedCost?: number;
   hotelCapacityAssigned?: boolean;
   hotelCapacityPerTeam?: number;
+  // Round timer
+  remainingTime?: number;
 }
 
 interface RoundResult {
@@ -105,7 +107,6 @@ interface GameContextType {
   startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
   startPrePurchasePhase: () => void;
   startSimulationPhase: () => void;
-  startRound: () => void;
   endRound: () => void;
   getLeaderboard: () => void;
   getAnalytics: () => void;
@@ -165,7 +166,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Hotel defaults in initial state (will be overwritten by server)
   hotelBedCost: 50,
   hotelCapacityAssigned: false,
-  hotelCapacityPerTeam: 0
+  hotelCapacityPerTeam: 0,
+  // Round timer
+  remainingTime: 0
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -441,10 +444,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('startSimulationPhase');
   };
 
-  const startRound = () => {
-    socket?.emit('startRound');
-  };
-
   const endRound = () => {
     socket?.emit('endRound');
   };
@@ -536,7 +535,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   startPracticeMode,
     startPrePurchasePhase,
     startSimulationPhase,
-    startRound,
     endRound,
     getLeaderboard,
     getAnalytics,

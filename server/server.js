@@ -126,6 +126,8 @@ async function initializeServer() {
 let currentGameState = null;
 let adminSocket = null;
 let poolingMarketInterval = null; // For periodic pooling market updates
+let roundTimerInterval = null; // For round timer countdown
+let remainingTime = 0; // Remaining time in seconds
 
 // Start periodic pooling market updates
 function startPoolingMarketUpdates() {
@@ -162,6 +164,142 @@ function stopPoolingMarketUpdates() {
     clearInterval(poolingMarketInterval);
     poolingMarketInterval = null;
     console.log('🏊 Pooling market updates stopped');
+  }
+}
+
+// Start round timer countdown
+function startRoundTimer() {
+  // Clear any existing timer
+  if (roundTimerInterval) {
+    clearInterval(roundTimerInterval);
+  }
+
+  // Get current session and settings
+  const session = GameService.currentGameSession;
+  if (!session) {
+    console.error('No active session found for timer');
+    return;
+  }
+
+  const settings = session.settings || {};
+  const currentPhase = settings.currentPhase;
+
+  // Get phase time from settings (default to 10 minutes for pre-purchase, 5 minutes for simulation)
+  let roundTime;
+  if (currentPhase === 'prePurchase') {
+    roundTime = settings.phaseTime || 600; // 10 minutes default
+  } else if (currentPhase === 'simulation') {
+    roundTime = settings.phaseTime || 300; // 5 minutes default
+  } else {
+    roundTime = 300; // Fallback
+  }
+
+  remainingTime = roundTime;
+
+  // Update timer every second
+  roundTimerInterval = setInterval(async () => {
+    try {
+      remainingTime = Math.max(0, remainingTime - 1);
+
+      // Broadcast updated time to all clients
+      await broadcastGameState();
+
+      // If time is up, automatically end the phase
+      if (remainingTime <= 0) {
+        console.log(`⏰ ${currentPhase} phase time is up! Auto-ending phase...`);
+        await autoEndCurrentPhase();
+      }
+    } catch (error) {
+      console.error('Error updating round timer:', error);
+    }
+  }, 1000);
+
+  console.log(`⏰ ${currentPhase} phase timer started (${roundTime} seconds)`);
+}
+
+// Stop round timer
+function stopRoundTimer() {
+  if (roundTimerInterval) {
+    clearInterval(roundTimerInterval);
+    roundTimerInterval = null;
+    console.log('⏰ Round timer stopped');
+  }
+}
+
+// Auto-end current phase when timer runs out
+async function autoEndCurrentPhase() {
+  try {
+    const session = await GameService.getCurrentGameSession();
+
+    // Validate that a phase is actually running
+    if (!session.isActive) {
+      console.log('No active phase to auto-end');
+      stopRoundTimer();
+      return;
+    }
+
+    const currentPhase = session.settings?.currentPhase;
+    console.log(`🔄 Auto-ending ${currentPhase} phase...`);
+
+    // Handle different phase endings
+    if (currentPhase === 'prePurchase') {
+      // End of Pre-Purchase Phase: Allocate fix seats
+      console.log('🎯 Auto-allocating fix seats at end of pre-purchase phase...');
+      const allocationResult = await GameService.allocateFixSeats();
+
+      // Broadcast allocation results to all clients
+      io.emit('fixSeatsAllocated', allocationResult);
+      console.log('✅ Fix seats auto-allocation completed');
+    } else if (currentPhase === 'simulation') {
+      // End of Simulation Phase: Final evaluation and achievements
+      console.log('🏆 Auto-ending simulation phase - evaluating final results and achievements...');
+
+      // Broadcast final phase completion
+      io.emit('finalPhaseCompleted', {
+        message: 'Simulation phase completed! Achievements will be evaluated.',
+        phaseNumber: 2
+      });
+    }
+
+    // End the current phase
+    await GameService.endPhase();
+
+    // Calculate and save results if this is the simulation phase
+    if (currentPhase === 'simulation') {
+      const roundResults = await GameService.endRound(calculateRoundResults);
+      const updatedSession = await GameService.getCurrentGameSession();
+
+      io.emit('roundEnded', {
+        roundResults,
+        phaseNumber: 2,
+        isFinalPhase: true
+      });
+
+      console.log(`Simulation phase auto-ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+    } else {
+      // For pre-purchase phase, just broadcast phase ended
+      io.emit('phaseEnded', {
+        phaseNumber: 1,
+        isFinalPhase: false
+      });
+    }
+
+    await broadcastGameState();
+
+    // Stop pooling market updates when phase ends
+    stopPoolingMarketUpdates();
+
+    // Stop round timer
+    stopRoundTimer();
+
+    // Additional logging for phase completion
+    if (currentPhase === 'simulation') {
+      console.log('🎉 Game auto-completed! All phases finished.');
+    }
+
+  } catch (error) {
+    console.error('Error auto-ending phase:', error);
+    stopRoundTimer();
   }
 }
 
@@ -221,6 +359,7 @@ async function broadcastGameState() {
         currentRound: gameSession.currentRound,
         totalRounds: gameSession.totalRounds,
   isActive: gameSession.isActive,
+  remainingTime: remainingTime,
   ...sanitizeSettings(gameSession.settings),
         fares: [
           { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
@@ -289,6 +428,7 @@ io.on('connection', async (socket) => {
       currentRound: gameSession.currentRound,
       totalRounds: gameSession.totalRounds,
   isActive: gameSession.isActive,
+  remainingTime: remainingTime,
   ...sanitizeSettings(gameSession.settings),
       fares: [
         { code: 'F', label: 'Fix', cost: 60, demandFactor: 1.2 },
@@ -507,20 +647,7 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Start round (admin only)
-  socket.on('startRound', async () => {
-    if (socket.id === adminSocket) {
-      try {
-        const newRound = await GameService.startRound();
-        io.emit('roundStarted', newRound);
-        await broadcastGameState();
-        console.log(`Round ${newRound} started`);
-      } catch (error) {
-        console.error('Error starting round:', error);
-        socket.emit('error', 'Failed to start round');
-      }
-    }
-  });
+
 
   // End round (admin only)
   socket.on('endRound', async () => {
@@ -528,29 +655,76 @@ io.on('connection', async (socket) => {
       try {
         const session = await GameService.getCurrentGameSession();
 
-        // If this is the first round and fix seats haven't been allocated yet, allocate them now
-        if (session.currentRound === 0 && !(session.settings?.fixSeatsAllocated)) {
-          console.log('🎯 Allocating fix seats at end of first round...');
+        // Validate that a phase is actually running
+        if (!session.isActive) {
+          socket.emit('error', 'No active phase to end');
+          return;
+        }
+
+        const currentPhase = session.settings?.currentPhase;
+
+        // Handle different phase endings
+        if (currentPhase === 'prePurchase') {
+          // End of Pre-Purchase Phase: Allocate fix seats
+          console.log('🎯 Allocating fix seats at end of pre-purchase phase...');
           const allocationResult = await GameService.allocateFixSeats();
 
           // Broadcast allocation results to all clients
           io.emit('fixSeatsAllocated', allocationResult);
           console.log('✅ Fix seats allocation completed');
+        } else if (currentPhase === 'simulation') {
+          // End of Simulation Phase: Final evaluation and achievements
+          console.log('🏆 Simulation phase ended - evaluating final results and achievements...');
+
+          // Broadcast final phase completion
+          io.emit('finalPhaseCompleted', {
+            message: 'Simulation phase completed! Achievements will be evaluated.',
+            phaseNumber: 2
+          });
         }
 
-        const roundResults = await GameService.endRound(calculateRoundResults);
-        const updatedSession = await GameService.getCurrentGameSession();
+        // End the current phase
+        await GameService.endPhase();
 
-        io.emit('roundEnded', { roundResults, roundNumber: updatedSession.currentRound });
+        // Calculate and save results if this is the simulation phase
+        if (currentPhase === 'simulation') {
+          const roundResults = await GameService.endRound(calculateRoundResults);
+          const updatedSession = await GameService.getCurrentGameSession();
+
+          io.emit('roundEnded', {
+            roundResults,
+            phaseNumber: 2,
+            isFinalPhase: true
+          });
+
+          console.log(`Simulation phase ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+        } else {
+          // For pre-purchase phase, just broadcast phase ended
+          io.emit('phaseEnded', {
+            phaseNumber: 1,
+            isFinalPhase: false
+          });
+        }
+
         await broadcastGameState();
-        console.log(`Round ${updatedSession.currentRound} ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
 
-        // Stop pooling market updates when round ends
+        // Stop pooling market updates when phase ends
         stopPoolingMarketUpdates();
+
+        // Stop round timer when phase ends
+        stopRoundTimer();
+
+        // Additional logging for phase completion
+        if (currentPhase === 'simulation') {
+          console.log('🎉 Game completed! All phases finished.');
+        }
+
       } catch (error) {
-        console.error('Error ending round:', error);
-        socket.emit('error', 'Failed to end round');
+        console.error('Error ending phase:', error);
+        socket.emit('error', `Failed to end phase: ${error.message}`);
       }
+    } else {
+      socket.emit('error', 'Unauthorized: Admin access required');
     }
   });
 
@@ -562,6 +736,9 @@ io.on('connection', async (socket) => {
         io.emit('phaseStarted', 'prePurchase');
         await broadcastGameState();
         console.log('Pre-purchase phase started');
+
+        // Start round timer
+        startRoundTimer();
       } catch (error) {
         console.error('Error starting pre-purchase phase:', error);
         socket.emit('error', 'Failed to start pre-purchase phase');
@@ -580,6 +757,9 @@ io.on('connection', async (socket) => {
 
         // Start pooling market updates
         startPoolingMarketUpdates();
+
+        // Start round timer
+        startRoundTimer();
       } catch (error) {
         console.error('Error starting simulation phase:', error);
         socket.emit('error', 'Failed to start simulation phase');
@@ -598,6 +778,9 @@ io.on('connection', async (socket) => {
 
         // Stop pooling market updates when phase ends
         stopPoolingMarketUpdates();
+
+        // Stop round timer when phase ends
+        stopRoundTimer();
       } catch (error) {
         console.error('Error ending phase:', error);
         socket.emit('error', 'Failed to end phase');
