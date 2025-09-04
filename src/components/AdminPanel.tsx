@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award, AlertTriangle, LogOut } from "lucide-react";
-import { useGame } from '../contexts/GameContext';
+import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award, AlertTriangle } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -64,7 +63,6 @@ export default function AdminPanel({
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, onGetAnalytics, onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
-  const { logoutAsAdmin } = useGame();
   const [activeTab, setActiveTab] = useState("settings");
 
   // Load analytics data when analytics tab is selected
@@ -104,18 +102,6 @@ export default function AdminPanel({
         <CardHeader className="sticky top-0 z-10 pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
           <CardTitle className="text-lg sm:text-xl text-white font-bold">Admin Panel</CardTitle>
           <div className="absolute top-3 right-3 flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                logoutAsAdmin();
-                setShowAdminPanel(false);
-              }}
-              className="h-8 w-8 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
-              title="Logout as Admin"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
             <Button
               variant="ghost"
               size="sm"
