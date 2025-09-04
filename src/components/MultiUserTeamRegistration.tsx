@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Users, Lightbulb } from 'lucide-react';
 
 export const TeamRegistration: React.FC = () => {
-  const { registerTeam, gameState, registrationError } = useGame();
+  const { registerTeam, gameState, registrationError, startTutorial } = useGame();
   const [teamName, setTeamName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -21,6 +21,10 @@ export const TeamRegistration: React.FC = () => {
   const handleBackToTutorial = () => {
     // Return to the intro Tutorial screen
     window.location.reload();
+  };
+
+  const handleStartTour = () => {
+    startTutorial();
   };
 
   const isRoundActive = gameState.isActive;
@@ -79,6 +83,15 @@ export const TeamRegistration: React.FC = () => {
             </Button>
 
             <div className="flex gap-3">
+              <Button
+                type="button"
+                onClick={handleStartTour}
+                variant="outline"
+                className="flex-1 bg-gradient-to-r from-green-500/20 to-emerald-600/20 border-green-500/50 text-green-300 hover:bg-green-500/30 hover:text-green-200 font-medium min-h-[44px] rounded-xl transition-all duration-200"
+              >
+                <Lightbulb className="w-4 h-4 mr-2" />
+                Take Tour
+              </Button>
               <Button
                 type="button"
                 onClick={handleBackToTutorial}

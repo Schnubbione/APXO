@@ -18,7 +18,7 @@ export class GameService {
         // Create new session if none exists
         session = await GameSession.create({
           currentRound: 0,
-          totalRounds: 5,
+          totalRounds: 5, // Default value, can be updated via admin panel
           isActive: false,
           settings: {
             baseDemand: 100,
@@ -238,7 +238,16 @@ export class GameService {
     const currentSettings = session.settings || {};
     const updatedSettings = { ...currentSettings, ...settings };
 
-    await session.update({ settings: updatedSettings });
+    // If totalRounds is being updated, also update the session's totalRounds field
+    if (settings.totalRounds !== undefined && settings.totalRounds !== session.totalRounds) {
+      await session.update({
+        settings: updatedSettings,
+        totalRounds: settings.totalRounds
+      });
+    } else {
+      await session.update({ settings: updatedSettings });
+    }
+
     return session;
   }
 
@@ -332,10 +341,31 @@ export class GameService {
       }
     }
 
-    // Mark session as inactive
-    await session.update({ isActive: false });
+    // Increment round number
+    const nextRound = session.currentRound + 1;
+    const isGameComplete = nextRound >= session.totalRounds;
 
-    return savedResults;
+    // Update session: increment round or mark as complete
+    if (isGameComplete) {
+      await session.update({
+        currentRound: nextRound,
+        isActive: false
+      });
+      console.log(`🎉 Game completed! All ${session.totalRounds} rounds finished.`);
+    } else {
+      await session.update({
+        currentRound: nextRound,
+        isActive: false
+      });
+      console.log(`Round ${session.currentRound} completed. Moving to round ${nextRound}/${session.totalRounds}.`);
+    }
+
+    return {
+      ...savedResults,
+      isGameComplete,
+      currentRound: nextRound,
+      totalRounds: session.totalRounds
+    };
   }
 
   // Get analytics data

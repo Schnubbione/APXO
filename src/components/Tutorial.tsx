@@ -5,10 +5,9 @@ import { MapPin, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-reac
 
 interface TutorialProps {
   onStart: () => void;
-  onStartTour?: () => void;
 }
 
-export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
+export default function Tutorial({ onStart }: TutorialProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
@@ -134,18 +133,6 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                   Start Simulation
                 </span>
               </Button>
-              {onStartTour && (
-                <Button
-                  onClick={onStartTour}
-                  variant="outline"
-                  className="bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-semibold text-lg px-8 py-4 rounded-xl shadow-lg transition-all duration-200 min-h-[56px]"
-                >
-                  <span className="flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5" />
-                    Take Tour
-                  </span>
-                </Button>
-              )}
             </div>
           </div>
         </CardContent>

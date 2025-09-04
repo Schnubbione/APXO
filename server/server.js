@@ -688,16 +688,24 @@ io.on('connection', async (socket) => {
 
         // Calculate and save results if this is the simulation phase
         if (currentPhase === 'simulation') {
-          const roundResults = await GameService.endRound(calculateRoundResults);
+          const roundResult = await GameService.endRound(calculateRoundResults);
           const updatedSession = await GameService.getCurrentGameSession();
 
           io.emit('roundEnded', {
-            roundResults,
+            roundResults: roundResult,
             phaseNumber: 2,
-            isFinalPhase: true
+            isFinalPhase: roundResult.isGameComplete,
+            currentRound: roundResult.currentRound,
+            totalRounds: roundResult.totalRounds,
+            isGameComplete: roundResult.isGameComplete
           });
 
-          console.log(`Simulation phase ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+          console.log(`Simulation phase ended with ${roundResult.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+          if (roundResult.isGameComplete) {
+            console.log(`🎉 Game completed! All ${roundResult.totalRounds} rounds finished.`);
+          } else {
+            console.log(`Round ${roundResult.currentRound - 1}/${roundResult.totalRounds} completed.`);
+          }
         } else {
           // For pre-purchase phase, just broadcast phase ended
           io.emit('phaseEnded', {
