@@ -2,15 +2,13 @@
 import '@testing-library/jest-dom';
 
 // Mock für import.meta
-Object.defineProperty(globalThis, 'import', {
-  value: {
-    meta: {
-      env: {
-        VITE_SERVER_URL: 'http://localhost:3001'
-      }
+(globalThis as any).import = {
+  meta: {
+    env: {
+      VITE_SERVER_URL: 'http://localhost:3001'
     }
   }
-});
+};
 
 // Mock für Socket.IO
 jest.mock('socket.io-client', () => ({

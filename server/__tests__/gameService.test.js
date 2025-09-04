@@ -1,5 +1,5 @@
-const { GameService } = require('../gameService.js');
-const { Team, GameSession, RoundResult, HighScore } = require('../models.js');
+import { GameService } from '../gameService.js';
+import { Team, GameSession, RoundResult, HighScore } from '../models.js';
 
 // Mock the models
 jest.mock('../models.js', () => ({
@@ -119,7 +119,7 @@ describe('GameService', () => {
     });
   });
 
-  describe('createTeam', () => {
+  describe('registerTeam', () => {
     test('should create a new team', async () => {
       const mockSession = { id: 1 };
       const mockTeam = {
@@ -138,30 +138,31 @@ describe('GameService', () => {
       GameService.currentGameSession = mockSession;
       Team.create.mockResolvedValue(mockTeam);
 
-      const team = await GameService.createTeam('Test Team');
+      const team = await GameService.registerTeam('socket123', 'Test Team');
 
       expect(Team.create).toHaveBeenCalledWith({
+        socketId: 'socket123',
         name: 'Test Team',
-        sessionId: 1,
         decisions: {
           price: 199,
           fixSeatsPurchased: 0,
-          fixSeatsAllocated: 0,
-          poolingAllocation: 0
+          poolingAllocation: 0,
+          hotelCapacity: 0
         },
         totalProfit: 0
       });
       expect(team).toBe(mockTeam);
     });
 
-    test('should throw error if no current session', async () => {
-      GameService.currentGameSession = null;
+    test('should throw error if round is in progress', async () => {
+      const mockSession = { id: 1, isActive: true };
+      GameService.currentGameSession = mockSession;
 
-      await expect(GameService.createTeam('Test Team')).rejects.toThrow('No active game session');
+      await expect(GameService.registerTeam('socket123', 'Test Team')).rejects.toThrow('Cannot join the game while a round is in progress');
     });
   });
 
-  describe('getTeamsForSession', () => {
+  describe('getActiveTeams', () => {
     test('should return teams for current session', async () => {
       const mockSession = { id: 1 };
       const mockTeams = [
@@ -172,49 +173,63 @@ describe('GameService', () => {
       GameService.currentGameSession = mockSession;
       Team.findAll.mockResolvedValue(mockTeams);
 
-      const teams = await GameService.getTeamsForSession();
+      const teams = await GameService.getActiveTeams();
 
       expect(Team.findAll).toHaveBeenCalledWith({
-        where: { sessionId: 1 }
+        where: { isActive: true },
+        include: [{
+          model: RoundResult,
+          where: { gameSessionId: 1 },
+          required: false
+        }]
       });
       expect(teams).toBe(mockTeams);
     });
 
-    test('should throw error if no current session', async () => {
-      GameService.currentGameSession = null;
+    test('should handle case when no session exists by creating one', async () => {
+      const mockSession = { id: 1 };
+      const mockTeams = [
+        { id: 1, name: 'Team 1', sessionId: 1 },
+        { id: 2, name: 'Team 2', sessionId: 1 }
+      ];
 
-      await expect(GameService.getTeamsForSession()).rejects.toThrow('No active game session');
+      GameService.currentGameSession = null;
+      GameSession.findOne.mockResolvedValue(null);
+      GameSession.create.mockResolvedValue(mockSession);
+      Team.findAll.mockResolvedValue(mockTeams);
+
+      const teams = await GameService.getActiveTeams();
+
+      expect(GameSession.findOne).toHaveBeenCalledWith({
+        where: { isActive: true },
+        order: [['updatedAt', 'DESC']]
+      });
+      expect(GameSession.create).toHaveBeenCalled();
+      expect(teams).toBe(mockTeams);
     });
   });
 
-  describe('updateTeamDecision', () => {
-    test('should update team decision', async () => {
+  describe('removeTeam', () => {
+    test('should deactivate team when user disconnects', async () => {
       const mockTeam = {
         id: 1,
-        decisions: { price: 199, fixSeatsPurchased: 0, fixSeatsAllocated: 0, poolingAllocation: 0 },
+        name: 'Test Team',
         update: jest.fn().mockResolvedValue(true)
       };
 
       Team.findOne.mockResolvedValue(mockTeam);
 
-      const decision = { price: 250, fixSeatsPurchased: 10, poolingAllocation: 30 };
-      const result = await GameService.updateTeamDecision(1, decision);
+      await GameService.removeTeam('socket123');
 
-      expect(Team.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
-      expect(mockTeam.update).toHaveBeenCalledWith({
-        decisions: {
-          price: 250,
-          fixSeatsPurchased: 10,
-          poolingAllocation: 30
-        }
-      });
-      expect(result).toBe(true);
+      expect(Team.findOne).toHaveBeenCalledWith({ where: { socketId: 'socket123' } });
+      expect(mockTeam.update).toHaveBeenCalledWith({ isActive: false });
     });
 
-    test('should throw error if team not found', async () => {
+    test('should handle team not found gracefully', async () => {
       Team.findOne.mockResolvedValue(null);
 
-      await expect(GameService.updateTeamDecision(1, { price: 250 })).rejects.toThrow('Team not found');
+      // Should not throw error
+      await expect(GameService.removeTeam('socket123')).resolves.not.toThrow();
     });
   });
 });
