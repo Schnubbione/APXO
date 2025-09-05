@@ -105,6 +105,19 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [roundResults, getLeaderboard]);
 
+  // Warn before leaving page while a game is active
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (gameState.isActive) {
+        e.preventDefault();
+        e.returnValue = 'A game is currently running. If you leave now, you cannot rejoin until it ends. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [gameState.isActive]);
+
   // Reset tutorial when not active
   useEffect(() => {
     if (!tutorialActive && tutorialStep !== 0) {
@@ -413,7 +426,7 @@ export const MultiUserApp: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         {/* Top-right: connection badge, actions */}
-        <div className="fixed top-4 right-4 z-40 flex gap-2 items-center">
+  <div className="fixed top-4 right-4 z-40 flex gap-2 items-center">
           <div className={`px-2 py-1 rounded text-xs font-medium ${isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isReconnecting ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
             {isConnected ? 'Connected' : (isReconnecting ? 'Reconnecting…' : 'Offline')}
           </div>
@@ -436,6 +449,7 @@ export const MultiUserApp: React.FC = () => {
               Admin Login
             </Button>
           )}
+          {/* Team logout button */}
           <Button
             variant="outline"
             size="sm"
@@ -445,6 +459,7 @@ export const MultiUserApp: React.FC = () => {
           >
             Practice Mode
           </Button>
+          <TeamLogoutButton />
         </div>
 
         <RoundTimer
@@ -912,3 +927,20 @@ export const MultiUserApp: React.FC = () => {
 };
 
 export default MultiUserApp;
+
+// Small helper component for team logout to access context cleanly
+function TeamLogoutButton() {
+  const { currentTeam, logoutTeam } = useGame();
+  if (!currentTeam) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => logoutTeam()}
+      className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm"
+      title="Logout"
+    >
+      Logout
+    </Button>
+  );
+}

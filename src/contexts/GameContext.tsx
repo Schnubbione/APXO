@@ -119,6 +119,7 @@ interface GameContextType {
   getAnalytics: () => void;
   resetAllData: () => void;
   resetCurrentGame: () => void;
+  logoutTeam: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -202,7 +203,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const newSocket = io(serverUrl);
+  const newSocket = io(serverUrl);
     setSocket(newSocket);
 
     console.log('Connecting to server:', serverUrl);
@@ -211,6 +212,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsConnected(true);
       setIsReconnecting(false);
       console.log('Connected to server');
+
+      // Try to resume existing session using stored token
+      const token = localStorage.getItem('apxo_resume_token');
+      if (token) {
+        newSocket.emit('resumeTeam', token, (res: any) => {
+          if (res?.ok && res.team) {
+            setCurrentTeam(res.team);
+          }
+        });
+      }
     });
 
     newSocket.on('disconnect', () => {
@@ -273,6 +284,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Team registered:', team);
       setCurrentTeam(team);
       setRegistrationError(null); // Clear any previous error
+    });
+
+    // Receive resume token and persist it
+    newSocket.on('resumeToken', (token: string) => {
+      if (token) localStorage.setItem('apxo_resume_token', token);
     });
 
     // Listen for registration error
@@ -389,6 +405,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAdminLoginError(null);
     // Navigate back to team registration by reloading the page
     window.location.reload();
+  };
+
+  // Explicit team logout (user-initiated)
+  const logoutTeam = () => {
+    socket?.emit('logoutTeam', () => {
+      // Clear local token regardless of result
+      localStorage.removeItem('apxo_resume_token');
+      setCurrentTeam(null);
+      // Optional: navigate to registration view
+      window.location.reload();
+    });
   };
 
   const updateGameSettings = (settings: Partial<GameState>) => {
@@ -568,7 +595,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getLeaderboard,
     getAnalytics,
     resetAllData,
-    resetCurrentGame
+  resetCurrentGame,
+  logoutTeam
   };
 
   return (

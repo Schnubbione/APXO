@@ -154,9 +154,15 @@ export class GameService {
           console.warn('Warning cleaning old round results for reactivated team:', e?.message || e);
         }
 
+        // Generate a new resume token for this session
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+
+        const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
         await anyTeamWithName.update({
           socketId,
           isActive: true,
+          resumeToken: token,
+          resumeUntil,
           decisions: defaultDecisions,
           totalProfit: 0
         });
@@ -166,9 +172,13 @@ export class GameService {
 
     // No existing team with that name -> create fresh
     const perTeamHotel = session.settings?.hotelCapacityAssigned ? (session.settings.hotelCapacityPerTeam || 0) : 0;
+      const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
       const team = await Team.create({
         socketId,
         name: normalizedName,
+        resumeToken: token,
+        resumeUntil,
         decisions: {
           price: 199,
           fixSeatsPurchased: 0,
@@ -186,6 +196,24 @@ export class GameService {
       }
       throw error;
     }
+  }
+
+  // Resume an existing team using a resume token
+  static async resumeTeam(socketId, token) {
+    if (!token) return null;
+    const team = await Team.findOne({ where: { resumeToken: token } });
+    if (!team) return null;
+  const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
+  await team.update({ socketId, isActive: true, resumeUntil });
+    return team;
+  }
+
+  // Explicit logout: prevent resume by clearing token until next registration
+  static async logoutTeam(socketId) {
+    const team = await Team.findOne({ where: { socketId } });
+    if (!team) return null;
+    await team.update({ isActive: false, socketId: null, resumeToken: null });
+    return team;
   }
 
     // Allocate fix seats at end of first round

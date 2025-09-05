@@ -17,6 +17,15 @@ export const Team = sequelize.define('Team', {
     allowNull: false,
     unique: true
   },
+  resumeToken: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true
+  },
+  resumeUntil: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   decisions: {
     type: DataTypes.JSON,
     defaultValue: {

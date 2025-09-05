@@ -452,12 +452,15 @@ io.on('connection', async (socket) => {
     try {
       const team = await GameService.registerTeam(socket.id, teamName);
 
-      socket.emit('registrationSuccess', {
+  socket.emit('registrationSuccess', {
         id: team.id,
         name: team.name,
         decisions: team.decisions,
         totalProfit: team.totalProfit
       });
+
+  // Share resume token privately
+  socket.emit('resumeToken', team.resumeToken);
 
       // Broadcast updated game state to all clients
       await broadcastGameState();
@@ -465,6 +468,33 @@ io.on('connection', async (socket) => {
       console.log(`Team registered: ${teamName}`);
     } catch (error) {
       socket.emit('registrationError', error.message);
+    }
+  });
+
+  // Resume team by token
+  socket.on('resumeTeam', async (token, ack) => {
+    try {
+      const team = await GameService.resumeTeam(socket.id, token);
+      if (!team) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Invalid or expired session token.' });
+        return;
+      }
+      // On successful resume, send current personalized game state
+      await broadcastGameState();
+      if (typeof ack === 'function') ack({ ok: true, team: { id: team.id, name: team.name, decisions: team.decisions, totalProfit: team.totalProfit } });
+    } catch (e) {
+      console.error('Error resuming team:', e);
+      if (typeof ack === 'function') ack({ ok: false, error: 'Failed to resume team' });
+    }
+  });
+
+  // Explicit logout
+  socket.on('logoutTeam', async (ack) => {
+    try {
+      const team = await GameService.logoutTeam(socket.id);
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (e) {
+      if (typeof ack === 'function') ack({ ok: false });
     }
   });
 
@@ -917,8 +947,13 @@ io.on('connection', async (socket) => {
     console.log('User disconnected:', socket.id);
 
     try {
-      // Remove team from database if they disconnect
-      await GameService.removeTeam(socket.id);
+      // Do not delete or deactivate the team on disconnect; keep them resumable
+      // Just clear the socketId so the slot can be reused on resume
+      const teams = await GameService.getActiveTeams();
+      const t = teams.find(t => t.socketId === socket.id);
+      if (t) {
+        await t.update({ socketId: null });
+      }
 
       // Clear admin socket if admin disconnects
       if (adminSocket === socket.id) {
