@@ -41,6 +41,16 @@ interface AdminPanelProps {
   setSimulatedWeeksPerUpdate: (value: number) => void;
   totalAircraftSeats: number;
   setTotalAircraftSeats: (value: number) => void;
+  demandVolatility?: number;
+  setDemandVolatility?: (value: number) => void;
+  priceElasticity?: number;
+  setPriceElasticity?: (value: number) => void;
+  marketConcentration?: number;
+  setMarketConcentration?: (value: number) => void;
+  costVolatility?: number;
+  setCostVolatility?: (value: number) => void;
+  crossElasticity?: number;
+  setCrossElasticity?: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
@@ -55,12 +65,17 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({
-  numTeams, setNumTeams, baseDemand, setBaseDemand,
+  baseDemand, setBaseDemand,
   spread, setSpread, shock, setShock, sharedMarket, setSharedMarket,
   seed, setSeed, roundTime, setRoundTime,
   poolingMarketUpdateInterval, setPoolingMarketUpdateInterval,
   simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
   totalAircraftSeats, setTotalAircraftSeats,
+  demandVolatility, setDemandVolatility,
+  priceElasticity, setPriceElasticity,
+  marketConcentration, setMarketConcentration,
+  costVolatility, setCostVolatility,
+  crossElasticity, setCrossElasticity,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, onGetAnalytics,
   onResetAllData, onResetCurrentGame
@@ -167,6 +182,180 @@ export default function AdminPanel({
                     <Slider value={[simulatedWeeksPerUpdate]} onValueChange={([v]) => setSimulatedWeeksPerUpdate(v)} min={1} max={7} step={1} className="w-full" />
                   </div>
                   <div className="text-sm text-slate-400 text-center">{simulatedWeeksPerUpdate} day{simulatedWeeksPerUpdate !== 1 ? 's' : ''}</div>
+                </div>
+
+                {/* Market Simulation Parameters */}
+                <div className="pt-2 border-t border-slate-700/50" />
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Market Size (Total Aircraft Seats)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Overall capacity baseline for the market</div>
+                  </div>
+                  <Input
+                    type="number"
+                    value={totalAircraftSeats === 0 ? '' : (totalAircraftSeats || '')}
+                    onChange={e => {
+                      const v = e.target.value;
+                      const n = v === '' ? 0 : parseInt(v || '0');
+                      setTotalAircraftSeats(n);
+                    }}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                  />
+                </div>
+
+                {/* Quick Actions */}
+                <div className="mt-6 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-slate-300 text-sm font-semibold mb-2">Quick Actions</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
+                      onClick={() => {
+                        // Helpers
+                        const irnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+                        const rr = (min: number, max: number, digits = 2) => Number((Math.random() * (max - min) + min).toFixed(digits));
+
+                        setTotalAircraftSeats(irnd(600, 1400));
+                        setBaseDemand(irnd(80, 240));
+                        setDemandVolatility && setDemandVolatility(rr(0.05, 0.2));
+                        setPriceElasticity && setPriceElasticity(rr(-2.7, -0.9));
+                        setCrossElasticity && setCrossElasticity(rr(0.1, 0.6));
+                        setMarketConcentration && setMarketConcentration(rr(0.5, 0.9));
+                        setCostVolatility && setCostVolatility(rr(0.03, 0.1));
+                        setShock( Number(rr(0.0, 0.3).toFixed(2)) );
+                        setSpread(irnd(20, 120));
+                        setSeed(irnd(1, 99999));
+                      }}
+                    >
+                      Randomize Parameters
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
+                      onClick={() => {
+                        setTotalAircraftSeats(1000);
+                        setBaseDemand(100);
+                        setDemandVolatility && setDemandVolatility(0.1);
+                        setPriceElasticity && setPriceElasticity(-1.5);
+                        setCrossElasticity && setCrossElasticity(0.3);
+                        setMarketConcentration && setMarketConcentration(0.7);
+                        setCostVolatility && setCostVolatility(0.05);
+                        setShock(0.1);
+                        setSpread(50);
+                        setSeed(42);
+                      }}
+                    >
+                      Restore Defaults
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
+                    <div className="text-xs text-slate-500 mt-1">Average base demand level</div>
+                  </div>
+                  <Input
+                    type="number"
+                    value={baseDemand === 0 ? '' : (baseDemand || '')}
+                    onChange={e => {
+                      const v = e.target.value; const n = v === '' ? 0 : parseInt(v || '0');
+                      setBaseDemand(n);
+                    }}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Demand Volatility</Label>
+                    <div className="text-xs text-slate-500 mt-1">Random variation in demand (0.00 - 0.50)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((demandVolatility ?? 0.1) * 100))]}
+                            onValueChange={([v]) => setDemandVolatility && setDemandVolatility(Number((v/100).toFixed(2)))}
+                            min={0} max={50} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(demandVolatility ?? 0.1).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Price Elasticity</Label>
+                    <div className="text-xs text-slate-500 mt-1">Sensitivity of demand to price (-3.0 to -0.5)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((priceElasticity ?? -1.5) * 100))]}
+                            onValueChange={([v]) => setPriceElasticity && setPriceElasticity(Number((v/100).toFixed(2)))}
+                            min={-300} max={-50} step={5} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(priceElasticity ?? -1.5).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Cross Elasticity</Label>
+                    <div className="text-xs text-slate-500 mt-1">Substitution effect between teams (0.0 - 1.0)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((crossElasticity ?? 0.3) * 100))]}
+                            onValueChange={([v]) => setCrossElasticity && setCrossElasticity(Number((v/100).toFixed(2)))}
+                            min={0} max={100} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(crossElasticity ?? 0.3).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Market Concentration</Label>
+                    <div className="text-xs text-slate-500 mt-1">Concentration/Competition in market (0.0 - 1.0)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((marketConcentration ?? 0.7) * 100))]}
+                            onValueChange={([v]) => setMarketConcentration && setMarketConcentration(Number((v/100).toFixed(2)))}
+                            min={0} max={100} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(marketConcentration ?? 0.7).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Cost Volatility</Label>
+                    <div className="text-xs text-slate-500 mt-1">Random variation in costs (0.00 - 0.20)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((costVolatility ?? 0.05) * 100))]}
+                            onValueChange={([v]) => setCostVolatility && setCostVolatility(Number((v/100).toFixed(2)))}
+                            min={0} max={20} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(costVolatility ?? 0.05).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Shock Intensity</Label>
+                    <div className="text-xs text-slate-500 mt-1">External shocks impacting demand (0.00 - 1.00)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(((shock ?? 0.1) * 100))]}
+                            onValueChange={([v]) => setShock(Number((v/100).toFixed(2)))}
+                            min={0} max={100} step={1} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(shock ?? 0.1).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Spread</Label>
+                    <div className="text-xs text-slate-500 mt-1">Baseline price spread or variance (0 - 200)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider value={[Math.round(spread ?? 50)]}
+                            onValueChange={([v]) => setSpread(v)}
+                            min={0} max={200} step={5} className="w-full" />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{Math.round(spread ?? 50)}</div>
                 </div>
 
                 <div className="space-y-3">

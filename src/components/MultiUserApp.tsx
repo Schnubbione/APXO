@@ -246,6 +246,16 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
+          demandVolatility={gameState.demandVolatility}
+          setDemandVolatility={(v) => updateGameSettings({ demandVolatility: v })}
+          priceElasticity={gameState.priceElasticity}
+          setPriceElasticity={(v) => updateGameSettings({ priceElasticity: v })}
+          marketConcentration={gameState.marketConcentration}
+          setMarketConcentration={(v) => updateGameSettings({ marketConcentration: v })}
+          costVolatility={gameState.costVolatility}
+          setCostVolatility={(v) => updateGameSettings({ costVolatility: v })}
+          crossElasticity={gameState.crossElasticity}
+          setCrossElasticity={(v) => updateGameSettings({ crossElasticity: v })}
           isAdmin={true}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}

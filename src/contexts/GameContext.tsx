@@ -46,6 +46,11 @@ interface GameState {
   poolingReserveCapacity?: number;
   poolingMarketUpdateInterval?: number; // in seconds
   simulatedWeeksPerUpdate?: number; // weeks simulated per market update
+  demandVolatility?: number;
+  priceElasticity?: number;
+  marketConcentration?: number;
+  costVolatility?: number;
+  crossElasticity?: number;
   poolingMarket?: {
     currentPrice: number;
     totalPoolingCapacity: number;
