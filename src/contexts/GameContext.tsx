@@ -594,6 +594,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phaseTime: 60,
       totalCapacity: totalAircraftSeats,
       totalAircraftSeats,
+  totalFixSeats: Math.floor(totalAircraftSeats * 0.7),
+  availableFixSeats: Math.floor(totalAircraftSeats * 0.7),
       fixSeatPrice,
       hotelBedCost: irnd(30, 70),
       hotelCapacityRatio,
@@ -638,6 +640,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               fixSeatsAllocated: Math.floor((t.decisions?.fixSeatsPurchased || 0) * ratio)
             }
           }));
+          // reflect allocation in currentTeam
+          const updatedMe = teams.find(t => t.id === myId) || null;
+          if (updatedMe) {
+            setTimeout(() => setCurrentTeam(updatedMe), 0);
+          }
           // Move to simulation phase
           const dep = prev.departureDate ? new Date(prev.departureDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
           const dayMs = 24 * 60 * 60 * 1000;
@@ -645,6 +652,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // start simulation interval
           setTimeout(() => {
             setGameState(p => ({ ...p, teams, isActive: true, currentPhase: 'simulation', remainingTime: undefined, simulatedDaysUntilDeparture: days }));
+            const meNow = teams.find(t => t.id === myId) || null;
+            if (meNow) setCurrentTeam(meNow);
             startSimInterval();
           }, 0);
           return { ...prev, isActive: false, remainingTime: 0, hotelCapacityAssigned: true, teams };
@@ -656,35 +665,77 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startSimInterval = () => {
       simTimerRef.current = setInterval(() => {
         setGameState(prev => {
-      // Nur Phase prüfen; Stoppen wird über stopPracticeMode() erledigt
-      if (prev.currentPhase !== 'simulation') return prev;
+          // Nur Phase prüfen; Stoppen wird über stopPracticeMode() erledigt
+          if (prev.currentPhase !== 'simulation') return prev;
           const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
-          // update simple pooling price dynamics
+
+          // Nachfrage pro Tick (Tagesnachfrage)
+          const baseD = Math.max(10, prev.baseDemand || 100);
+          const demandToday = Math.round(baseD * (0.8 + Math.random() * 0.4));
+
+          // Preisabhängige Nachfrageverteilung auf Teams (Softmax um den Durchschnittspreis)
+          const teams = prev.teams.map(t => ({
+            ...t,
+            decisions: {
+              ...t.decisions,
+              price: typeof t.decisions?.price === 'number' ? t.decisions.price : 199
+            }
+          }));
+          const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 199), 0) / Math.max(1, teams.length);
+          const elasticity = Math.abs(prev.priceElasticity || 1); // typ. 0.9..2.7 aus Practice-Setup
+          const k = Math.min(0.08, Math.max(0.008, elasticity / 50)); // 0.018..0.054
+          const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 199) - avgPrice)));
+          const sumW = weights.reduce((a, b) => a + b, 0) || 1;
+          const demandPerTeam = teams.map((_, i) => Math.max(0, Math.round(demandToday * (weights[i] / sumW))));
+
+          // Kapazitäten je Team
+          const fixPerTeam = teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || 0));
+          const poolCapPerTeam = teams.map(t => Math.max(0, Math.round((prev.totalAircraftSeats || 1000) * ((t.decisions?.poolingAllocation || 0) / 100))));
+
+          // Pooling-Markt Angebots-/Nachfrageableitung: Nachfrage = Bedarf über Fix hinaus
+          const poolingDemand = demandPerTeam.reduce((s, d, i) => s + Math.max(0, d - fixPerTeam[i]), 0);
+          const poolingOffered = poolCapPerTeam.reduce((a, b) => a + b, 0);
+
+          // Pooling-Preisdynamik mit Mean-Reversion und leichtem Rauschen
           const pm = prev.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), offeredPoolingCapacity: 0, currentDemand: 0, lastUpdate: new Date().toISOString(), priceHistory: [] as any[] };
-          const demand = Math.round((prev.baseDemand || 100) * (0.8 + Math.random() * 0.4));
-          const offered = prev.teams.reduce((s, t) => s + Math.round((prev.totalAircraftSeats || 1000) * ((t.decisions?.poolingAllocation || 0) / 100)), 0);
-          const ratioSD = offered / Math.max(1, demand);
+          const ratioSD = poolingOffered / Math.max(1, poolingDemand);
           let delta = 0;
-          if (ratioSD < 0.8) delta = Math.min(20, (0.8 - ratioSD) * 50);
-          else if (ratioSD > 1.2) delta = Math.max(-20, (ratioSD - 1.2) * -30);
-          const newPrice = Math.max(80, Math.min(300, (pm.currentPrice || 150) + delta * 0.3));
-          const priceHistory = [...(pm.priceHistory || []), { price: Math.round(newPrice), timestamp: new Date().toISOString() }].slice(-20);
-          const updatedPM = { ...pm, currentPrice: Math.round(newPrice), offeredPoolingCapacity: offered, currentDemand: demand, lastUpdate: new Date().toISOString(), priceHistory };
+          if (ratioSD < 0.9) delta = Math.min(20, (0.9 - ratioSD) * 40);
+          else if (ratioSD > 1.1) delta = Math.max(-20, (ratioSD - 1.1) * -30);
+          const baseline = (poolingCost || 90) * 1.2; // etwas über Kosten
+          const noise = (Math.random() - 0.5) * 2; // -1..1
+          const drift = (baseline - (pm.currentPrice || 150)) * 0.02; // Mean-Reversion
+          const rawPrice = (pm.currentPrice || 150) + delta * 0.35 + drift + noise;
+          const bounded = Math.max(60, Math.min(300, rawPrice));
+          const newPrice = Math.round(bounded);
+          const priceHistory = [...(pm.priceHistory || []), { price: newPrice, timestamp: new Date().toISOString() }].slice(-30);
+          const updatedPM = {
+            ...pm,
+            currentPrice: newPrice,
+            offeredPoolingCapacity: poolingOffered,
+            currentDemand: poolingDemand,
+            lastUpdate: new Date().toISOString(),
+            priceHistory
+          };
 
           if (day <= 0) {
             clearInterval(simTimerRef.current);
-            // simple evaluation for current team
-            const me = prev.teams.find(t => t.id === myId);
-            const capacityFix = me?.decisions?.fixSeatsAllocated || 0;
-            const capacityPool = Math.round((prev.totalAircraftSeats || 1000) * ((me?.decisions?.poolingAllocation || 0) / 100));
-            const sold = Math.min(demand, capacityFix + capacityPool);
-            const revenue = sold * (me?.decisions?.price || 199);
-            const cost = capacityFix * (prev.fixSeatPrice || 60) + capacityPool * (poolingCost || 90) + sold * 15;
+            // Auswertung für aktuelles Team inkl. Preiseffekt auf Nachfrage
+            const meIndex = teams.findIndex(t => t.id === myId);
+            const myDemand = meIndex >= 0 ? demandPerTeam[meIndex] : demandToday;
+            const myFix = meIndex >= 0 ? fixPerTeam[meIndex] : 0;
+            const myPoolCap = meIndex >= 0 ? poolCapPerTeam[meIndex] : 0;
+            const myPrice = teams[meIndex]?.decisions.price || 199;
+            const poolUsed = Math.max(0, Math.min(myPoolCap, myDemand - myFix));
+            const sold = Math.min(myDemand, myFix + myPoolCap);
+            const revenue = sold * myPrice;
+            const cost = myFix * (prev.fixSeatPrice || 60) + poolUsed * (poolingCost || 90) + sold * 15;
             const profit = Math.round(revenue - cost);
-            const rr = [{ teamId: myId, sold, revenue: Math.round(revenue), cost: Math.round(cost), profit, unsold: Math.max(0, demand - sold) }];
+            const rr = [{ teamId: myId, sold, revenue: Math.round(revenue), cost: Math.round(cost), profit, unsold: Math.max(0, myDemand - sold) }];
             setRoundResults(rr);
             return { ...prev, isActive: false, simulatedDaysUntilDeparture: 0, poolingMarket: updatedPM } as GameState;
           }
+
           return { ...prev, simulatedDaysUntilDeparture: day, poolingMarket: updatedPM } as GameState;
         });
       }, 1000);

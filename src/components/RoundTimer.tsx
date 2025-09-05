@@ -116,7 +116,7 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
               {days} day{days === 1 ? '' : 's'}
             </div>
             <div className="text-xs font-medium text-slate-300">
-              Simulation läuft. Kunden buchen in Intervallen.
+              Simulation running. Customers book in intervals.
             </div>
             {!isActive && (
               <div className="text-sm text-slate-500 mt-2 font-medium">Simulation pausiert</div>
