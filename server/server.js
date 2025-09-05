@@ -138,7 +138,15 @@ function startPoolingMarketUpdates() {
   }
 
   // Get current settings for update interval (default to 1 second if not set)
-  const updateInterval = 1000; // 1 second = 1 day
+  let updateInterval = 1000; // default: 1s per update
+  try {
+    const session = GameService.currentGameSession; // fast path if cached
+    const intervalSec = session?.settings?.poolingMarketUpdateInterval ?? 1;
+    const parsed = Number(intervalSec);
+    updateInterval = (Number.isFinite(parsed) && parsed > 0) ? parsed * 1000 : 1000;
+  } catch {
+    updateInterval = 1000;
+  }
 
   // Update pooling market every configured interval during simulation
   poolingMarketInterval = setInterval(async () => {
@@ -154,9 +162,9 @@ function startPoolingMarketUpdates() {
     } catch (error) {
       console.error('Error updating pooling market:', error);
     }
-  }, updateInterval); // 1 second = 1 day
+  }, updateInterval);
 
-  console.log(`🏊 Pooling market updates started (every ${updateInterval/1000} second = 1 day)`);
+  console.log(`🏊 Pooling market updates started (every ${updateInterval/1000}s; days per update = current setting)`);
 }
 
 // Stop pooling market updates
@@ -557,6 +565,16 @@ io.on('connection', async (socket) => {
         await GameService.updateGameSettings(settings);
         await broadcastGameState();
         console.log('Game settings updated');
+
+        // If simulation is running, apply timing changes immediately
+        try {
+          const session = await GameService.getCurrentGameSession();
+          if (session.settings?.currentPhase === 'simulation' && session.isActive) {
+            startPoolingMarketUpdates();
+          }
+        } catch (e) {
+          console.warn('Failed to apply live pooling interval update:', e?.message || e);
+        }
       } catch (error) {
         console.error('Error updating game settings:', error);
         socket.emit('error', 'Failed to update game settings');

@@ -605,9 +605,9 @@ export const MultiUserApp: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-xl border border-red-500/30">
                     <div className="text-2xl font-bold text-red-400 mb-2">
-                      {gameState.totalFixSeats || 500}
+                      {gameState.totalAircraftSeats || 1000}
                     </div>
-                    <div className="text-slate-300 text-sm">Total Aircraft Seats Available</div>
+                    <div className="text-slate-300 text-sm">Total Aircraft Seats (Market)</div>
                   </div>
                   {/* Hide exact remaining availability and utilization until allocation */}
                   <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
