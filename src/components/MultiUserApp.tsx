@@ -11,7 +11,6 @@ import StreakCounter from './StreakCounter';
 import MotivationalMessages from './MotivationalMessages';
 import LiveCompetition from './LiveCompetition';
 import SoundEffects from './SoundEffects';
-import { PracticeMode } from './PracticeMode';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
@@ -41,11 +40,14 @@ export const MultiUserApp: React.FC = () => {
   roundHistory,
   lastError,
   clearLastError,
+  practice,
     updateTeamDecision,
     updateGameSettings,
     startPrePurchasePhase,
     startSimulationPhase,
     endRound,
+  startPracticeMode,
+  stopPracticeMode,
     getLeaderboard,
     getAnalytics,
     resetAllData,
@@ -65,7 +67,7 @@ export const MultiUserApp: React.FC = () => {
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
-  const [showPractice, setShowPractice] = useState(false);
+  // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   React.useEffect(() => {
     if (lastError) {
@@ -461,14 +463,20 @@ export const MultiUserApp: React.FC = () => {
             </Button>
           )}
           {/* Team logout button */}
+          {/* Practice Mode toggle */}
+          {practice?.running && (
+            <div className="px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Practice running
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowPractice(true)}
-            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm"
-            title="Start Practice Mode"
+            onClick={() => (practice?.running ? stopPracticeMode() : startPracticeMode({}))}
+            className={`bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px] text-sm ${practice?.running ? 'border-red-500/50 hover:bg-red-900/30' : ''}`}
+            title={practice?.running ? 'Stop Practice Mode' : 'Start Practice Mode'}
           >
-            Practice Mode
+            {practice?.running ? 'Stop Practice' : 'Practice Mode'}
           </Button>
           <TeamLogoutButton />
         </div>
@@ -887,10 +895,7 @@ export const MultiUserApp: React.FC = () => {
             onPlaySound={setSoundEffect}
           />
 
-          {/* Practice Mode Overlay */}
-          {showPractice && (
-            <PracticeMode onClose={() => setShowPractice(false)} humanTeamName={currentTeam.name} />
-          )}
+          {/* Practice Mode overlay removed; runs integrated via context */}
 
           {/* Leaderboard */}
           {leaderboard && (

@@ -119,6 +119,7 @@ interface GameContextType {
   updateGameSettings: (settings: Partial<GameState>) => void;
   updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => void;
   startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
+  stopPracticeMode: () => void;
   startPrePurchasePhase: () => void;
   startSimulationPhase: () => void;
   endRound: () => void;
@@ -198,6 +199,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     | { running: false; results?: any }
     | null
   >(null);
+  const liveGameSnapshot = React.useRef<GameState | null>(null);
+  const preTimerRef = React.useRef<any>(null);
+  const simTimerRef = React.useRef<any>(null);
 
   // Tutorial state
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -240,6 +244,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for game state updates
     newSocket.on('gameState', (state: GameState) => {
+      if (practice?.running) return; // ignore server while practicing
       console.log('Game state updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
@@ -265,6 +270,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Also listen for gameStateUpdate events (broadcasted updates)
     newSocket.on('gameStateUpdate', (state: GameState) => {
+      if (practice?.running) return; // ignore server while practicing
       console.log('Game state broadcast updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
@@ -431,6 +437,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => {
+    // Handle in-practice locally
+    if (practice?.running) {
+      // Local update only
+      setCurrentTeam(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          decisions: {
+            ...prev.decisions,
+            ...(decision.price !== undefined ? { price: decision.price } : {}),
+            ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
+            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
+            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+          }
+        };
+      });
+      setGameState(prev => {
+        const sid = socket?.id;
+        if (!sid) return prev;
+        return {
+          ...prev,
+          teams: prev.teams.map(t => t.id === sid ? {
+            ...t,
+            decisions: {
+              ...t.decisions,
+              ...(decision.price !== undefined ? { price: decision.price } : {}),
+              ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
+              ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
+              ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+            }
+          } : t)
+        };
+      });
+      return;
+    }
+
     // Capture previous state for rollback if server rejects
     const prevTeam = currentTeam;
     const prevGameState = gameState;
@@ -490,10 +532,173 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => {
-    const rounds = Math.max(1, Math.min(5, Number(config?.rounds) || 3));
-    const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 0));
-    setPractice({ running: true, rounds, aiCount });
-    socket?.emit('startPracticeMode', config || {});
+    // Toggle off if running
+    if (practice?.running) { stopPracticeMode(); return; }
+
+    const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 3));
+    setPractice({ running: true, rounds: 1, aiCount });
+    // Snapshot live state
+    liveGameSnapshot.current = gameState;
+
+    // Build randomized practice state mirroring server
+    const rnd = (min: number, max: number) => Math.random() * (max - min) + min;
+    const irnd = (min: number, max: number) => Math.floor(rnd(min, max + 1));
+
+    const totalAircraftSeats = irnd(600, 1400);
+    const hotelCapacityRatio = Number(rnd(0.4, 1.2).toFixed(2));
+    const perTeamCount = aiCount + 1;
+    const perTeamHotel = Math.floor((totalAircraftSeats * hotelCapacityRatio) / perTeamCount);
+    const fixSeatPrice = irnd(50, 80);
+    const poolingCost = irnd(70, 120);
+    const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    // Construct teams: current + AIs
+    const myId = socket?.id || 'me';
+    const myTeam: Team = {
+      id: myId,
+      name: currentTeam?.name || 'You',
+      decisions: {
+        price: typeof config?.overridePrice === 'number' ? config.overridePrice : (currentTeam?.decisions?.price ?? 199),
+        buy: {},
+        fixSeatsPurchased: currentTeam?.decisions?.fixSeatsPurchased ?? 0,
+        poolingAllocation: currentTeam?.decisions?.poolingAllocation ?? 0,
+        hotelCapacity: perTeamHotel
+      },
+      totalProfit: 0
+    };
+    const aiTeams: Team[] = Array.from({ length: aiCount }).map((_, i) => ({
+      id: `AI_${i + 1}`,
+      name: `AI Team ${i + 1}`,
+      decisions: {
+        price: irnd(180, 280),
+        buy: {},
+        fixSeatsPurchased: irnd(10, 120),
+        poolingAllocation: irnd(10, 80),
+        hotelCapacity: perTeamHotel
+      },
+      totalProfit: 0
+    }));
+
+    const practiceState: GameState = {
+      ...gameState,
+      teams: [myTeam, ...aiTeams],
+      isActive: false,
+      currentRound: 1,
+      baseDemand: irnd(80, 240),
+      demandVolatility: Number(rnd(0.05, 0.2).toFixed(2)),
+      priceElasticity: Number((-rnd(0.9, 2.7)).toFixed(2)),
+      crossElasticity: Number(rnd(0.0, 1.0).toFixed(2)),
+      marketConcentration: Number(rnd(0.5, 0.9).toFixed(2)),
+      roundTime: 60, // seconds for pre-purchase
+      currentPhase: 'prePurchase',
+      phaseTime: 60,
+      totalCapacity: totalAircraftSeats,
+      totalAircraftSeats,
+      fixSeatPrice,
+      hotelBedCost: irnd(30, 70),
+      hotelCapacityRatio,
+      hotelCapacityAssigned: false,
+      hotelCapacityPerTeam: perTeamHotel,
+      poolingMarketUpdateInterval: 1,
+      simulatedWeeksPerUpdate: 1,
+      departureDate,
+      remainingTime: 0,
+      simulatedDaysUntilDeparture: Math.ceil((departureDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+      poolingMarket: {
+        currentPrice: irnd(100, 220),
+        totalPoolingCapacity: Math.floor(totalAircraftSeats * 0.3),
+        availablePoolingCapacity: Math.floor(totalAircraftSeats * 0.3),
+        offeredPoolingCapacity: 0,
+        currentDemand: 0,
+        lastUpdate: new Date().toISOString(),
+        priceHistory: []
+      }
+    };
+
+    setGameState(practiceState);
+
+    // Start Pre-Purchase timer (1 min)
+    setGameState(prev => ({ ...prev, isActive: true, remainingTime: 60 }));
+    preTimerRef.current = setInterval(() => {
+      setGameState(prev => {
+        if (prev.currentPhase !== 'prePurchase') return prev;
+        const rt = Math.max(0, (prev.remainingTime || 0) - 1);
+        if (rt <= 0) {
+          clearInterval(preTimerRef.current);
+          // allocate fix seats proportionally
+          const poolingReserveRatio = 0.3;
+          const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - poolingReserveRatio));
+          const totalRequested = prev.teams.reduce((sum, t) => sum + (t.decisions?.fixSeatsPurchased || 0), 0);
+          const ratio = totalRequested > maxFixCapacity ? (maxFixCapacity / Math.max(1, totalRequested)) : 1.0;
+          const teams = prev.teams.map(t => ({
+            ...t,
+            decisions: {
+              ...t.decisions,
+              fixSeatsPurchased: Math.floor((t.decisions?.fixSeatsPurchased || 0) * ratio),
+              fixSeatsAllocated: Math.floor((t.decisions?.fixSeatsPurchased || 0) * ratio)
+            }
+          }));
+          // Move to simulation phase
+          const dep = prev.departureDate ? new Date(prev.departureDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          const dayMs = 24 * 60 * 60 * 1000;
+          const days = Math.max(0, Math.ceil((dep.getTime() - Date.now()) / dayMs));
+          // start simulation interval
+          setTimeout(() => {
+            setGameState(p => ({ ...p, teams, isActive: true, currentPhase: 'simulation', remainingTime: undefined, simulatedDaysUntilDeparture: days }));
+            startSimInterval();
+          }, 0);
+          return { ...prev, isActive: false, remainingTime: 0, hotelCapacityAssigned: true, teams };
+        }
+        return { ...prev, remainingTime: rt };
+      });
+    }, 1000);
+
+    const startSimInterval = () => {
+      simTimerRef.current = setInterval(() => {
+        setGameState(prev => {
+          if (prev.currentPhase !== 'simulation' || !practice?.running) return prev;
+          const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
+          // update simple pooling price dynamics
+          const pm = prev.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), offeredPoolingCapacity: 0, currentDemand: 0, lastUpdate: new Date().toISOString(), priceHistory: [] as any[] };
+          const demand = Math.round((prev.baseDemand || 100) * (0.8 + Math.random() * 0.4));
+          const offered = prev.teams.reduce((s, t) => s + Math.round((prev.totalAircraftSeats || 1000) * ((t.decisions?.poolingAllocation || 0) / 100)), 0);
+          const ratioSD = offered / Math.max(1, demand);
+          let delta = 0;
+          if (ratioSD < 0.8) delta = Math.min(20, (0.8 - ratioSD) * 50);
+          else if (ratioSD > 1.2) delta = Math.max(-20, (ratioSD - 1.2) * -30);
+          const newPrice = Math.max(80, Math.min(300, (pm.currentPrice || 150) + delta * 0.3));
+          const priceHistory = [...(pm.priceHistory || []), { price: Math.round(newPrice), timestamp: new Date().toISOString() }].slice(-20);
+          const updatedPM = { ...pm, currentPrice: Math.round(newPrice), offeredPoolingCapacity: offered, currentDemand: demand, lastUpdate: new Date().toISOString(), priceHistory };
+
+          if (day <= 0) {
+            clearInterval(simTimerRef.current);
+            // simple evaluation for current team
+            const me = prev.teams.find(t => t.id === myId);
+            const capacityFix = me?.decisions?.fixSeatsAllocated || 0;
+            const capacityPool = Math.round((prev.totalAircraftSeats || 1000) * ((me?.decisions?.poolingAllocation || 0) / 100));
+            const sold = Math.min(demand, capacityFix + capacityPool);
+            const revenue = sold * (me?.decisions?.price || 199);
+            const cost = capacityFix * (prev.fixSeatPrice || 60) + capacityPool * (poolingCost || 90) + sold * 15;
+            const profit = Math.round(revenue - cost);
+            const rr = [{ teamId: myId, sold, revenue: Math.round(revenue), cost: Math.round(cost), profit, unsold: Math.max(0, demand - sold) }];
+            setRoundResults(rr);
+            return { ...prev, isActive: false, simulatedDaysUntilDeparture: 0, poolingMarket: updatedPM } as GameState;
+          }
+          return { ...prev, simulatedDaysUntilDeparture: day, poolingMarket: updatedPM } as GameState;
+        });
+      }, 1000);
+    };
+  };
+
+  const stopPracticeMode = () => {
+    if (preTimerRef.current) clearInterval(preTimerRef.current);
+    if (simTimerRef.current) clearInterval(simTimerRef.current);
+    setPractice({ running: false });
+    // Restore live state
+    if (liveGameSnapshot.current) {
+      setGameState(liveGameSnapshot.current);
+      liveGameSnapshot.current = null;
+    }
   };
 
   const startPrePurchasePhase = () => {
@@ -597,6 +802,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateGameSettings,
     updateTeamDecision,
   startPracticeMode,
+  stopPracticeMode,
     startPrePurchasePhase,
     startSimulationPhase,
     endRound,
