@@ -6,6 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Optional: Server URL runtime override; can be injected by platform if needed -->
   <!-- <meta name="apxo-server-url" content="https://your-backend.example.com" /> -->
+    <script type="module">
+      // Bridge Vite env to a runtime global so code can read it without using import.meta syntax
+      (function(){
+        try {
+          if (typeof window !== 'undefined' && window.__APXO_SERVER_URL__ == null) {
+            // import.meta.env is available in module scripts after Vite build
+            // @ts-ignore
+            const env = (import.meta && import.meta.env) ? import.meta.env : {};
+            if (env && typeof env.VITE_SERVER_URL === 'string' && env.VITE_SERVER_URL.length > 0) {
+              window.__APXO_SERVER_URL__ = env.VITE_SERVER_URL;
+            }
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
     <title>Touristic Procurement & Demand Simulation</title>
   </head>
   <body>

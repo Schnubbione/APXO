@@ -2,11 +2,10 @@
 // and work in both browser (Vite) and Node test environments.
 
 export function getViteEnvVar(key: string): string | undefined {
-  // Access via globalThis to avoid the special parser form `import.meta`
+  // Tests / SSR / Node contexts
   const g: any = (typeof globalThis !== 'undefined' ? globalThis : {});
-  const viteEnv = g?.import?.meta?.env || g?.process?.env;
-  const val = viteEnv?.[key] ?? g?.process?.env?.[key];
-  return typeof val === 'string' ? val : undefined;
+  const pv = g?.process?.env?.[key];
+  return typeof pv === 'string' ? pv : undefined;
 }
 
 function readServerUrlFromGlobal(): string | undefined {
