@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
+import { useToast } from './ui/toast';
 
 const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
@@ -30,12 +31,16 @@ const getTeamIconByName = (teamName: string) => {
 
 export const MultiUserApp: React.FC = () => {
   const {
+  isConnected,
+  isReconnecting,
     gameState,
     currentTeam,
     isAdmin,
     roundResults,
     leaderboard,
   roundHistory,
+  lastError,
+  clearLastError,
     updateTeamDecision,
     updateGameSettings,
     startPrePurchasePhase,
@@ -61,6 +66,13 @@ export const MultiUserApp: React.FC = () => {
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
   const [showPractice, setShowPractice] = useState(false);
+  const { toast } = useToast();
+  React.useEffect(() => {
+    if (lastError) {
+      toast({ variant: 'destructive', title: 'Aktion fehlgeschlagen', description: lastError });
+      clearLastError();
+    }
+  }, [lastError]);
 
   // Play sound effects for game events
   useEffect(() => {
@@ -184,8 +196,11 @@ export const MultiUserApp: React.FC = () => {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        {/* Top-right Admin Logout */}
-        <div className="fixed top-4 right-4 z-50">
+        {/* Top bar: connection + Admin Logout */}
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
+          <div className={`px-2 py-1 rounded text-xs font-medium ${isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isReconnecting ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+            {isConnected ? 'Verbunden' : (isReconnecting ? 'Neu verbinden…' : 'Offline')}
+          </div>
           <Button
             variant="outline"
             onClick={() => {
@@ -238,7 +253,7 @@ export const MultiUserApp: React.FC = () => {
           remainingTime={gameState.remainingTime}
         />
 
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+  <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
@@ -396,8 +411,11 @@ export const MultiUserApp: React.FC = () => {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        {/* Admin Login Button - only visible if not registered as team or if admin */}
-        <div className="fixed top-4 right-4 z-40 flex gap-2">
+        {/* Top-right: connection badge, actions */}
+        <div className="fixed top-4 right-4 z-40 flex gap-2 items-center">
+          <div className={`px-2 py-1 rounded text-xs font-medium ${isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isReconnecting ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+            {isConnected ? 'Verbunden' : (isReconnecting ? 'Neu verbinden…' : 'Offline')}
+          </div>
           {isAdmin && (
             <Button
               onClick={() => setShowAdminPanel(true)}
@@ -469,7 +487,7 @@ export const MultiUserApp: React.FC = () => {
           onResetCurrentGame={resetCurrentGame}
         />
 
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+  <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">

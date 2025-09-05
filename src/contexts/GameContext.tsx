@@ -80,6 +80,8 @@ interface GameContextType {
   currentTeam: Team | null;
   isAdmin: boolean;
   roundResults: RoundResult[] | null;
+  lastError: string | null;
+  clearLastError: () => void;
   // Practice mode state
   practice:
     | { running: true; rounds: number; aiCount: number }
@@ -179,6 +181,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [practice, setPractice] = useState<
     | { running: true; rounds: number; aiCount: number }
     | { running: false; results?: any }
@@ -435,12 +438,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Small debounce to batch rapid changes
   setTimeout(() => {
-      s.emit('updateTeamDecision', decision, (res: any) => {
+    s.emit('updateTeamDecision', decision, (res: any) => {
         if (!res?.ok) {
           console.warn('Server rejected decision update:', res?.error);
           // Rollback
           setCurrentTeam(prevTeam || null);
           setGameState(prevGameState);
+      setLastError(res?.error || 'Update rejected');
         }
       });
     }, 200);
@@ -534,6 +538,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentTeam,
     isAdmin,
     roundResults,
+  lastError,
+  clearLastError: () => setLastError(null),
   practice,
     leaderboard,
     roundHistory,

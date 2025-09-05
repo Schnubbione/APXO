@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { testConnection } from './database.js';
 import { syncDatabase, Team } from './models.js';
 import GameService from './gameService.js';
+import { calculateRoundResults } from './calc.js';
 
 // Load environment variables
 if (process.env.NODE_ENV === 'production') {
@@ -375,6 +376,11 @@ async function broadcastGameState() {
 io.on('connection', async (socket) => {
   console.log('User connected:', socket.id);
 
+  // Simple per-socket rate limiting for admin login
+  const loginState = { count: 0, firstTryAt: Date.now() };
+  const MAX_TRIES = 5;
+  const WINDOW_MS = 60_000; // 1 minute
+
   try {
     // Get current game state from database with privacy filtering
     const gameSession = await GameService.getCurrentGameSession();
@@ -458,6 +464,18 @@ io.on('connection', async (socket) => {
 
     // Admin login
   socket.on('adminLogin', async (password) => {
+      // Rate limit
+      const now = Date.now();
+      if (now - loginState.firstTryAt > WINDOW_MS) {
+        loginState.firstTryAt = now;
+        loginState.count = 0;
+      }
+      loginState.count += 1;
+      if (loginState.count > MAX_TRIES) {
+        socket.emit('adminLoginError', 'Too many attempts, please wait a minute.');
+        return;
+      }
+
   const expectedPassword = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD;
     const isProduction = process.env.NODE_ENV === 'production';
 
