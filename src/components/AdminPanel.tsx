@@ -139,73 +139,18 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Phase Time</Label>
-                    <div className="text-xs text-slate-500 mt-1">Time limit for both Pre-Purchase and Simulation phases (1-30 minutes)</div>
+                    <div className="text-xs text-slate-500 mt-1">Time limit for Pre-Purchase phase only (1-30 minutes)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
                   </div>
-                  <div className="text-sm text-slate-400 text-center">{roundTime} minutes per phase</div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">Teams</Label>
-                    <div className="text-xs text-slate-500 mt-1">Current number of registered teams</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[numTeams]} onValueChange={([v]) => setNumTeams(v)} min={2} max={6} step={1} className="w-full" />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">{numTeams} teams registered</div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">Total Aircraft Seats</Label>
-                    <div className="text-xs text-slate-500 mt-1">Total available seats across all aircraft (500-5000)</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[totalAircraftSeats]} onValueChange={([v]) => setTotalAircraftSeats(v)} min={500} max={5000} step={100} className="w-full" />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">{totalAircraftSeats} total seats</div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
-                    <div className="text-xs text-slate-500 mt-1">Base demand (20-240 customers)</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[baseDemand]} onValueChange={([v]) => setBaseDemand(v)} min={20} max={240} step={5} className="w-full" />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">~ {baseDemand} customers</div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">WTP Spread</Label>
-                    <div className="text-xs text-slate-500 mt-1">Price variability (±5-150)</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[spread]} onValueChange={([v]) => setSpread(v)} min={5} max={150} step={5} className="w-full" />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">± {spread}</div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">Random Shock</Label>
-                    <div className="text-xs text-slate-500 mt-1">Random demand fluctuations (±0-40%)</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider value={[Math.round(shock*100)]} onValueChange={([v]) => setShock(v/100)} min={0} max={40} step={1} className="w-full" />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">± {Math.round(shock*100)}%</div>
+                  <div className="text-sm text-slate-400 text-center">{roundTime} minutes for Pre-Purchase</div>
                 </div>
 
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Pooling Market Update Interval</Label>
-                    <div className="text-xs text-slate-500 mt-1">How often the pooling market updates (1-10 seconds)</div>
+                    <div className="text-xs text-slate-500 mt-1">How often the pooling market updates during Simulation phase (1-10 seconds)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[poolingMarketUpdateInterval]} onValueChange={([v]) => setPoolingMarketUpdateInterval(v)} min={1} max={10} step={1} className="w-full" />
@@ -216,7 +161,7 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Simulated Days per Update</Label>
-                    <div className="text-xs text-slate-500 mt-1">How many days advance per market update (1-7 days)</div>
+                    <div className="text-xs text-slate-500 mt-1">How many days advance per market update during Simulation phase (1-7 days)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[simulatedWeeksPerUpdate]} onValueChange={([v]) => setSimulatedWeeksPerUpdate(v)} min={1} max={7} step={1} className="w-full" />
