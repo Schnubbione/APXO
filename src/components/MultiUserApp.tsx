@@ -199,7 +199,7 @@ export const MultiUserApp: React.FC = () => {
         {/* Top bar: connection + Admin Logout */}
         <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
           <div className={`px-2 py-1 rounded text-xs font-medium ${isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isReconnecting ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
-            {isConnected ? 'Verbunden' : (isReconnecting ? 'Neu verbinden…' : 'Offline')}
+            {isConnected ? 'Connected' : (isReconnecting ? 'Reconnecting…' : 'Offline')}
           </div>
           <Button
             variant="outline"
@@ -414,7 +414,7 @@ export const MultiUserApp: React.FC = () => {
         {/* Top-right: connection badge, actions */}
         <div className="fixed top-4 right-4 z-40 flex gap-2 items-center">
           <div className={`px-2 py-1 rounded text-xs font-medium ${isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : isReconnecting ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
-            {isConnected ? 'Verbunden' : (isReconnecting ? 'Neu verbinden…' : 'Offline')}
+            {isConnected ? 'Connected' : (isReconnecting ? 'Reconnecting…' : 'Offline')}
           </div>
           {isAdmin && (
             <Button
