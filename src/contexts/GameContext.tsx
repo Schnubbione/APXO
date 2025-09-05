@@ -653,10 +653,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }, 1000);
 
-    const startSimInterval = () => {
+  const startSimInterval = () => {
       simTimerRef.current = setInterval(() => {
         setGameState(prev => {
-          if (prev.currentPhase !== 'simulation' || !practice?.running) return prev;
+      // Nur Phase prüfen; Stoppen wird über stopPracticeMode() erledigt
+      if (prev.currentPhase !== 'simulation') return prev;
           const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
           // update simple pooling price dynamics
           const pm = prev.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), offeredPoolingCapacity: 0, currentDemand: 0, lastUpdate: new Date().toISOString(), priceHistory: [] as any[] };
