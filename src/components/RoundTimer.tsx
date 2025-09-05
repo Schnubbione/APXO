@@ -96,6 +96,11 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
     return "⏰ Phase in progress. Make your moves!";
   };
 
+  // Hide timer before a round actually starts for non-simulation phases
+  if (!isActive && (currentPhase === 'prePurchase' || currentPhase === 'setup' || !currentPhase)) {
+    return null;
+  }
+
   // Simulation: show days-to-departure instead of timer
   if (currentPhase === 'simulation') {
     const days = Math.max(0, Math.floor(Number(simulatedDaysUntilDeparture ?? 0)));
