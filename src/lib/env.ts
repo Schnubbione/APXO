@@ -9,7 +9,31 @@ export function getViteEnvVar(key: string): string | undefined {
   return typeof val === 'string' ? val : undefined;
 }
 
+function readServerUrlFromGlobal(): string | undefined {
+  const g: any = (typeof globalThis !== 'undefined' ? globalThis : {});
+  const val = g.__APXO_SERVER_URL__;
+  return typeof val === 'string' && val.trim().length > 0 ? val : undefined;
+}
+
+function readServerUrlFromMeta(): string | undefined {
+  try {
+    if (typeof document === 'undefined') return undefined;
+    const el = document.querySelector('meta[name="apxo-server-url"]') as HTMLMetaElement | null;
+    const val = el?.content;
+    return typeof val === 'string' && val.trim().length > 0 ? val : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function resolveServerUrl(): string | undefined {
+  // Priority: runtime global override -> meta tag -> Vite env -> localhost fallback
+  const globalUrl = readServerUrlFromGlobal();
+  if (globalUrl) return globalUrl;
+
+  const metaUrl = readServerUrlFromMeta();
+  if (metaUrl) return metaUrl;
+
   const envUrl = getViteEnvVar('VITE_SERVER_URL');
   if (envUrl && envUrl.trim().length > 0) return envUrl;
 

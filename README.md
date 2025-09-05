@@ -271,3 +271,14 @@ ISC License - see LICENSE file for details
 - **UI**: Shadcn/ui, Lucide React icons
 - **Charts**: Recharts
 - **Animations**: Framer Motion
+
+## Backend-URL konfigurieren
+
+Die App verbindet sich via Socket.IO mit dem Backend. Setze die URL auf eine der folgenden Arten:
+
+- Build-Zeit (Vite): `VITE_SERVER_URL` als Env-Variable setzen (z. B. Vercel Project Settings → Environment Variables).
+- Laufzeit-Override im Browser (ohne Rebuild):
+   - Global: `window.__APXO_SERVER_URL__ = 'https://api.example.com'` vor App-Initialisierung setzen.
+   - Meta-Tag: `<meta name="apxo-server-url" content="https://api.example.com" />` in `index.html` (oder über die Hosting-Plattform injizieren).
+
+Falls keine Einstellung vorhanden ist und die App lokal auf `localhost` läuft, wird automatisch `http://localhost:3001` verwendet.
