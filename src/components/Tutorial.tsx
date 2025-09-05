@@ -124,10 +124,10 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
           </div>
 
           <div className="text-center pt-6">
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button
                 onClick={onStart}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg transition-all duration-200 min-h-[56px]"
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-xl shadow-lg transition-all duration-200 min-h-[56px] w-full sm:w-auto"
               >
                 <span className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
@@ -138,7 +138,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                 <Button
                   onClick={onStartTour}
                   variant="outline"
-                  className="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700/70 font-semibold text-lg px-8 py-4 rounded-xl transition-all duration-200 min-h-[56px]"
+                  className="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700/70 font-semibold text-lg px-8 py-4 rounded-xl transition-all duration-200 min-h-[56px] w-full sm:w-auto"
                 >
                   Start Guided Tour
                 </Button>

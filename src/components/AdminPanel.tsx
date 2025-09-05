@@ -62,7 +62,8 @@ export default function AdminPanel({
   simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
   totalAircraftSeats, setTotalAircraftSeats,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics
+  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics,
+  onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
 
@@ -246,6 +247,38 @@ export default function AdminPanel({
                   <div>
                     <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market</Label>
                     <div className="text-xs text-slate-500 mt-1">Toggle for market structure</div>
+                  </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="mt-8 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <h3 className="text-red-400 font-semibold text-sm mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    Danger Zone
+                  </h3>
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to reset the current game? This will keep high scores but clear all current game data.')) {
+                          onResetCurrentGame?.();
+                        }
+                      }}
+                      variant="outline"
+                      className="w-full bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 font-medium"
+                    >
+                      Reset Current Game
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to reset ALL data? This will delete everything including high scores!')) {
+                          onResetAllData?.();
+                        }
+                      }}
+                      variant="outline"
+                      className="w-full bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:border-red-600/50 font-medium"
+                    >
+                      Reset All Data
+                    </Button>
                   </div>
                 </div>
               </CardContent>
