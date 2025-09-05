@@ -51,6 +51,16 @@ interface AdminPanelProps {
   setCostVolatility?: (value: number) => void;
   crossElasticity?: number;
   setCrossElasticity?: (value: number) => void;
+  // Hotel beds multiplier
+  hotelCapacityRatio?: number;
+  setHotelCapacityRatio?: (value: number) => void;
+  // Prices
+  fixSeatPrice?: number;
+  setFixSeatPrice?: (value: number) => void;
+  poolingCost?: number;
+  setPoolingCost?: (value: number) => void;
+  hotelBedCost?: number;
+  setHotelBedCost?: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
@@ -76,6 +86,10 @@ export default function AdminPanel({
   marketConcentration, setMarketConcentration,
   costVolatility, setCostVolatility,
   crossElasticity, setCrossElasticity,
+  hotelCapacityRatio, setHotelCapacityRatio,
+  fixSeatPrice, setFixSeatPrice,
+  poolingCost, setPoolingCost,
+  hotelBedCost, setHotelBedCost,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, onGetAnalytics,
   onResetAllData, onResetCurrentGame
@@ -151,6 +165,64 @@ export default function AdminPanel({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsContent value="settings" className="mt-0">
               <CardContent className="space-y-5 p-6">
+                {/* Quick Actions (moved to top) */}
+                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-slate-300 text-sm font-semibold mb-2">Quick Actions</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
+                      onClick={() => {
+                        // Helpers
+                        const irnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+                        const rr = (min: number, max: number, digits = 2) => Number((Math.random() * (max - min) + min).toFixed(digits));
+
+                        setTotalAircraftSeats(irnd(600, 1400));
+                        setBaseDemand(irnd(80, 240));
+                        setDemandVolatility && setDemandVolatility(rr(0.05, 0.2));
+                        setPriceElasticity && setPriceElasticity(rr(-2.7, -0.9));
+                        setCrossElasticity && setCrossElasticity(rr(0.1, 0.6));
+                        setMarketConcentration && setMarketConcentration(rr(0.5, 0.9));
+                        setCostVolatility && setCostVolatility(rr(0.03, 0.1));
+                        setShock( Number(rr(0.0, 0.3).toFixed(2)) );
+                        setSpread(irnd(20, 120));
+                        setSeed(irnd(1, 99999));
+                        // hotelCapacityRatio random: allow >1
+                        setHotelCapacityRatio && setHotelCapacityRatio(rr(0.4, 1.2));
+                        (setSharedMarket && setSharedMarket(true));
+                        // Prices
+                        setFixSeatPrice && setFixSeatPrice(irnd(50, 80));
+                        setPoolingCost && setPoolingCost(irnd(20, 60));
+                        setHotelBedCost && setHotelBedCost(irnd(30, 70));
+                      }}
+                    >
+                      Randomize Parameters
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
+                      onClick={() => {
+                        setTotalAircraftSeats(1000);
+                        setBaseDemand(100);
+                        setDemandVolatility && setDemandVolatility(0.1);
+                        setPriceElasticity && setPriceElasticity(-1.5);
+                        setCrossElasticity && setCrossElasticity(0.3);
+                        setMarketConcentration && setMarketConcentration(0.7);
+                        setCostVolatility && setCostVolatility(0.05);
+                        setShock(0.1);
+                        setSpread(50);
+                        setSeed(42);
+                        setHotelCapacityRatio && setHotelCapacityRatio(0.6);
+                        // Reset prices to sensible defaults
+                        setFixSeatPrice && setFixSeatPrice(60);
+                        setPoolingCost && setPoolingCost(90);
+                        setHotelBedCost && setHotelBedCost(50);
+                      }}
+                    >
+                      Restore Defaults
+                    </Button>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Phase Time</Label>
@@ -204,52 +276,67 @@ export default function AdminPanel({
                   />
                 </div>
 
-                {/* Quick Actions */}
-                <div className="mt-6 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-slate-300 text-sm font-semibold mb-2">Quick Actions</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
-                      onClick={() => {
-                        // Helpers
-                        const irnd = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-                        const rr = (min: number, max: number, digits = 2) => Number((Math.random() * (max - min) + min).toFixed(digits));
+                {/* Hotel Capacity Ratio Control */}
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Hotel Beds Multiplier</Label>
+                    <div className="text-xs text-slate-500 mt-1">Defines total hotel beds as multiplier × Market Size (default 0.6; can be greater than 1)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider
+                      value={[Math.round((((hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6) as number) * 100))]}
+                      onValueChange={([v]) => {
+                        const ratio = Number((v/100).toFixed(2));
+                        setHotelCapacityRatio && setHotelCapacityRatio(ratio);
+                      }}
+                      min={0} max={200} step={1} className="w-full"
+                    />
+                  </div>
+                    <div className="text-sm text-slate-400 text-center">{Number((hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6)).toFixed(2)} × Market Size</div>
+                  {/* Preview: compute total beds and per-team */}
+                  {(() => {
+                    const ratio = Number(hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6);
+                    const totalSeats = Number(totalAircraftSeats || _gameState?.totalAircraftSeats || 1000);
+                    const teamCount = Number(_gameState?.teams?.length || 0);
+                    const totalBeds = Math.floor(totalSeats * ratio);
+                    const perTeam = Number(_gameState?.hotelCapacityPerTeam ?? (teamCount > 0 ? Math.floor(totalBeds / teamCount) : 0));
+                    return (
+                      <div className="text-xs text-slate-500 text-center">Preview: total {totalBeds} beds, per team {perTeam} {teamCount > 0 ? `(for ${teamCount} teams)` : ''}</div>
+                    );
+                  })()}
+                </div>
 
-                        setTotalAircraftSeats(irnd(600, 1400));
-                        setBaseDemand(irnd(80, 240));
-                        setDemandVolatility && setDemandVolatility(rr(0.05, 0.2));
-                        setPriceElasticity && setPriceElasticity(rr(-2.7, -0.9));
-                        setCrossElasticity && setCrossElasticity(rr(0.1, 0.6));
-                        setMarketConcentration && setMarketConcentration(rr(0.5, 0.9));
-                        setCostVolatility && setCostVolatility(rr(0.03, 0.1));
-                        setShock( Number(rr(0.0, 0.3).toFixed(2)) );
-                        setSpread(irnd(20, 120));
-                        setSeed(irnd(1, 99999));
-                      }}
-                    >
-                      Randomize Parameters
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
-                      onClick={() => {
-                        setTotalAircraftSeats(1000);
-                        setBaseDemand(100);
-                        setDemandVolatility && setDemandVolatility(0.1);
-                        setPriceElasticity && setPriceElasticity(-1.5);
-                        setCrossElasticity && setCrossElasticity(0.3);
-                        setMarketConcentration && setMarketConcentration(0.7);
-                        setCostVolatility && setCostVolatility(0.05);
-                        setShock(0.1);
-                        setSpread(50);
-                        setSeed(42);
-                      }}
-                    >
-                      Restore Defaults
-                    </Button>
+                {/* Price Controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-medium">Fix Seat Price (€)</Label>
+                    <Input
+                      type="number"
+                      value={fixSeatPrice === 0 ? '' : (fixSeatPrice ?? _gameState?.fixSeatPrice ?? 60)}
+                      onChange={e => setFixSeatPrice && setFixSeatPrice(Number(e.target.value || 0))}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-medium">Pooling Cost (€)</Label>
+                    <Input
+                      type="number"
+                      value={poolingCost === 0 ? '' : (poolingCost ?? _gameState?.poolingCost ?? 30)}
+                      onChange={e => setPoolingCost && setPoolingCost(Number(e.target.value || 0))}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-medium">Hotel Bed Cost (€)</Label>
+                    <Input
+                      type="number"
+                      value={hotelBedCost === 0 ? '' : (hotelBedCost ?? _gameState?.hotelBedCost ?? 50)}
+                      onChange={e => setHotelBedCost && setHotelBedCost(Number(e.target.value || 0))}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    />
                   </div>
                 </div>
+
 
                 <div className="space-y-3">
                   <div>

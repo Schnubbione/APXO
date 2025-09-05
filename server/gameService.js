@@ -38,6 +38,7 @@ export class GameService {
             totalFixSeats: 500,
             availableFixSeats: 500,
             fixSeatPrice: 60,
+            poolingCost: 90,
             simulationMonths: 12,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
             poolingMarketUpdateInterval: 1, // 1 second = 1 day
@@ -167,6 +168,18 @@ export class GameService {
           totalProfit: 0
         });
 
+        // After reactivation, update hotel per-team preview if not yet assigned
+        try {
+          const sess = await this.getCurrentGameSession();
+          const teams = await this.getActiveTeams();
+          const ratio = (typeof sess.settings?.hotelCapacityRatio === 'number') ? sess.settings.hotelCapacityRatio : 0.6;
+          const totalSeats = sess.settings?.totalAircraftSeats || 1000;
+          const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
+          const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
+          await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
+        } catch (e) {
+          console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
+        }
         return anyTeamWithName;
       }
 
@@ -188,6 +201,18 @@ export class GameService {
         totalProfit: 0
       });
 
+      // After new registration, update hotel per-team preview if not yet assigned
+      try {
+        const sess = await this.getCurrentGameSession();
+        const teams = await this.getActiveTeams();
+        const ratio = (typeof sess.settings?.hotelCapacityRatio === 'number') ? sess.settings.hotelCapacityRatio : 0.6;
+        const totalSeats = sess.settings?.totalAircraftSeats || 1000;
+        const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
+        const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
+        await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
+      } catch (e) {
+        console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
+      }
       return team;
     } catch (error) {
       // Map unique constraint errors to a friendly message
@@ -334,6 +359,20 @@ export class GameService {
 
       console.log(`✈️ Total aircraft seats updated: ${oldTotalSeats} → ${newTotalSeats}`);
       console.log(`📊 Adjusted parameters: totalCapacity=${updatedSettings.totalCapacity}, totalFixSeats=${updatedSettings.totalFixSeats}`);
+    }
+
+    // Recompute hotelCapacityPerTeam preview (before assignment) when relevant inputs change
+    try {
+      if (settings.totalAircraftSeats !== undefined || settings.hotelCapacityRatio !== undefined) {
+        const teams = await this.getActiveTeams();
+        const ratio = (typeof updatedSettings.hotelCapacityRatio === 'number') ? updatedSettings.hotelCapacityRatio : (typeof currentSettings.hotelCapacityRatio === 'number' ? currentSettings.hotelCapacityRatio : 0.6);
+        const totalSeats = updatedSettings.totalAircraftSeats || currentSettings.totalAircraftSeats || 1000;
+        const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
+        // Do not flip assigned flag here; keep whatever it currently is
+        updatedSettings.hotelCapacityPerTeam = perTeam;
+      }
+    } catch (e) {
+      console.warn('updateGameSettings: failed to recompute hotelCapacityPerTeam:', e?.message || e);
     }
 
     await session.update({ settings: updatedSettings });
@@ -736,6 +775,7 @@ export class GameService {
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,
+          poolingCost: 90,
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
@@ -805,6 +845,7 @@ export class GameService {
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,
+          poolingCost: 90,
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag

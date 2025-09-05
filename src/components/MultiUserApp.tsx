@@ -192,16 +192,6 @@ export const MultiUserApp: React.FC = () => {
             Admin Login
           </Button>
         </div>
-        <div className="flex justify-center mt-4">
-          <Button
-            variant="outline"
-            onClick={() => setShowTutorial(true)}
-            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px]"
-            title="Show Tutorial"
-          >
-            Show Tutorial
-          </Button>
-        </div>
   <TeamRegistration onShowTutorial={() => setShowTutorial(true)} />
       </div>
     );
@@ -249,6 +239,14 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
+          hotelCapacityRatio={gameState.hotelCapacityRatio}
+          setHotelCapacityRatio={(v) => updateGameSettings({ hotelCapacityRatio: v })}
+          fixSeatPrice={gameState.fixSeatPrice}
+          setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
+          poolingCost={(gameState as any).poolingCost}
+          setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
+          hotelBedCost={gameState.hotelBedCost}
+          setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
           demandVolatility={gameState.demandVolatility}
           setDemandVolatility={(v) => updateGameSettings({ demandVolatility: v })}
           priceElasticity={gameState.priceElasticity}
@@ -505,6 +503,14 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
+          hotelCapacityRatio={gameState.hotelCapacityRatio}
+          setHotelCapacityRatio={(v) => updateGameSettings({ hotelCapacityRatio: v })}
+          fixSeatPrice={gameState.fixSeatPrice}
+          setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
+          poolingCost={(gameState as any).poolingCost}
+          setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
+          hotelBedCost={gameState.hotelBedCost}
+          setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
           isAdmin={isAdmin}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}

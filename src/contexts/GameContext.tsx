@@ -40,6 +40,7 @@ interface GameState {
   totalFixSeats: number;
   availableFixSeats: number;
   fixSeatPrice: number;
+  poolingCost?: number;
   simulationMonths: number;
   departureDate: Date;
   fixSeatsAllocated?: boolean;
@@ -64,6 +65,7 @@ interface GameState {
   hotelBedCost?: number;
   hotelCapacityAssigned?: boolean;
   hotelCapacityPerTeam?: number;
+  hotelCapacityRatio?: number;
   // Round timer
   remainingTime?: number;
   // Simulation: remaining days until departure
@@ -178,6 +180,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   hotelBedCost: 50,
   hotelCapacityAssigned: false,
   hotelCapacityPerTeam: 0,
+  poolingCost: 90,
   // Round timer
   remainingTime: 0
   });
