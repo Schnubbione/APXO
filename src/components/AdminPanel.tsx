@@ -61,6 +61,9 @@ interface AdminPanelProps {
   setPoolingCost?: (value: number) => void;
   hotelBedCost?: number;
   setHotelBedCost?: (value: number) => void;
+  // Budget per team (same for all)
+  perTeamBudget?: number;
+  setPerTeamBudget?: (value: number) => void;
   isAdmin: boolean;
   setIsAdmin: (value: boolean) => void;
   showAdminPanel: boolean;
@@ -90,6 +93,7 @@ export default function AdminPanel({
   fixSeatPrice, setFixSeatPrice,
   poolingCost, setPoolingCost,
   hotelBedCost, setHotelBedCost,
+  perTeamBudget, setPerTeamBudget,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, onGetAnalytics,
   onResetAllData, onResetCurrentGame
@@ -194,6 +198,8 @@ export default function AdminPanel({
                         setFixSeatPrice && setFixSeatPrice(irnd(50, 80));
                         setPoolingCost && setPoolingCost(irnd(20, 60));
                         setHotelBedCost && setHotelBedCost(irnd(30, 70));
+                        // Budget
+                        setPerTeamBudget && setPerTeamBudget(irnd(15000, 40000));
                       }}
                     >
                       Randomize Parameters
@@ -217,6 +223,7 @@ export default function AdminPanel({
                         setFixSeatPrice && setFixSeatPrice(60);
                         setPoolingCost && setPoolingCost(90);
                         setHotelBedCost && setHotelBedCost(50);
+                        setPerTeamBudget && setPerTeamBudget(20000);
                       }}
                     >
                       Restore Defaults
@@ -335,6 +342,20 @@ export default function AdminPanel({
                       className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
                     />
                   </div>
+                </div>
+
+                {/* Budget Control */}
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Per-Team Budget (€)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Applies to both phases and is equal for all teams</div>
+                  </div>
+                  <Input
+                    type="number"
+                    value={perTeamBudget === 0 ? '' : (perTeamBudget ?? _gameState?.perTeamBudget ?? 20000)}
+                    onChange={e => setPerTeamBudget && setPerTeamBudget(Number(e.target.value || 0))}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                  />
                 </div>
 
 

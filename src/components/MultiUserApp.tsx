@@ -249,6 +249,8 @@ export const MultiUserApp: React.FC = () => {
           setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
           hotelBedCost={gameState.hotelBedCost}
           setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
+          perTeamBudget={(gameState as any).perTeamBudget}
+          setPerTeamBudget={(v) => updateGameSettings({ perTeamBudget: v })}
           demandVolatility={gameState.demandVolatility}
           setDemandVolatility={(v) => updateGameSettings({ demandVolatility: v })}
           priceElasticity={gameState.priceElasticity}
@@ -519,6 +521,8 @@ export const MultiUserApp: React.FC = () => {
           setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
           hotelBedCost={gameState.hotelBedCost}
           setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
+          perTeamBudget={(gameState as any).perTeamBudget}
+          setPerTeamBudget={(v) => updateGameSettings({ perTeamBudget: v })}
           isAdmin={isAdmin}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
@@ -708,13 +712,23 @@ export const MultiUserApp: React.FC = () => {
                     <Input
                       type="number"
                       min={0}
-                      // Cap by total fix seats to avoid leaking remaining availability
-                      max={gameState.totalFixSeats || 500}
+                      // Cap by total fix seats to avoid leaking remaining availability; also cap by budget in round 1
+                      max={(() => {
+                        const capSeats = gameState.totalFixSeats || 500;
+                        const budget = (gameState as any).perTeamBudget || 0;
+                        const unit = gameState.fixSeatPrice || 60;
+                        const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
+                        return Math.min(capSeats, capByBudget);
+                      })()}
                       value={currentTeam.decisions.fixSeatsPurchased === 0 ? "" : (currentTeam.decisions.fixSeatsPurchased || "")}
                       placeholder="0"
                       onChange={(e) => {
                         const value = e.target.value;
-                        const cap = gameState.totalFixSeats || 500;
+                        const capSeats = gameState.totalFixSeats || 500;
+                        const budget = (gameState as any).perTeamBudget || 0;
+                        const unit = gameState.fixSeatPrice || 60;
+                        const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
+                        const cap = Math.min(capSeats, capByBudget);
                         const numValue = value === "" ? 0 : Math.max(0, Math.min(cap, Number(value)));
                         updateTeamDecision({ fixSeatsPurchased: numValue });
                       }}
@@ -723,7 +737,7 @@ export const MultiUserApp: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm text-slate-400">
-                    Total Cost: €{(currentTeam.decisions.fixSeatsPurchased || 0) * gameState.fixSeatPrice}
+                    Total Cost: €{(currentTeam.decisions.fixSeatsPurchased || 0) * gameState.fixSeatPrice} { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
                   </div>
                 </div>
               ) : gameState.currentPhase === 'simulation' ? (
@@ -861,6 +875,13 @@ export const MultiUserApp: React.FC = () => {
                     <div className="text-slate-300 text-sm">Profit</div>
                   </div>
                 </div>
+                {(() => {
+                  const rr = roundResults.find(r => r.teamId === currentTeam.id);
+                  if (rr && (rr as any).insolvent) {
+                    return <div className="mt-4 text-center text-red-400 text-sm">⚠️ Insolvent this round (over budget)</div>;
+                  }
+                  return null;
+                })()}
               </CardContent>
             </Card>
           )}

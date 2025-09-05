@@ -161,6 +161,10 @@ export const RoundResult = sequelize.define('RoundResult', {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
+  insolvent: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
   timestamp: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
