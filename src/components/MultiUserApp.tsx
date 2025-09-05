@@ -251,6 +251,7 @@ export const MultiUserApp: React.FC = () => {
           onTimeUp={endRound}
           currentPhase={gameState.currentPhase}
           remainingTime={gameState.remainingTime}
+          simulatedDaysUntilDeparture={(gameState as any).simulatedDaysUntilDeparture}
         />
 
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -452,6 +453,7 @@ export const MultiUserApp: React.FC = () => {
           onTimeUp={() => {}}
           currentPhase={gameState.currentPhase}
           remainingTime={gameState.remainingTime}
+          simulatedDaysUntilDeparture={(gameState as any).simulatedDaysUntilDeparture}
         />
 
         <AdminPanel

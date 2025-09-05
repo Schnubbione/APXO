@@ -338,7 +338,8 @@ export class GameService {
       hotelCapacityPerTeam: perTeam
     };
 
-    await session.update({ settings: updatedSettings });
+    // Set both the top-level session flag and the settings flag for compatibility
+    await session.update({ settings: updatedSettings, isActive: true });
     return session;
   }
 
@@ -346,9 +347,14 @@ export class GameService {
   static async startSimulationPhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    const updatedSettings = { ...currentSettings, currentPhase: 'simulation', isActive: true };
+  // Initialize simulated days until departure based on configured departureDate
+  const dep = new Date(currentSettings.departureDate || Date.now() + 12 * 30 * 24 * 60 * 60 * 1000);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const initialDaysRemaining = Math.max(0, Math.ceil((dep.getTime() - Date.now()) / dayMs));
+  const updatedSettings = { ...currentSettings, currentPhase: 'simulation', isActive: true, simulatedDaysUntilDeparture: initialDaysRemaining };
 
-    await session.update({ settings: updatedSettings });
+  // Set both the top-level session flag and the settings flag for compatibility
+  await session.update({ settings: updatedSettings, isActive: true });
     return session;
   }
 
@@ -356,9 +362,10 @@ export class GameService {
   static async endPhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    const updatedSettings = { ...currentSettings, isActive: false };
+  const updatedSettings = { ...currentSettings, isActive: false };
 
-    await session.update({ settings: updatedSettings });
+  // Unset both the top-level session flag and the settings flag for compatibility
+  await session.update({ settings: updatedSettings, isActive: false });
     return session;
   }
 
@@ -634,9 +641,26 @@ export class GameService {
       priceHistory: priceHistory
     };
 
+    // Decrease simulated days until departure according to configured step per update
+    const dayStep = Number(settings.simulatedWeeksPerUpdate || 1); // treated as "days per update"
+    const dayMs = 24 * 60 * 60 * 1000;
+    const computedDaysFromDeparture = (() => {
+      try {
+        const dep = new Date(settings.departureDate || Date.now());
+        return Math.max(0, Math.ceil((dep.getTime() - Date.now()) / dayMs));
+      } catch {
+        return 0;
+      }
+    })();
+    const prevDays = Number.isFinite(Number(settings.simulatedDaysUntilDeparture))
+      ? Number(settings.simulatedDaysUntilDeparture)
+      : computedDaysFromDeparture;
+    const nextDays = Math.max(0, prevDays - dayStep);
+
     const updatedSettings = {
       ...settings,
-      poolingMarket: updatedPoolingMarket
+      poolingMarket: updatedPoolingMarket,
+      simulatedDaysUntilDeparture: nextDays
     };
 
     await session.update({ settings: updatedSettings });

@@ -8,9 +8,10 @@ interface RoundTimerProps {
   onTimeUp: () => void;
   currentPhase?: 'prePurchase' | 'simulation' | 'setup';
   remainingTime?: number; // in seconds, from server
+  simulatedDaysUntilDeparture?: number; // from server during simulation
 }
 
-export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase, remainingTime }: RoundTimerProps) {
+export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase, remainingTime, simulatedDaysUntilDeparture }: RoundTimerProps) {
   const [timeLeft, setTimeLeft] = useState(remainingTime || roundTime * 60); // in seconds
   const [progress, setProgress] = useState(100);
 
@@ -33,6 +34,8 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
   // Only run local timer if no server time is available (fallback)
   useEffect(() => {
     if (!isActive || remainingTime !== undefined) return;
+    // Never run timer in simulation phase (it's hidden there)
+    if (currentPhase === 'simulation') return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -92,6 +95,32 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
 
     return "⏰ Phase in progress. Make your moves!";
   };
+
+  // Simulation: show days-to-departure instead of timer
+  if (currentPhase === 'simulation') {
+    const days = Math.max(0, Math.floor(Number(simulatedDaysUntilDeparture ?? 0)));
+    return (
+      <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+        <CardContent className="p-4 sm:p-6">
+          <div className="text-center space-y-3">
+            <div className="flex items-center justify-center gap-2">
+              <Clock className="w-5 h-5 text-blue-400" />
+              <div className="text-sm text-slate-400 font-medium">Days until departure</div>
+            </div>
+            <div className="text-3xl sm:text-4xl font-bold tabular-nums text-white">
+              {days} day{days === 1 ? '' : 's'}
+            </div>
+            <div className="text-xs font-medium text-slate-300">
+              Simulation läuft. Kunden buchen in Intervallen.
+            </div>
+            {!isActive && (
+              <div className="text-sm text-slate-500 mt-2 font-medium">Simulation pausiert</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">

@@ -61,6 +61,8 @@ interface GameState {
   hotelCapacityPerTeam?: number;
   // Round timer
   remainingTime?: number;
+  // Simulation: remaining days until departure
+  simulatedDaysUntilDeparture?: number;
 }
 
 interface RoundResult {
