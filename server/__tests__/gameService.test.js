@@ -1,32 +1,41 @@
-import { GameService } from '../gameService.js';
-import { Team, GameSession, RoundResult, HighScore } from '../models.js';
+import { jest, describe, test, expect, beforeAll, beforeEach, afterEach } from '@jest/globals';
 
-// Mock the models
-jest.mock('../models.js', () => ({
-  Team: {
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-    destroy: jest.fn(),
-    update: jest.fn()
-  },
-  GameSession: {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    destroy: jest.fn()
-  },
-  RoundResult: {
-    findAll: jest.fn(),
-    create: jest.fn(),
-    destroy: jest.fn()
-  },
-  HighScore: {
-    findAll: jest.fn(),
-    create: jest.fn(),
-    destroy: jest.fn()
-  }
-}));
+// Create ESM-compatible mocks and inject them before importing the module under test
+let GameService;
+const Team = {
+  findAll: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+  destroy: jest.fn(),
+  update: jest.fn()
+};
+const GameSession = {
+  findOne: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  destroy: jest.fn()
+};
+const RoundResult = {
+  findAll: jest.fn(),
+  create: jest.fn(),
+  destroy: jest.fn()
+};
+const HighScore = {
+  findAll: jest.fn(),
+  create: jest.fn(),
+  destroy: jest.fn()
+};
+
+beforeAll(async () => {
+  await jest.unstable_mockModule('../models.js', () => ({
+    Team,
+    GameSession,
+    RoundResult,
+    HighScore
+  }));
+  const mod = await import('../gameService.js');
+  GameService = mod.GameService;
+});
 
 describe('GameService', () => {
   beforeEach(() => {
@@ -140,17 +149,17 @@ describe('GameService', () => {
 
       const team = await GameService.registerTeam('socket123', 'Test Team');
 
-      expect(Team.create).toHaveBeenCalledWith({
+      expect(Team.create).toHaveBeenCalledWith(expect.objectContaining({
         socketId: 'socket123',
         name: 'Test Team',
-        decisions: {
+        decisions: expect.objectContaining({
           price: 199,
           fixSeatsPurchased: 0,
           poolingAllocation: 0,
           hotelCapacity: 0
-        },
+        }),
         totalProfit: 0
-      });
+      }));
       expect(team).toBe(mockTeam);
     });
 
@@ -230,6 +239,120 @@ describe('GameService', () => {
 
       // Should not throw error
       await expect(GameService.removeTeam('socket123')).resolves.not.toThrow();
+    });
+  });
+
+  describe('allocateFixSeats (budget cap)', () => {
+    test('caps requested fix seats by perTeamBudget in round 0', async () => {
+      const session = {
+        id: 'sess-1',
+        currentRound: 0,
+        isActive: false,
+        settings: {
+          totalAircraftSeats: 100,
+          fixSeatPrice: 50,
+          perTeamBudget: 120
+        },
+        update: jest.fn(function (payload) {
+          // mimic sequelize update merging settings
+          if (payload && payload.settings) this.settings = payload.settings;
+          return Promise.resolve(this);
+        })
+      };
+      GameService.currentGameSession = session;
+
+      const t1 = { id: 't1', name: 'Alpha', decisions: { fixSeatsPurchased: 10 }, update: jest.fn().mockResolvedValue(true) };
+      const t2 = { id: 't2', name: 'Beta', decisions: { fixSeatsPurchased: 10 }, update: jest.fn().mockResolvedValue(true) };
+
+      Team.findAll.mockResolvedValue([t1, t2]);
+
+      const res = await GameService.allocateFixSeats();
+
+      // maxByBudget = floor(120/50) = 2 -> allocate exactly 2 if not oversubscribed
+      expect(t1.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({ fixSeatsPurchased: 2, fixSeatsAllocated: 2 }) });
+      expect(t2.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({ fixSeatsPurchased: 2, fixSeatsAllocated: 2 }) });
+
+      // session updated and allocation flagged
+      expect(session.update).toHaveBeenCalled();
+      expect(session.settings.fixSeatsAllocated).toBe(true);
+
+      // return payload contains allocation info
+      const a1 = res.allocations.find(a => a.teamId === 't1');
+      const a2 = res.allocations.find(a => a.teamId === 't2');
+      expect(a1.allocated).toBe(2);
+      expect(a2.allocated).toBe(2);
+    });
+  });
+
+  describe('updatePoolingMarket / endRound (insolvency & returned demand)', () => {
+    const realRandom = Math.random;
+    beforeEach(() => {
+      // deterministic randomness
+      Math.random = () => 0.5; // demandMultiplier = 1.0, noise ~ 0
+    });
+    afterEach(() => {
+      Math.random = realRandom;
+    });
+
+    test('marks team insolvent early and accumulates returned demand; persists insolvent in endRound', async () => {
+      const teamId = 't-insolv';
+      const session = {
+        id: 'sess-2',
+        currentRound: 1,
+        isActive: true,
+        settings: {
+          baseDemand: 5,
+          priceElasticity: -1.5,
+          totalAircraftSeats: 50,
+          fixSeatPrice: 60,
+          poolingCost: 90,
+          perTeamBudget: 1000,
+          hotelBedCost: 500,
+          hotelCapacityPerTeam: 100,
+          poolingMarket: { currentPrice: 150, totalPoolingCapacity: 15, availablePoolingCapacity: 15, priceHistory: [{ price: 150, timestamp: new Date().toISOString() }], lastUpdate: new Date().toISOString() },
+          simulatedWeeksPerUpdate: 1,
+          departureDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          simState: {
+            returnedDemandRemaining: 0,
+            perTeam: {
+              [teamId]: {
+                fixRemaining: 2,
+                poolRemaining: 0,
+                sold: 0,
+                poolUsed: 0,
+                demand: 0,
+                initialFix: 2,
+                initialPool: 0,
+                revenue: 0,
+                cost: 2 * 60,
+                insolvent: false
+              }
+            }
+          }
+        },
+        update: jest.fn(function (payload) {
+          if (payload && payload.settings) this.settings = payload.settings;
+          return Promise.resolve(this);
+        })
+      };
+      GameService.currentGameSession = session;
+
+  const team = { id: teamId, name: 'Gamma', decisions: { price: 100, fixSeatsAllocated: 2, poolingAllocation: 0, hotelCapacity: 100 }, update: jest.fn().mockResolvedValue(true) };
+      Team.findAll.mockResolvedValue([team]);
+
+      // Trigger market update: should sell a few seats, then flag insolvency due to huge hotel costs > budget
+      await GameService.updatePoolingMarket();
+
+      // Returned demand should accumulate (at least the sold seats, here <= fixRemaining 2)
+      expect(session.settings.simState.returnedDemandRemaining).toBeGreaterThanOrEqual(1);
+      // Team state flagged as insolvent
+      expect(session.settings.simState.perTeam[teamId].insolvent).toBe(true);
+
+      // Now end round: ensure insolvent flag is persisted
+      RoundResult.create.mockResolvedValue({ id: 'rr1' });
+      Team.update.mockResolvedValue(true);
+      await GameService.endRound(() => []);
+      expect(RoundResult.create).toHaveBeenCalledWith(expect.objectContaining({ teamId, insolvent: true }));
     });
   });
 });

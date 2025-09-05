@@ -56,7 +56,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 ⚠️ A round is currently in progress. You can join after the current round ends.
               </span>
             ) : (
-              "Enter your team name to participate in the Airline Procurement & Demand Simulation"
+              "Enter your team name to participate in the Allotment Procurement & Demand Simulation"
             )}
           </CardDescription>
         </CardHeader>

@@ -100,6 +100,15 @@ The simulation features three different procurement products with varying risk p
 - **Hotel Capacity**: Equal hotel capacity per team; empty beds incur a per-bed cost; selling beyond hotel capacity is allowed.
 - **Market Intelligence**: Live pooling market data to guide strategy.
 
+## Budget & Insolvency
+
+- Per-Team Budget: Admin konfiguriert ein einheitliches Budget pro Team (Admin Panel). Dieses Budget gilt für beide Phasen und alle Runden.
+- Round 1 Cap: In Runde 1 dürfen Fixkäufe das Budget nicht überschreiten. Die Anfragen werden vor der proportionalen Zuteilung auf floor(Budget/Fixpreis) gekappt.
+- Laufende Insolvenz: Während der Simulation wird fortlaufend geprüft, ob die bis dahin erzielten Erlöse minus Kosten (Fixkosten, genutztes Pooling, operative Kosten, potenzielle Hotel-Leerkosten) das Budget übersteigen. Wenn ja, wird das Team sofort insolvent erklärt.
+- Folge der frühen Insolvenz: Bereits verkaufte Passagiere dieses Teams kehren als Nachfrage in den Markt zurück und werden über die verbleibende Zeit verteilt. Das insolvente Team nimmt nicht weiter am Matching teil.
+- Rundenabschluss: Am Ende der Runde werden zusätzlich Hotel-Leerkosten verrechnet. In Runde 1 wird keine Insolvenz nachträglich ausgesprochen; ab Runde 2 kann eine negative Marge > Budget eine Insolvenz am Rundenende markieren.
+- Practice Mode: Zufälliges Budget pro Team für Training; dieselben Regeln (inkl. Cap in Runde 1 und Insolvenzlogik) gelten lokal.
+
 ## Architecture
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS

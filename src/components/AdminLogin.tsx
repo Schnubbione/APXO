@@ -43,7 +43,7 @@ export const AdminLogin: React.FC = () => {
             Admin Login
           </CardTitle>
           <CardDescription className="text-slate-400 text-base">
-            Enter admin password to control the simulation
+            Allotment Procurement & Demand Simulation — enter admin password
           </CardDescription>
         </CardHeader>
         <CardContent>

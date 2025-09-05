@@ -72,6 +72,22 @@ interface GameState {
   remainingTime?: number;
   // Simulation: remaining days until departure
   simulatedDaysUntilDeparture?: number;
+  // Live simulation state (server-provided) for per-team accumulations
+  simState?: {
+    perTeam: Record<string, {
+      fixRemaining?: number;
+      poolRemaining?: number;
+      sold?: number;
+      poolUsed?: number;
+      demand?: number;
+      initialFix?: number;
+      initialPool?: number;
+      revenue?: number;
+      cost?: number;
+      insolvent?: boolean;
+    }>;
+    returnedDemandRemaining?: number;
+  };
 }
 
 interface RoundResult {

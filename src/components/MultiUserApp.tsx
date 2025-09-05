@@ -289,7 +289,7 @@ export const MultiUserApp: React.FC = () => {
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Airline Procurement & Demand Simulation
+                Allotment Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-4 text-slate-400">
@@ -321,6 +321,9 @@ export const MultiUserApp: React.FC = () => {
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                       🚀 Simulation running. Customers are booking!
+                      {(gameState as any).perTeamBudget ? (
+                        <span className="ml-3 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-400/30 text-blue-200 text-xs">Budget/Team: €{(gameState as any).perTeamBudget}</span>
+                      ) : null}
                     </span>
                   ) : (
                     <span className="text-slate-400">Ready to start phases</span>
@@ -542,7 +545,7 @@ export const MultiUserApp: React.FC = () => {
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Airline Procurement & Demand Simulation
+                Allotment Procurement & Demand Simulation
               </h1>
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-400">
@@ -810,6 +813,39 @@ export const MultiUserApp: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Current Budget card */}
+                {(() => {
+                  const st = (gameState as any).simState?.perTeam?.[currentTeam.id] || {};
+                  const budget = (gameState as any).perTeamBudget || 0;
+                  const fixUnit = gameState.fixSeatPrice || 60;
+                  const price = currentTeam.decisions.price || 199;
+                  const assignedBeds = typeof currentTeam.decisions?.hotelCapacity === 'number' ? currentTeam.decisions.hotelCapacity : (gameState.hotelCapacityPerTeam || 0);
+                  const sold = Math.max(0, Number(st.sold || 0));
+                  const revenueAccum = Math.max(0, Number(st.revenue || (sold * price)));
+                  // cost accum enthält bereits Fixkosten (beim Server simStart), plus variable Pooling-Kosten
+                  const costAccum = Math.max(0, Number(st.cost || ((currentTeam.decisions.fixSeatsAllocated || 0) * fixUnit)));
+                  // konservative Schätzung der möglichen Hotelkosten: leere Betten auf aktueller Basis
+                  const emptyBedsNow = Math.max(0, assignedBeds - sold);
+                  const hotelBedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
+                  const hotelCostEstimate = emptyBedsNow * hotelBedCost;
+                  const currentBudget = Math.round(budget - costAccum - hotelCostEstimate + revenueAccum);
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">
+                        <div className="text-2xl font-bold text-emerald-400 mb-2">€{budget}</div>
+                        <div className="text-slate-300 text-sm">Starting Budget</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
+                        <div className="text-2xl font-bold text-indigo-400 mb-2">€{currentBudget}</div>
+                        <div className="text-slate-300 text-sm">Current Budget (est.)</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-600/20 rounded-xl border border-fuchsia-500/30">
+                        <div className="text-2xl font-bold text-fuchsia-400 mb-2">{sold}</div>
+                        <div className="text-slate-300 text-sm">Passengers Sold so far</div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl border border-purple-500/30">
                     <div className="text-2xl font-bold text-purple-400 mb-2">
