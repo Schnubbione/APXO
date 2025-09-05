@@ -619,33 +619,41 @@ io.on('connection', async (socket) => {
         return;
       }
 
-      // Randomized settings for the practice session
+      // Helpers for randomness
       const rnd = (min, max) => Math.random() * (max - min) + min;
       const irnd = (min, max) => Math.floor(rnd(min, max + 1));
 
-      const rounds = Math.max(1, Math.min(5, Number(config.rounds) || 3));
+      // Practice parameters
       const aiCount = Math.max(2, Math.min(6, Number(config.aiCount) || irnd(2, 5)));
+      const prePurchaseDurationSec = 60; // always 1 minute
+      const daysTotal = 365; // represent a year
+      const daysPerUpdate = 1; // 1 day per update (semantic)
 
+      // Randomized market settings (covering all important admin controls)
       const settings = {
         baseDemand: irnd(80, 240),
         demandVolatility: rnd(0.05, 0.2),
         priceElasticity: -(rnd(0.9, 2.7)),
-        marketConcentration: rnd(0.6, 0.9),
+        crossElasticity: rnd(0.0, 1.0),
+        marketConcentration: rnd(0.5, 0.9),
         totalAircraftSeats: irnd(600, 1400),
         fixSeatPrice: irnd(50, 80),
+        poolingCost: irnd(70, 120),
         hotelBedCost: irnd(30, 70),
         costVolatility: rnd(0.03, 0.1),
+        hotelCapacityRatio: rnd(0.4, 1.2),
+        poolingMarketUpdateInterval: 1,
+        simulatedWeeksPerUpdate: 1,
         poolingMarket: { currentPrice: irnd(100, 220) }
       };
 
       // Build ephemeral team list: human + randomized AIs
       const totalTeams = aiCount + 1;
-      const perTeamHotel = Math.floor(((settings.totalAircraftSeats || 1000) * 0.6) / totalTeams);
+      const perTeamHotel = Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / totalTeams);
 
       const humanDecisions = {
         price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
         fixSeatsPurchased: Number(humanTeam.decisions?.fixSeatsPurchased || 0),
-        fixSeatsAllocated: Number(humanTeam.decisions?.fixSeatsAllocated || 0),
         poolingAllocation: Number(humanTeam.decisions?.poolingAllocation || 0),
         hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel)
       };
@@ -660,32 +668,28 @@ io.on('connection', async (socket) => {
       ];
 
       for (let i = 0; i < aiCount; i++) {
-        // AI teams make more strategic decisions based on market conditions
+        // AI strategies
         const aiStrategy = Math.random();
         let aiPooling = 0;
         let aiFixSeats = 0;
-        
+
         if (aiStrategy < 0.3) {
-          // Conservative strategy: focus on fix seats
           aiFixSeats = irnd(50, 120);
           aiPooling = irnd(10, 30);
         } else if (aiStrategy < 0.7) {
-          // Balanced strategy: mix of fix and pooling
           aiFixSeats = irnd(20, 80);
           aiPooling = irnd(30, 60);
         } else {
-          // Aggressive strategy: heavy pooling usage
           aiFixSeats = irnd(10, 40);
           aiPooling = irnd(50, 80);
         }
-        
+
         teams.push({
           id: `AI_${i + 1}`,
           name: `AI Team ${i + 1}`,
           decisions: {
-            price: irnd(180, 280), // More realistic price range
+            price: irnd(180, 280),
             fixSeatsPurchased: aiFixSeats,
-            fixSeatsAllocated: aiFixSeats, // AI teams allocate all purchased seats
             poolingAllocation: aiPooling,
             hotelCapacity: perTeamHotel
           },
@@ -693,30 +697,49 @@ io.on('connection', async (socket) => {
         });
       }
 
-      // Auto-run rounds and collect history
-      const perRound = [];
-      for (let r = 1; r <= rounds; r++) {
-        const raw = calculateRoundResults(teams, settings);
-        const rr = raw.map(res => ({
-          ...res,
-          teamName: teams.find(t => t.id === res.teamId)?.name || String(res.teamId)
-        }));
-        // accumulate profit
-        rr.forEach(res => {
-          const t = teams.find(t => t.id === res.teamId);
-          if (t) t.totalProfit = Number(t.totalProfit || 0) + Number(res.profit || 0);
-        });
-        perRound.push({ round: r, teamResults: rr });
-      }
+      // Phase 1: Pre-Purchase allocation (proportional if oversubscribed)
+      const totalCapacity = settings.totalAircraftSeats || 1000;
+      const poolingReserveRatio = 0.3; // 30% reserved for pooling, like real game
+      const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
+      const requestedSeats = teams.map(t => Number(t.decisions?.fixSeatsPurchased || 0));
+      const totalRequested = requestedSeats.reduce((a, b) => a + b, 0);
+      const allocationRatio = totalRequested > maxFixCapacity ? (maxFixCapacity / Math.max(1, totalRequested)) : 1.0;
+
+      const allocations = teams.map((team, idx) => {
+        const requested = Number(team.decisions?.fixSeatsPurchased || 0);
+        const allocated = Math.floor(requested * allocationRatio);
+        team.decisions.fixSeatsPurchased = allocated;
+        team.decisions.fixSeatsAllocated = allocated;
+        return { teamId: team.id, teamName: team.name, requested, allocated };
+      });
+
+      const totalAllocated = allocations.reduce((sum, a) => sum + a.allocated, 0);
+
+      // Phase 2: Simulation (year). We compute final results once, representing the period.
+      const raw = calculateRoundResults(teams, settings);
+      const rr = raw.map(res => ({
+        ...res,
+        teamName: teams.find(t => t.id === res.teamId)?.name || String(res.teamId)
+      }));
+
+      // Accumulate total profit (as if over the simulated period)
+      rr.forEach(res => {
+        const t = teams.find(t => t.id === res.teamId);
+        if (t) t.totalProfit = Number(t.totalProfit || 0) + Number(res.profit || 0);
+      });
 
       const leaderboard = teams
         .map(t => ({ name: t.name, profit: Math.round(Number(t.totalProfit || 0)) }))
         .sort((a, b) => b.profit - a.profit);
 
       socket.emit('practiceResults', {
-        config: { rounds, aiCount },
+        config: { aiCount, prePurchaseDurationSec, daysPerUpdate, daysTotal },
         settings,
-        rounds: perRound,
+        phases: {
+          prePurchase: { allocations, maxFixCapacity, totalRequested, allocationRatio },
+          simulation: { summary: { currentPrice: settings.poolingMarket.currentPrice } }
+        },
+        rounds: [{ round: 1, teamResults: rr }],
         leaderboard
       });
     } catch (err) {
