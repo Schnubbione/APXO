@@ -93,10 +93,7 @@ export const MultiUserApp: React.FC = () => {
     console.log('App state:', { currentTeam: currentTeam?.name, isAdmin, showAdminLogin });
   }, [currentTeam, isAdmin, showAdminLogin]);
 
-  // Always show tutorial on page load
-  useEffect(() => {
-    setShowTutorial(true);
-  }, []);
+  // Startansicht: Join the Simulation (kein Auto-Tutorial)
 
   // Get leaderboard when round ends
   useEffect(() => {
@@ -126,16 +123,12 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [tutorialActive, tutorialStep]);
 
-  // 1) Tutorial first
+  // 1) Tutorial Modal (nur auf Wunsch)
   if (showTutorial) {
     return <Tutorial
-      onStart={() => {
-        setShowTutorial(false);
-        // Don't set localStorage since we want tutorial to show every time
-      }}
+      onStart={() => setShowTutorial(false)}
       onStartTour={() => {
         setShowTutorial(false);
-        // Start the interactive tutorial
         startTutorial();
       }}
     />;
@@ -155,7 +148,7 @@ export const MultiUserApp: React.FC = () => {
             Admin Login
           </Button>
         </div>
-        <TeamRegistration />
+  <TeamRegistration onShowTutorial={() => setShowTutorial(true)} />
         <TutorialTour
           isActive={tutorialActive}
           onComplete={completeTutorial}
@@ -199,7 +192,17 @@ export const MultiUserApp: React.FC = () => {
             Admin Login
           </Button>
         </div>
-        <TeamRegistration />
+        <div className="flex justify-center mt-4">
+          <Button
+            variant="outline"
+            onClick={() => setShowTutorial(true)}
+            className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[44px]"
+            title="Show Tutorial"
+          >
+            Show Tutorial
+          </Button>
+        </div>
+  <TeamRegistration onShowTutorial={() => setShowTutorial(true)} />
       </div>
     );
   }

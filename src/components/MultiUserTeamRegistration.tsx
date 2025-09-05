@@ -6,7 +6,11 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Users, Lightbulb } from 'lucide-react';
 
-export const TeamRegistration: React.FC = () => {
+type TeamRegistrationProps = {
+  onShowTutorial?: () => void;
+};
+
+export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutorial }) => {
   const { registerTeam, gameState, registrationError, startTutorial } = useGame();
   const [teamName, setTeamName] = useState('');
 
@@ -18,9 +22,13 @@ export const TeamRegistration: React.FC = () => {
     }
   };
 
-  const handleBackToTutorial = () => {
-    // Return to the intro Tutorial screen
-    window.location.reload();
+  const handleShowTutorial = () => {
+    // Prefer the full tutorial page if provided, fallback to interactive tour
+    if (onShowTutorial) {
+      onShowTutorial();
+    } else {
+      startTutorial();
+    }
   };
 
   const handleStartTour = () => {
@@ -94,12 +102,12 @@ export const TeamRegistration: React.FC = () => {
               </Button>
               <Button
                 type="button"
-                onClick={handleBackToTutorial}
+                onClick={handleShowTutorial}
                 variant="outline"
                 className="flex-1 bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600/50 font-medium min-h-[44px] rounded-xl transition-all duration-200"
               >
                 <Lightbulb className="w-4 h-4 mr-2" />
-                Back to Tutorial
+                Show Tutorial
               </Button>
             </div>
           </form>
@@ -110,45 +118,15 @@ export const TeamRegistration: React.FC = () => {
               <div className="text-slate-500 text-center py-4">No teams registered yet</div>
             ) : (
               <div className="space-y-3 max-h-40 overflow-y-auto">
-                {gameState.teams.map((team) => {
-                  const totalTeams = gameState.teams.length;
-                  const hotelCapacityPerTeam = Math.floor((gameState.totalAircraftSeats || 1000) * 0.6 / totalTeams);
-                  
-                  return (
-                    <div key={team.id} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200">
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg"></div>
-                        <span className="text-white font-medium">{team.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-slate-400 text-xs">Hotel Capacity</div>
-                        <div className="text-indigo-400 font-semibold">{hotelCapacityPerTeam} beds</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            
-            {gameState.teams.length > 0 && (
-              <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
-                <div className="text-slate-400 text-xs mb-1">Market Summary</div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-500">Total Teams:</span>
-                    <span className="text-white ml-2 font-semibold">{gameState.teams.length}</span>
+                {gameState.teams.map((team) => (
+                  <div
+                    key={team.id}
+                    className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200"
+                  >
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg"></div>
+                    <span className="text-white font-medium">{team.name}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-500">Aircraft Seats:</span>
-                    <span className="text-white ml-2 font-semibold">{gameState.totalAircraftSeats || 1000}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-slate-500">Hotel Beds per Team:</span>
-                    <span className="text-indigo-400 ml-2 font-semibold">
-                      {Math.floor((gameState.totalAircraftSeats || 1000) * 0.6 / gameState.teams.length)}
-                    </span>
-                  </div>
-                </div>
+                ))}
               </div>
             )}
           </div>
