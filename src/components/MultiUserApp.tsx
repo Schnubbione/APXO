@@ -226,7 +226,7 @@ export const MultiUserApp: React.FC = () => {
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
           roundTime={roundTimeMinutes}
-          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60, phaseTime: v * 60 })}
+          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
@@ -468,7 +468,7 @@ export const MultiUserApp: React.FC = () => {
           seed={gameState.seed}
           setSeed={(v) => updateGameSettings({ seed: v })}
           roundTime={roundTimeMinutes}
-          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60, phaseTime: v * 60 })}
+          setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
           simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}

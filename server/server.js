@@ -185,37 +185,43 @@ function startRoundTimer() {
   const settings = session.settings || {};
   const currentPhase = settings.currentPhase;
 
-  // Get phase time from settings (default to 10 minutes for pre-purchase, 5 minutes for simulation)
+  // Get phase time from settings (Pre-Purchase uses roundTime, Simulation has no timer)
   let roundTime;
   if (currentPhase === 'prePurchase') {
-    roundTime = settings.phaseTime || 600; // 10 minutes default
+    roundTime = settings.roundTime || 600; // Use roundTime for pre-purchase phase
   } else if (currentPhase === 'simulation') {
-    roundTime = settings.phaseTime || 300; // 5 minutes default
+    // Simulation phase has no timer - controlled by Pooling Market Update Interval and Simulated Days per Update
+    roundTime = null;
   } else {
     roundTime = 300; // Fallback
   }
 
   remainingTime = roundTime;
 
-  // Update timer every second
-  roundTimerInterval = setInterval(async () => {
-    try {
-      remainingTime = Math.max(0, remainingTime - 1);
+  // Only start timer if roundTime is set (Pre-Purchase phase)
+  if (roundTime !== null) {
+    // Update timer every second
+    roundTimerInterval = setInterval(async () => {
+      try {
+        remainingTime = Math.max(0, remainingTime - 1);
 
-      // Broadcast updated time to all clients
-      await broadcastGameState();
+        // Broadcast updated time to all clients
+        await broadcastGameState();
 
-      // If time is up, automatically end the phase
-      if (remainingTime <= 0) {
-        console.log(`⏰ ${currentPhase} phase time is up! Auto-ending phase...`);
-        await autoEndCurrentPhase();
+        // If time is up, automatically end the phase
+        if (remainingTime <= 0) {
+          console.log(`⏰ ${currentPhase} phase time is up! Auto-ending phase...`);
+          await autoEndCurrentPhase();
+        }
+      } catch (error) {
+        console.error('Error updating round timer:', error);
       }
-    } catch (error) {
-      console.error('Error updating round timer:', error);
-    }
-  }, 1000);
+    }, 1000);
 
-  console.log(`⏰ ${currentPhase} phase timer started (${roundTime} seconds)`);
+    console.log(`⏰ ${currentPhase} phase timer started (${roundTime} seconds)`);
+  } else {
+    console.log(`⏰ ${currentPhase} phase has no timer - controlled by Pooling Market settings`);
+  }
 }
 
 // Stop round timer
