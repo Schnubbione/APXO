@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { resolveServerUrl } from '@/lib/env';
 
 interface Team {
   id: string;
@@ -73,6 +74,8 @@ interface RoundResult {
 
 interface GameContextType {
   socket: Socket | null;
+  isConnected: boolean;
+  isReconnecting: boolean;
   gameState: GameState;
   currentTeam: Team | null;
   isAdmin: boolean;
@@ -126,6 +129,8 @@ export const useGame = () => {
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [gameState, setGameState] = useState<GameState>({
     teams: [],
     currentRound: 0,
@@ -185,13 +190,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tutorialStep, setTutorialStep] = useState(0);
 
   useEffect(() => {
-    // Resolve server URL: use Vite's build-time env; only fall back to localhost in local dev
-    const envUrl = (import.meta as any)?.env?.VITE_SERVER_URL as string | undefined;
-    const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const serverUrl = envUrl && envUrl.trim().length > 0
-      ? envUrl
-      : (isLocalhost ? 'http://localhost:3001' : '');
-
+    // Resolve server URL using helper to avoid direct import.meta usage
+    const serverUrl = resolveServerUrl();
     if (!serverUrl) {
       console.error('VITE_SERVER_URL is not set. Please configure your backend URL in Vercel project envs.');
       return;
@@ -203,10 +203,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Connecting to server:', serverUrl);
 
     newSocket.on('connect', () => {
+      setIsConnected(true);
+      setIsReconnecting(false);
       console.log('Connected to server');
     });
 
     newSocket.on('disconnect', () => {
+      setIsConnected(false);
+      setIsReconnecting(true);
       console.log('Disconnected from server');
     });
 
@@ -387,6 +391,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => {
+    // Capture previous state for rollback if server rejects
+    const prevTeam = currentTeam;
+    const prevGameState = gameState;
+
     // Optimistic local update for snappy UI
     setCurrentTeam(prev => {
       if (!prev) return prev;
@@ -421,8 +429,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     });
 
-    // Notify server
-    socket?.emit('updateTeamDecision', decision);
+    // Debounced emit with ACK
+    const s = socket;
+    if (!s) return;
+
+    // Small debounce to batch rapid changes
+  setTimeout(() => {
+      s.emit('updateTeamDecision', decision, (res: any) => {
+        if (!res?.ok) {
+          console.warn('Server rejected decision update:', res?.error);
+          // Rollback
+          setCurrentTeam(prevTeam || null);
+          setGameState(prevGameState);
+        }
+      });
+    }, 200);
+
+    // If needed, we could track and clear timeouts per input field
   };
 
   const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => {
@@ -505,6 +528,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value: GameContextType = {
     socket,
+  isConnected,
+  isReconnecting,
     gameState,
     currentTeam,
     isAdmin,

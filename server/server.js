@@ -266,16 +266,18 @@ async function autoEndCurrentPhase() {
 
     // Calculate and save results if this is the simulation phase
     if (currentPhase === 'simulation') {
-      const roundResults = await GameService.endRound(calculateRoundResults);
+      const endRes = await GameService.endRound(calculateRoundResults);
       const updatedSession = await GameService.getCurrentGameSession();
 
       io.emit('roundEnded', {
-        roundResults,
+        roundResults: endRes.results,
         phaseNumber: 2,
-        isFinalPhase: true
+        isFinalPhase: true,
+        currentRound: endRes.currentRound,
+        isGameComplete: endRes.isGameComplete
       });
 
-      console.log(`Simulation phase auto-ended with ${roundResults.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+      console.log(`Simulation phase auto-ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales`);
     } else {
       // For pre-purchase phase, just broadcast phase ended
       io.emit('phaseEnded', {
@@ -474,10 +476,8 @@ io.on('connection', async (socket) => {
       return;
     }
 
-    console.log('Admin login attempt:', {
-      provided: password,
-      expected: finalPassword,
-      env: expectedPassword ? (process.env.ADMIN_PASSWORD ? 'ADMIN_PASSWORD' : 'APP_PASSWORD') : 'not set',
+    console.log('Admin login attempt', {
+      envConfigured: !!expectedPassword,
       environment: process.env.NODE_ENV || 'development'
     });
 
@@ -511,7 +511,7 @@ io.on('connection', async (socket) => {
   });
 
   // Team decisions
-  socket.on('updateTeamDecision', async (decision) => {
+  socket.on('updateTeamDecision', async (decision, ack) => {
     try {
       const team = await GameService.updateTeamDecision(socket.id, decision);
       if (team) {
@@ -525,10 +525,15 @@ io.on('connection', async (socket) => {
             await broadcastGameState();
           }
         }
+
+        if (typeof ack === 'function') ack({ ok: true });
+      } else {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Team not found or inactive' });
       }
     } catch (error) {
       console.error('Error updating team decision:', error);
-      socket.emit('error', 'Failed to update team decision');
+      if (typeof ack === 'function') ack({ ok: false, error: 'Failed to update team decision' });
+      else socket.emit('error', 'Failed to update team decision');
     }
   });
 
@@ -689,22 +694,22 @@ io.on('connection', async (socket) => {
 
         // Calculate and save results if this is the simulation phase
         if (currentPhase === 'simulation') {
-          const roundResult = await GameService.endRound(calculateRoundResults);
+          const endRes = await GameService.endRound(calculateRoundResults);
           const updatedSession = await GameService.getCurrentGameSession();
 
           io.emit('roundEnded', {
-            roundResults: roundResult,
+            roundResults: endRes.results,
             phaseNumber: 2,
-            isFinalPhase: roundResult.isGameComplete,
-            currentRound: roundResult.currentRound,
-            isGameComplete: roundResult.isGameComplete
+            isFinalPhase: true,
+            currentRound: endRes.currentRound,
+            isGameComplete: endRes.isGameComplete
           });
 
-          console.log(`Simulation phase ended with ${roundResult.reduce((sum, r) => sum + r.sold, 0)} total sales`);
-          if (roundResult.isGameComplete) {
+          console.log(`Simulation phase ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+          if (endRes.isGameComplete) {
             console.log(`🎉 Game completed! All rounds finished.`);
           } else {
-            console.log(`Round ${roundResult.currentRound - 1} completed.`);
+            console.log(`Round ${endRes.currentRound - 1} completed.`);
           }
         } else {
           // For pre-purchase phase, just broadcast phase ended

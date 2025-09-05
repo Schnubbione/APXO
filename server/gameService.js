@@ -56,6 +56,47 @@ export class GameService {
     return this.currentGameSession;
   }
 
+  // Update a team's decision (price, fix seats intent, pooling allocation, etc.)
+  static async updateTeamDecision(socketId, decision = {}) {
+    const team = await Team.findOne({ where: { socketId, isActive: true } });
+    if (!team) return null;
+
+    const session = await this.getCurrentGameSession();
+    const settings = session.settings || {};
+
+    // Build sanitized update
+    const next = { ...(team.decisions || {}) };
+
+    if (typeof decision.price === 'number' && !Number.isNaN(decision.price)) {
+      // Clamp retail price to sensible bounds
+      const p = Math.round(decision.price);
+      next.price = Math.max(50, Math.min(500, p));
+    }
+
+    if (typeof decision.fixSeatsPurchased === 'number' && Number.isFinite(decision.fixSeatsPurchased)) {
+      // Only intent during pre-purchase; allocation happens separately at phase end
+      const requested = Math.max(0, Math.floor(decision.fixSeatsPurchased));
+      next.fixSeatsPurchased = requested;
+    }
+
+    if (typeof decision.poolingAllocation === 'number' && Number.isFinite(decision.poolingAllocation)) {
+      // Percentage 0..100
+      const pct = Math.max(0, Math.min(100, Math.round(decision.poolingAllocation)));
+      next.poolingAllocation = pct;
+    }
+
+    // Preserve hotel capacity and allocated seats fields as they are managed by server phases
+    if (team.decisions && typeof team.decisions.hotelCapacity === 'number') {
+      next.hotelCapacity = team.decisions.hotelCapacity;
+    }
+    if (team.decisions && typeof team.decisions.fixSeatsAllocated === 'number') {
+      next.fixSeatsAllocated = team.decisions.fixSeatsAllocated;
+    }
+
+    await team.update({ decisions: next });
+    return team;
+  }
+
   // Get all active teams for current session
   static async getActiveTeams() {
     const session = await this.getCurrentGameSession();
@@ -373,7 +414,7 @@ export class GameService {
     console.log(`Round ${session.currentRound} completed. Moving to round ${nextRound}. Game continues until admin ends it.`);
 
     return {
-      ...savedResults,
+      results: savedResults,
       isGameComplete: false, // Game never completes automatically
       currentRound: nextRound
     };
