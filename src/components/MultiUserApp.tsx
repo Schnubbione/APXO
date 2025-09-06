@@ -617,21 +617,12 @@ export const MultiUserApp: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-xl border border-red-500/30">
                     <div className="text-2xl font-bold text-red-400 mb-2">
                       {gameState.totalAircraftSeats || 1000}
                     </div>
                     <div className="text-slate-300 text-sm">Total Aircraft Seats (Market)</div>
-                  </div>
-                  {/* Hide exact remaining availability and utilization until allocation */}
-                  <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
-                    <div className="text-2xl font-bold text-orange-400 mb-2">—</div>
-                    <div className="text-slate-300 text-sm">Remaining (hidden)</div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-xl border border-green-500/30">
-                    <div className="text-2xl font-bold text-green-400 mb-2">—</div>
-                    <div className="text-slate-300 text-sm">Market Utilization (hidden)</div>
                   </div>
                 </div>
 
@@ -652,18 +643,12 @@ export const MultiUserApp: React.FC = () => {
                 </div>
 
                 {/* Team fix seats visibility to support purchase decision */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-sky-500/20 to-sky-600/20 rounded-xl border border-sky-500/30">
                     <div className="text-2xl font-bold text-sky-400 mb-2">
                       {currentTeam?.decisions?.fixSeatsPurchased ?? 0}
                     </div>
                     <div className="text-slate-300 text-sm">Your Fix Seats (requested)</div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">
-                    <div className="text-2xl font-bold text-emerald-400 mb-2">
-                      {typeof currentTeam?.decisions?.fixSeatsAllocated === 'number' ? currentTeam?.decisions?.fixSeatsAllocated : '—'}
-                    </div>
-                    <div className="text-slate-300 text-sm">Allocated Fix Seats (after Phase 1)</div>
                   </div>
                 </div>
 
