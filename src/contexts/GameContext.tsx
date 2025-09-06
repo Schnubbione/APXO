@@ -270,7 +270,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for game state updates
     newSocket.on('gameState', (state: GameState) => {
-      if (practice?.running) return; // ignore server while practicing
+      // If practice runs but a live phase is active, abort practice and sync
+      if (practice?.running && state?.isActive) {
+        stopPracticeMode();
+      }
+      if (practice?.running) return; // otherwise ignore server while practicing
       console.log('Game state updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
@@ -296,8 +300,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Also listen for gameStateUpdate events (broadcasted updates)
     newSocket.on('gameStateUpdate', (state: GameState) => {
+      if (practice?.running && state?.isActive) {
+        stopPracticeMode();
+      }
       if (practice?.running) return; // ignore server while practicing
       console.log('Game state broadcast updated:', state);
+    // Stop practice if server starts a phase
+  newSocket.on('phaseStarted', () => {
+      if (practice?.running) {
+        stopPracticeMode();
+      }
+    });
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
     const normalizedTeams = (state.teams || []).map(t => ({
@@ -560,6 +573,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => {
     // Toggle off if running
     if (practice?.running) { stopPracticeMode(); return; }
+    // Do not allow starting practice while a live game is active
+    if (gameState.isActive) {
+      setLastError('Practice Mode kann nicht gestartet werden, solange ein Live-Spiel läuft.');
+      return;
+    }
 
     const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 3));
     setPractice({ running: true, rounds: 1, aiCount });
