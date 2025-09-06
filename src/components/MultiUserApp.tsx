@@ -678,13 +678,7 @@ export const MultiUserApp: React.FC = () => {
               {gameState.currentPhase === 'prePurchase' ? (
                 <div className="space-y-4">
                   <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Maximum Requestable Fix Seats (hidden)</Label>
-                      <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
-                        <span className="text-2xl font-bold text-orange-400 tabular-nums">—</span>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label className="text-slate-300 text-sm font-medium">Fix Seat Price (€)</Label>
                       <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
