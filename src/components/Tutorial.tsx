@@ -19,7 +19,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
           </div>
           <CardTitle className="text-3xl font-bold text-white mb-2">
-            Touristic Procurement & Demand Simulation
+            Allotment Procurement & Demand Simulation
           </CardTitle>
           <p className="text-slate-400 text-lg">Master the art of touristic procurement and demand management</p>
         </CardHeader>

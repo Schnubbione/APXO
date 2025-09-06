@@ -23,7 +23,7 @@ interface TutorialTourProps {
 const tutorialSteps: TutorialStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to Touristic Procurement & Demand Simulation!',
+  title: 'Welcome to Allotment Procurement & Demand Simulation!',
     description: 'This interactive tutorial will guide you through the game mechanics. Let\'s learn how to play!',
     position: 'center'
   },
