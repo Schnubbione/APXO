@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-react";
+import { useGame } from "@/contexts/GameContext";
 
 interface TutorialProps {
   onStart: () => void;
@@ -9,6 +10,9 @@ interface TutorialProps {
 }
 
 export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
+  const { gameState } = useGame();
+  const fixPrice = typeof gameState.fixSeatPrice === 'number' ? gameState.fixSeatPrice : 60;
+  const bedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
@@ -45,10 +49,10 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                 </div>
                 <h3 className="text-xl font-semibold text-white">Two-Phase System</h3>
               </div>
-              <div className="space-y-3 text-slate-300">
+        <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-green-400">Phase 1: Pre-Purchase (Limited Time)</div>
-                  <div className="text-sm">Purchase fixed seats at €60 each. Limited availability - first come, first served! These seats are guaranteed but must be paid regardless of demand. <span className="text-orange-400 font-semibold">Exact remaining availability and other teams' purchases are hidden—make strategic decisions under uncertainty.</span> Each team also receives an equal hotel capacity allocation at this stage; empty beds will incur costs later.</div>
+          <div className="text-sm">Purchase fixed seats at €{fixPrice} each. Limited availability under information asymmetry. These seats are guaranteed but must be paid regardless of demand. <span className="text-orange-400 font-semibold">Exact remaining availability and other teams' purchases are hidden—make strategic decisions under uncertainty.</span> Each team also receives an equal hotel capacity allocation at this stage; empty beds will incur costs later (currently €{bedCost}/bed).</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-blue-400">Phase 2: Simulation (365 Days)</div>
@@ -68,7 +72,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li><strong>Phase 1:</strong> Purchase fixed seats (€60 each) without seeing exact remaining availability or others’ purchases. Equal hotel capacity per team is assigned.</li>
+                <li><strong>Phase 1:</strong> Purchase fixed seats (€{fixPrice} each) without seeing exact remaining availability or others’ purchases. Equal hotel capacity per team is assigned.</li>
                 <li><strong>Phase 2:</strong> Set customer prices and pooling allocation. Fix seat allocation details become visible after the first round.</li>
                 <li>Simulation runs for 365 days with increasing demand</li>
                 <li>Monitor live pooling market data (updates every second = 1 simulated day)</li>

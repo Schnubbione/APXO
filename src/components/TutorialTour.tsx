@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-  description: 'Phase 1: Pre-Purchase — Buy fixed seats (€60) under information asymmetry; exact remaining availability and others\' purchases are hidden. Equal hotel capacity is assigned per team. Phase 2: Simulation — Set prices and pooling allocation for 365 days with real-time market monitoring; fix allocation becomes visible after the first round.',
+  description: 'Phase 1: Pre-Purchase — Buy fixed seats at the configured price under information asymmetry; exact remaining availability and others\' purchases are hidden. Equal hotel capacity is assigned per team. Phase 2: Simulation — Set prices and pooling allocation for 365 days with real-time market monitoring; fix allocation becomes visible after the first round.',
     position: 'center'
   },
   {

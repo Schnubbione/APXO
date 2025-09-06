@@ -675,7 +675,6 @@ export const MultiUserApp: React.FC = () => {
                   <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
                   <div>• Fix seats are purchased at €{gameState.fixSeatPrice} each (guaranteed capacity)</div>
                   <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
-                  <div>• First come, first served - act quickly to secure your capacity!</div>
                   <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
                 </div>
               </CardContent>
