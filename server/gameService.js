@@ -5,7 +5,10 @@ import { Op } from 'sequelize';
 export class GameService {
   static currentGameSession = null;
 
-  // Initialize or get current game session
+  /**
+   * Initialize or get current game session
+   * @returns {Promise<GameSession>} The current active game session
+   */
   static async getCurrentGameSession() {
     if (!this.currentGameSession) {
       // Try to find an active session
@@ -59,7 +62,15 @@ export class GameService {
     return this.currentGameSession;
   }
 
-  // Update a team's decision (price, fix seats intent, pooling allocation, etc.)
+  /**
+   * Update a team's decision (price, fix seats intent, pooling allocation, etc.)
+   * @param {string} socketId - The socket ID of the team
+   * @param {object} decision - The decision updates
+   * @param {number} [decision.price] - Retail price for passengers
+   * @param {number} [decision.fixSeatsPurchased] - Number of fix seats to purchase
+   * @param {number} [decision.poolingAllocation] - Pooling allocation percentage (0-100)
+   * @returns {Promise<Team|null>} The updated team or null if not found
+   */
   static async updateTeamDecision(socketId, decision = {}) {
     const team = await Team.findOne({ where: { socketId, isActive: true } });
     if (!team) return null;
@@ -80,12 +91,22 @@ export class GameService {
       // Only intent during pre-purchase; allocation happens separately at phase end
       const requested = Math.max(0, Math.floor(decision.fixSeatsPurchased));
       next.fixSeatsPurchased = requested;
+      next.fixSeatsRequested = requested;
     }
 
     if (typeof decision.poolingAllocation === 'number' && Number.isFinite(decision.poolingAllocation)) {
       // Percentage 0..100
       const pct = Math.max(0, Math.min(100, Math.round(decision.poolingAllocation)));
       next.poolingAllocation = pct;
+    }
+
+    if (decision.fixSeatBidPrice !== undefined) {
+      const bid = Number(decision.fixSeatBidPrice);
+      if (Number.isFinite(bid) && bid > 0) {
+        next.fixSeatBidPrice = Math.round(bid);
+      } else {
+        next.fixSeatBidPrice = null;
+      }
     }
 
     // Preserve hotel capacity and allocated seats fields as they are managed by server phases
@@ -100,7 +121,10 @@ export class GameService {
     return team;
   }
 
-  // Get all active teams for current session
+  /**
+   * Get all active teams for current session
+   * @returns {Promise<Team[]>} Array of active teams
+   */
   static async getActiveTeams() {
     const session = await this.getCurrentGameSession();
     return await Team.findAll({
@@ -113,7 +137,13 @@ export class GameService {
     });
   }
 
-  // Register a new team
+  /**
+   * Register a new team
+   * @param {string} socketId - The socket ID of the connecting client
+   * @param {string} teamName - The name of the team to register
+   * @returns {Promise<Team>} The registered team
+   * @throws {Error} If team name is invalid or already exists
+   */
   static async registerTeam(socketId, teamName) {
     try {
       // Normalize and validate input
@@ -253,58 +283,118 @@ export class GameService {
     const poolingReserveRatio = 0.3; // Airline keeps 30% for pooling
     const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
 
-    // Collect all requested fix seats (cap by budget in first round)
-    const requestedSeats = teams.map(team => ({
-      teamId: team.id,
-      teamName: team.name,
-      requested: (() => {
-        const req = Number(team.decisions?.fixSeatsPurchased || 0);
-        // In first round, cannot buy more than budget allows
-        if ((session.currentRound || 0) === 0) {
-          const budget = Number(settings.perTeamBudget || 0);
-          const unit = Number(settings.fixSeatPrice || 60);
-          const maxByBudget = unit > 0 ? Math.floor(budget / unit) : req;
-          return Math.max(0, Math.min(req, maxByBudget));
+    // Collect all requests with bids (cap by budget in first round)
+    const defaultUnitPrice = Number(settings.fixSeatPrice || 60) || 60;
+    const requests = teams.map(team => {
+      const rawRequested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
+      const rawBid = team.decisions?.fixSeatBidPrice ?? defaultUnitPrice;
+      const normalizedBid = Number.isFinite(Number(rawBid)) && Number(rawBid) > 0
+        ? Math.round(Number(rawBid))
+        : defaultUnitPrice;
+      let cappedRequested = rawRequested;
+      if ((session.currentRound || 0) === 0) {
+        const budget = Number(settings.perTeamBudget || 0);
+        if (budget > 0 && normalizedBid > 0) {
+          cappedRequested = Math.min(cappedRequested, Math.floor(budget / normalizedBid));
         }
-        return req;
-      })()
-    }));
-
-    const totalRequested = requestedSeats.reduce((sum, req) => sum + req.requested, 0);
-
-    let allocationRatio = 1.0;
-
-    // If total requested exceeds available fix capacity, reduce proportionally
-    if (totalRequested > maxFixCapacity) {
-      allocationRatio = maxFixCapacity / totalRequested;
-      console.log(`⚠️ High demand for fix seats. Reducing allocation by ${(1 - allocationRatio) * 100}%`);
-    }
-
-    // Allocate seats to teams
-    const allocations = [];
-    for (const team of teams) {
-  const requested = requestedSeats.find(r => r.teamId === team.id)?.requested || 0;
-      const allocated = Math.floor(requested * allocationRatio);
-
-      // Update team's actual allocated fix seats
-      const updatedDecisions = {
-        ...team.decisions,
-        fixSeatsPurchased: allocated,
-        fixSeatsAllocated: allocated // Store the actually allocated amount
-      };
-
-      await team.update({ decisions: updatedDecisions });
-
-      allocations.push({
+      }
+      return {
+        team,
         teamId: team.id,
         teamName: team.name,
-        requested,
+        requestedOriginal: rawRequested,
+        requested: Math.max(0, cappedRequested),
+        bidPrice: normalizedBid
+      };
+    });
+
+    // Sort descending by bid price, then by team id for determinism
+    const sortedRequests = [...requests].sort((a, b) => {
+      if (b.bidPrice !== a.bidPrice) return b.bidPrice - a.bidPrice;
+      return a.teamId.localeCompare(b.teamId);
+    });
+
+    let remainingCapacity = maxFixCapacity;
+    const allocationMap = new Map();
+
+    // Group by bid price to allow proportional allocation within price tiers
+    const grouped = new Map();
+    for (const req of sortedRequests) {
+      if (!grouped.has(req.bidPrice)) grouped.set(req.bidPrice, []);
+      grouped.get(req.bidPrice).push(req);
+    }
+
+    for (const [price, group] of grouped.entries()) {
+      if (remainingCapacity <= 0) break;
+      const totalGroupRequested = group.reduce((sum, req) => sum + req.requested, 0);
+      if (totalGroupRequested <= 0) {
+        group.forEach(req => allocationMap.set(req.teamId, { allocated: 0, price }));
+        continue;
+      }
+
+      if (totalGroupRequested <= remainingCapacity) {
+        // Everyone in this tier gets all requested seats
+        for (const req of group) {
+          allocationMap.set(req.teamId, { allocated: req.requested, price });
+          remainingCapacity -= req.requested;
+        }
+        continue;
+      }
+
+      // Not enough seats for this price tier: allocate proportionally
+      const ratio = remainingCapacity / totalGroupRequested;
+      const provisional = group.map(req => {
+        const exact = req.requested * ratio;
+        const base = Math.floor(exact);
+        const remainder = exact - base;
+        return { req, base, remainder };
+      });
+      let seatsLeft = remainingCapacity - provisional.reduce((sum, item) => sum + item.base, 0);
+
+      // Distribute leftover seats to highest remainder (stable tie-breaker by team id)
+      provisional.sort((a, b) => {
+        if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+        return a.req.teamId.localeCompare(b.req.teamId);
+      });
+      for (const item of provisional) {
+        let extra = 0;
+        if (seatsLeft > 0) {
+          extra = 1;
+          seatsLeft -= 1;
+        }
+        const finalAlloc = item.base + extra;
+        allocationMap.set(item.req.teamId, { allocated: finalAlloc, price });
+      }
+      remainingCapacity = 0;
+    }
+
+    const allocations = [];
+    for (const req of requests) {
+      const allocInfo = allocationMap.get(req.teamId) || { allocated: 0, price: req.bidPrice };
+      const allocated = Math.max(0, Math.min(req.requested, allocInfo.allocated || 0));
+      const clearingPrice = allocated > 0 ? allocInfo.price : null;
+
+      const updatedDecisions = {
+        ...req.team.decisions,
+        fixSeatsRequested: req.requested,
+        fixSeatsPurchased: allocated,
+        fixSeatsAllocated: allocated,
+        fixSeatBidPrice: req.bidPrice,
+        fixSeatClearingPrice: clearingPrice
+      };
+
+      await req.team.update({ decisions: updatedDecisions });
+
+      allocations.push({
+        teamId: req.teamId,
+        teamName: req.teamName,
+        requested: req.requested,
+        bidPrice: req.bidPrice,
         allocated,
-        allocationRatio
+        clearingPrice
       });
     }
 
-    // Update session settings to reflect actual allocations
     const totalAllocated = allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
     const updatedSettings = {
       ...settings,
@@ -323,15 +413,14 @@ export class GameService {
 
     await session.update({ settings: updatedSettings });
 
-    console.log(`✅ Fix seats allocated: ${totalAllocated}/${maxFixCapacity} seats (${Math.round(allocationRatio * 100)}% of requests)`);
+    console.log(`✅ Fix seats allocated via auction: ${totalAllocated}/${maxFixCapacity} seats`);
     console.log(`🏊 Pooling market initialized with ${totalCapacity - totalAllocated} seats at €${150}`);
 
     return {
       allocations,
-      totalRequested,
+      totalRequested: requests.reduce((sum, req) => sum + req.requested, 0),
       totalAllocated,
       maxFixCapacity,
-      allocationRatio,
       poolingReserveCapacity: totalCapacity - totalAllocated
     };
   }
@@ -437,7 +526,10 @@ export class GameService {
   for (const t of teams) {
     const fixRem = Math.max(0, t.decisions?.fixSeatsAllocated || 0);
     const poolRem = Math.max(0, Math.round(totalSeats * ((t.decisions?.poolingAllocation || 0) / 100)));
-  const fixCost = fixRem * (currentSettings.fixSeatPrice || 60);
+  const clearingPrice = Number.isFinite(Number(t.decisions?.fixSeatClearingPrice)) && Number(t.decisions?.fixSeatClearingPrice) > 0
+    ? Number(t.decisions?.fixSeatClearingPrice)
+    : (currentSettings.fixSeatPrice || 60);
+  const fixCost = fixRem * clearingPrice;
   perTeamState[t.id] = { fixRemaining: fixRem, poolRemaining: poolRem, sold: 0, poolUsed: 0, demand: 0, initialFix: fixRem, initialPool: poolRem, revenue: 0, cost: fixCost, insolvent: false };
   }
   const pmInit = currentSettings.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((totalSeats) * 0.3), availablePoolingCapacity: Math.floor((totalSeats) * 0.3), priceHistory: [{ price: 150, timestamp: new Date().toISOString() }], lastUpdate: new Date().toISOString() };
@@ -469,9 +561,11 @@ export class GameService {
     let roundResults;
     if (simState) {
       // Build results from tick-level accumulations
-      const fixSeatPrice = settings.fixSeatPrice || 60;
-      const hotelBedCost = settings.hotelBedCost || 50;
-      const defaultPoolingCost = settings.poolingCost || 90;
+        const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
+          ? Number(team.decisions?.fixSeatClearingPrice)
+          : (settings.fixSeatPrice || 60);
+        const hotelBedCost = settings.hotelBedCost || 50;
+        const defaultPoolingCost = settings.poolingCost || 90;
       const pmHist = settings.poolingMarket && Array.isArray(settings.poolingMarket.priceHistory) ? settings.poolingMarket.priceHistory : [];
       const avgPoolingUnit = pmHist.length > 0 ? Math.round(pmHist.reduce((s, p) => s + (p.price || 0), 0) / pmHist.length) : defaultPoolingCost;
 
@@ -483,8 +577,8 @@ export class GameService {
         const initialPool = Math.max(0, Math.round(st.initialPool || Math.round((settings.totalAircraftSeats || 1000) * ((team.decisions?.poolingAllocation || 0) / 100))));
         const capacity = initialFix + initialPool;
         const price = team.decisions?.price || 199;
-  const passengerRevenue = (st.revenue || (sold * price));
-  const fixSeatCost = initialFix * fixSeatPrice; // already included at start as committed cost
+        const passengerRevenue = (st.revenue || (sold * price));
+  const fixSeatCost = initialFix * clearingPrice; // price paid per allocated seat
   const poolingUsageCost = st.poolUsed ? (poolUsed * avgPoolingUnit) : 0; // safeguard
   const operationalCost = sold * 15;
         const assignedBeds = typeof team.decisions?.hotelCapacity === 'number' ? team.decisions.hotelCapacity : (typeof settings.hotelCapacityPerTeam === 'number' ? settings.hotelCapacityPerTeam : 0);
@@ -633,7 +727,7 @@ export class GameService {
       profit: parseFloat(team.totalProfit || 0),
       marketShare: 0, // Will be calculated if needed
       avgPrice: team.decisions?.price || 199,
-      capacity: (team.decisions?.fixSeatsPurchased || 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
+      capacity: (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
     })).sort((a, b) => b.profit - a.profit);
 
     return {
@@ -698,6 +792,9 @@ export class GameService {
           decisions: {
             ...team.decisions,
             fixSeatsPurchased: undefined, // Hide from other teams
+            fixSeatsRequested: undefined,
+            fixSeatBidPrice: undefined,
+            fixSeatClearingPrice: undefined,
             // Hide allocated before allocation has happened
             fixSeatsAllocated: (session.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
           },

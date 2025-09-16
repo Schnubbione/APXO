@@ -261,16 +261,28 @@ describe('GameService', () => {
       };
       GameService.currentGameSession = session;
 
-      const t1 = { id: 't1', name: 'Alpha', decisions: { fixSeatsPurchased: 10 }, update: jest.fn().mockResolvedValue(true) };
-      const t2 = { id: 't2', name: 'Beta', decisions: { fixSeatsPurchased: 10 }, update: jest.fn().mockResolvedValue(true) };
+      const t1 = { id: 't1', name: 'Alpha', decisions: { fixSeatsPurchased: 10, fixSeatBidPrice: 50 }, update: jest.fn().mockResolvedValue(true) };
+      const t2 = { id: 't2', name: 'Beta', decisions: { fixSeatsPurchased: 10, fixSeatBidPrice: 50 }, update: jest.fn().mockResolvedValue(true) };
 
       Team.findAll.mockResolvedValue([t1, t2]);
 
       const res = await GameService.allocateFixSeats();
 
       // maxByBudget = floor(120/50) = 2 -> allocate exactly 2 if not oversubscribed
-      expect(t1.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({ fixSeatsPurchased: 2, fixSeatsAllocated: 2 }) });
-      expect(t2.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({ fixSeatsPurchased: 2, fixSeatsAllocated: 2 }) });
+      expect(t1.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
+        fixSeatsRequested: 2,
+        fixSeatsPurchased: 2,
+        fixSeatsAllocated: 2,
+        fixSeatBidPrice: 50,
+        fixSeatClearingPrice: 50
+      }) });
+      expect(t2.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
+        fixSeatsRequested: 2,
+        fixSeatsPurchased: 2,
+        fixSeatsAllocated: 2,
+        fixSeatBidPrice: 50,
+        fixSeatClearingPrice: 50
+      }) });
 
       // session updated and allocation flagged
       expect(session.update).toHaveBeenCalled();
@@ -280,7 +292,11 @@ describe('GameService', () => {
       const a1 = res.allocations.find(a => a.teamId === 't1');
       const a2 = res.allocations.find(a => a.teamId === 't2');
       expect(a1.allocated).toBe(2);
+      expect(a1.bidPrice).toBe(50);
+      expect(a1.clearingPrice).toBe(50);
       expect(a2.allocated).toBe(2);
+      expect(a2.bidPrice).toBe(50);
+      expect(a2.clearingPrice).toBe(50);
     });
   });
 

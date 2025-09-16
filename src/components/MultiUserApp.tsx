@@ -646,7 +646,7 @@ export const MultiUserApp: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-sky-500/20 to-sky-600/20 rounded-xl border border-sky-500/30">
                     <div className="text-2xl font-bold text-sky-400 mb-2">
-                      {currentTeam?.decisions?.fixSeatsPurchased ?? 0}
+                      {currentTeam?.decisions?.fixSeatsRequested ?? currentTeam?.decisions?.fixSeatsPurchased ?? 0}
                     </div>
                     <div className="text-slate-300 text-sm">Your Fix Seats (requested)</div>
                   </div>
@@ -656,9 +656,9 @@ export const MultiUserApp: React.FC = () => {
 
                 {/* Team purchase activity is hidden before allocation to ensure anonymity and avoid demand signals */}
 
-                <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
-                  <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
-                  <div>• Fix seats are purchased at €{gameState.fixSeatPrice} each (guaranteed capacity)</div>
+                  <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
+                    <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
+                  <div>• Airline reference price derzeit: €{gameState.fixSeatPrice} (Auktion entscheidet tatsächlichen Sitzpreis)</div>
                   <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
                   <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
                 </div>
@@ -678,15 +678,21 @@ export const MultiUserApp: React.FC = () => {
               {gameState.currentPhase === 'prePurchase' ? (
                 <div className="space-y-4">
                   <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Fix Seat Price (€)</Label>
-                      <div className="p-3 rounded-lg bg-slate-700/30 border border-slate-600 text-center">
-                        <span className="text-2xl font-bold text-green-400 tabular-nums">
-                          €{gameState.fixSeatPrice}
-                        </span>
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-medium">Gebot pro Fix-Sitz (€)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : ""}
+                      placeholder={`${gameState.fixSeatPrice}`}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const numValue = value === "" ? 0 : Math.max(1, Math.round(Number(value)));
+                        updateTeamDecision({ fixSeatBidPrice: numValue });
+                      }}
+                      disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-slate-300 text-sm font-medium">Purchase Quantity</Label>
@@ -697,19 +703,19 @@ export const MultiUserApp: React.FC = () => {
                       max={(() => {
                         const capSeats = gameState.totalFixSeats || 500;
                         const budget = (gameState as any).perTeamBudget || 0;
-                        const unit = gameState.fixSeatPrice || 60;
+                        const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
                         const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                        return Math.min(capSeats, capByBudget);
+                        return Math.max(0, Math.min(capSeats, capByBudget));
                       })()}
-                      value={currentTeam.decisions.fixSeatsPurchased === 0 ? "" : (currentTeam.decisions.fixSeatsPurchased || "")}
+                      value={currentTeam.decisions.fixSeatsRequested === 0 ? "" : (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? "")}
                       placeholder="0"
                       onChange={(e) => {
                         const value = e.target.value;
                         const capSeats = gameState.totalFixSeats || 500;
                         const budget = (gameState as any).perTeamBudget || 0;
-                        const unit = gameState.fixSeatPrice || 60;
+                        const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
                         const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                        const cap = Math.min(capSeats, capByBudget);
+                        const cap = Math.max(0, Math.min(capSeats, capByBudget));
                         const numValue = value === "" ? 0 : Math.max(0, Math.min(cap, Number(value)));
                         updateTeamDecision({ fixSeatsPurchased: numValue });
                       }}
@@ -718,7 +724,10 @@ export const MultiUserApp: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm text-slate-400">
-                    Total Cost: €{(currentTeam.decisions.fixSeatsPurchased || 0) * gameState.fixSeatPrice} { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
+                    Erwartete Kosten: €{
+                      (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? 0)
+                      * (currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60))
+                    } { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
                   </div>
                 </div>
               ) : gameState.currentPhase === 'simulation' ? (
@@ -795,7 +804,9 @@ export const MultiUserApp: React.FC = () => {
                 {(() => {
                   const st = (gameState as any).simState?.perTeam?.[currentTeam.id] || {};
                   const budget = (gameState as any).perTeamBudget || 0;
-                  const fixUnit = gameState.fixSeatPrice || 60;
+                  const fixUnit = currentTeam.decisions.fixSeatClearingPrice && currentTeam.decisions.fixSeatClearingPrice > 0
+                    ? currentTeam.decisions.fixSeatClearingPrice
+                    : (gameState.fixSeatPrice || 60);
                   const price = currentTeam.decisions.price || 199;
                   const assignedBeds = typeof currentTeam.decisions?.hotelCapacity === 'number' ? currentTeam.decisions.hotelCapacity : (gameState.hotelCapacityPerTeam || 0);
                   const sold = Math.max(0, Number(st.sold || 0));

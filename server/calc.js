@@ -64,7 +64,7 @@ export function calculateAveragePrice(team) {
 
 // Team capacity from fix seats + pooling allocation
 export function calculateTeamCapacity(team, settings = {}) {
-  const fixSeats = team.decisions?.fixSeatsPurchased || 0;
+  const fixSeats = team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0;
   const poolingAllocation = (team.decisions?.poolingAllocation || 0) / 100;
   const totalCapacity = settings.totalAircraftSeats || 1000;
   const poolingCapacity = Math.round(totalCapacity * poolingAllocation);
@@ -78,7 +78,10 @@ export function calculateRevenue(team, sold) {
 
 export function calculateCosts(team, sold, settings = {}) {
   const fixSeatsPurchased = team.decisions?.fixSeatsPurchased || 0;
-  const fixSeatCost = fixSeatsPurchased * (settings.fixSeatPrice || 60);
+  const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions.fixSeatClearingPrice) > 0
+    ? Number(team.decisions.fixSeatClearingPrice)
+    : (settings.fixSeatPrice || 60);
+  const fixSeatCost = fixSeatsPurchased * clearingPrice;
   let totalCost = fixSeatCost;
 
   const totalCapacity = calculateTeamCapacity(team, settings);

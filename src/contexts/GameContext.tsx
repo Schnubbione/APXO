@@ -11,7 +11,10 @@ interface Team {
     fixSeatsPurchased: number;
     fixSeatsAllocated?: number; // Actually allocated fix seats (may be less than purchased)
     poolingAllocation: number;
-  hotelCapacity?: number;
+    fixSeatBidPrice?: number;
+    fixSeatsRequested?: number;
+    fixSeatClearingPrice?: number;
+    hotelCapacity?: number;
   };
   totalProfit: number;
 }
@@ -136,7 +139,7 @@ interface GameContextType {
   loginAsAdmin: (password: string) => void;
   logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
-  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => void;
+  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number }) => void;
   startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
   stopPracticeMode: () => void;
   startPrePurchasePhase: () => void;
@@ -278,7 +281,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Game state updated:', state);
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
-    const normalizedTeams = (state.teams || []).map(t => ({
+      const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
@@ -286,8 +289,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           // Before allocation is confirmed by server, do not infer allocated seats
           fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-      poolingAllocation: t.decisions?.poolingAllocation ?? 0,
-      hotelCapacity: t.decisions?.hotelCapacity
+          poolingAllocation: t.decisions?.poolingAllocation ?? 0,
+          fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
+          fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
+          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null,
+          hotelCapacity: t.decisions?.hotelCapacity
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -313,15 +319,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
-    const normalizedTeams = (state.teams || []).map(t => ({
+      const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
           price: t.decisions?.price ?? 199,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-      poolingAllocation: t.decisions?.poolingAllocation ?? 0,
-      hotelCapacity: t.decisions?.hotelCapacity
+          poolingAllocation: t.decisions?.poolingAllocation ?? 0,
+          fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
+          fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
+          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null,
+          hotelCapacity: t.decisions?.hotelCapacity
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -475,7 +484,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('updateGameSettings', settings);
   };
 
-  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number }) => {
+  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number }) => {
     // Handle in-practice locally
     if (practice?.running) {
       // Local update only
@@ -487,8 +496,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev.decisions,
             ...(decision.price !== undefined ? { price: decision.price } : {}),
             ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
-            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
-            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
+            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
+            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
           }
         };
       });
@@ -503,8 +513,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...t.decisions,
               ...(decision.price !== undefined ? { price: decision.price } : {}),
               ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
-              ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
-              ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+              ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
+              ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
+              ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
             }
           } : t)
         };
@@ -525,8 +536,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...prev.decisions,
           ...(decision.price !== undefined ? { price: decision.price } : {}),
           ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
-          ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
-          ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+          ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
+          ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
+          ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
         }
       };
     });
@@ -543,8 +555,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...t.decisions,
             ...(decision.price !== undefined ? { price: decision.price } : {}),
             ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
-            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased } : {}),
-            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {})
+            ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
+            ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
+            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
           }
         } : t)
       };
@@ -606,6 +619,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         price: typeof config?.overridePrice === 'number' ? config.overridePrice : (currentTeam?.decisions?.price ?? 199),
         buy: {},
         fixSeatsPurchased: currentTeam?.decisions?.fixSeatsPurchased ?? 0,
+        fixSeatsRequested: currentTeam?.decisions?.fixSeatsRequested ?? currentTeam?.decisions?.fixSeatsPurchased ?? 0,
+        fixSeatBidPrice: currentTeam?.decisions?.fixSeatBidPrice ?? fixSeatPrice,
+        fixSeatClearingPrice: currentTeam?.decisions?.fixSeatClearingPrice ?? null,
         poolingAllocation: currentTeam?.decisions?.poolingAllocation ?? 0,
         hotelCapacity: perTeamHotel
       },
@@ -618,6 +634,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         price: irnd(180, 280),
         buy: {},
         fixSeatsPurchased: irnd(10, 120),
+        fixSeatsRequested: irnd(10, 120),
+        fixSeatBidPrice: irnd(50, 120),
+        fixSeatClearingPrice: null,
         poolingAllocation: irnd(10, 80),
         hotelCapacity: perTeamHotel
       },
@@ -673,24 +692,93 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const rt = Math.max(0, (prev.remainingTime || 0) - 1);
         if (rt <= 0) {
           clearInterval(preTimerRef.current);
-          // allocate fix seats proportionally
+          // allocate fix seats via local auction logic
           const poolingReserveRatio = 0.3;
           const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - poolingReserveRatio));
-      // Cap requests by budget (first round semantics in practice)
-      const budget = Number(prev.perTeamBudget || 0);
-      const unit = Number(prev.fixSeatPrice || 60);
-      const capByBudget = unit > 0 ? Math.floor(budget / unit) : Number.MAX_SAFE_INTEGER;
-      const requestedCapped = prev.teams.map(t => Math.min(capByBudget, Math.max(0, t.decisions?.fixSeatsPurchased || 0)));
-      const totalRequested = requestedCapped.reduce((sum, v) => sum + v, 0);
-          const ratio = totalRequested > maxFixCapacity ? (maxFixCapacity / Math.max(1, totalRequested)) : 1.0;
-      const teams = prev.teams.map((t, idx) => ({
-            ...t,
-            decisions: {
-              ...t.decisions,
-        fixSeatsPurchased: Math.floor((requestedCapped[idx] || 0) * ratio),
-        fixSeatsAllocated: Math.floor((requestedCapped[idx] || 0) * ratio)
+          const budget = Number(prev.perTeamBudget || 0);
+          const defaultBid = Number(prev.fixSeatPrice || 60) || 60;
+
+          const requests = prev.teams.map(team => {
+            const rawRequested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
+            const rawBid = team.decisions?.fixSeatBidPrice ?? defaultBid;
+            const bidPrice = Number.isFinite(Number(rawBid)) && Number(rawBid) > 0 ? Math.round(Number(rawBid)) : defaultBid;
+            let capped = rawRequested;
+            if (budget > 0 && bidPrice > 0) {
+              capped = Math.min(capped, Math.floor(budget / bidPrice));
             }
-          }));
+            return { team, teamId: team.id, requested: rawRequested, capped, bidPrice };
+          });
+
+          const grouped = [...requests]
+            .sort((a, b) => {
+              if (b.bidPrice !== a.bidPrice) return b.bidPrice - a.bidPrice;
+              return a.teamId.localeCompare(b.teamId);
+            })
+            .reduce((map, req) => {
+              if (!map.has(req.bidPrice)) map.set(req.bidPrice, [] as typeof requests);
+              map.get(req.bidPrice)!.push(req);
+              return map;
+            }, new Map<number, typeof requests>());
+
+          let remaining = maxFixCapacity;
+          const allocationMap = new Map<string, { allocated: number; price: number; requested: number }>();
+
+          for (const [price, group] of grouped.entries()) {
+            if (remaining <= 0) {
+              group.forEach(req => allocationMap.set(req.teamId, { allocated: 0, price, requested: req.capped }));
+              continue;
+            }
+            const totalGroupRequested = group.reduce((sum, req) => sum + req.capped, 0);
+            if (totalGroupRequested <= remaining) {
+              for (const req of group) {
+                allocationMap.set(req.teamId, { allocated: req.capped, price, requested: req.capped });
+                remaining -= req.capped;
+              }
+              continue;
+            }
+
+            const ratio = remaining / totalGroupRequested;
+            const provisional = group.map(req => {
+              const exact = req.capped * ratio;
+              const base = Math.floor(exact);
+              const remainder = exact - base;
+              return { req, base, remainder };
+            });
+            let seatsLeft = remaining - provisional.reduce((sum, item) => sum + item.base, 0);
+            provisional.sort((a, b) => {
+              if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+              return a.req.teamId.localeCompare(b.req.teamId);
+            });
+            for (const item of provisional) {
+              let extra = 0;
+              if (seatsLeft > 0) {
+                extra = 1;
+                seatsLeft -= 1;
+              }
+              allocationMap.set(item.req.teamId, { allocated: item.base + extra, price, requested: item.req.capped });
+            }
+            remaining = 0;
+          }
+
+          const teams = prev.teams.map(t => {
+            const alloc = allocationMap.get(t.id);
+            const allocated = alloc ? alloc.allocated : 0;
+            const bidPrice = Number.isFinite(Number(t.decisions?.fixSeatBidPrice)) && Number(t.decisions?.fixSeatBidPrice) > 0
+              ? Math.round(Number(t.decisions?.fixSeatBidPrice))
+              : defaultBid;
+            const clearingPrice = allocated > 0 ? (alloc ? alloc.price : bidPrice) : null;
+            return {
+              ...t,
+              decisions: {
+                ...t.decisions,
+                fixSeatsRequested: alloc ? alloc.requested : Math.max(0, Math.floor(Number(t.decisions?.fixSeatsPurchased || 0))),
+                fixSeatsPurchased: allocated,
+                fixSeatsAllocated: allocated,
+                fixSeatBidPrice: bidPrice,
+                fixSeatClearingPrice: clearingPrice
+              }
+            };
+          });
           // reflect allocation in currentTeam
           const updatedMe = teams.find(t => t.id === myId) || null;
           if (updatedMe) {
@@ -815,7 +903,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? Math.round(updatedPM.priceHistory.reduce((s, p) => s + (p.price || 0), 0) / updatedPM.priceHistory.length)
               : (poolingCost || 90);
             const revenue = sold * myPrice;
-            const fixSeatCost = myFixAllocated * (prev.fixSeatPrice || 60);
+            const clearingUnit = Number.isFinite(Number(teams[meIndex]?.decisions?.fixSeatClearingPrice)) && Number(teams[meIndex]?.decisions?.fixSeatClearingPrice) > 0
+              ? Number(teams[meIndex]?.decisions?.fixSeatClearingPrice)
+              : (prev.fixSeatPrice || 60);
+            const fixSeatCost = myFixAllocated * clearingUnit;
             const poolingUsageCost = poolUsed * avgPoolingUnit;
             const variableCost = sold * 15;
             const hotelCost = hotelEmptyBeds * (prev.hotelBedCost ?? 50);

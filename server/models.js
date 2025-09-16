@@ -30,9 +30,12 @@ export const Team = sequelize.define('Team', {
     type: DataTypes.JSON,
     defaultValue: {
       price: 199,
+      fixSeatsRequested: 0,
       fixSeatsPurchased: 0,
       fixSeatsAllocated: 0,
-      poolingAllocation: 0
+      poolingAllocation: 0,
+      fixSeatBidPrice: null,
+      fixSeatClearingPrice: null
     }
   },
   totalProfit: {

@@ -354,6 +354,9 @@ async function broadcastGameState() {
               decisions: {
                 ...team.decisions,
                 fixSeatsPurchased: undefined, // Hide from other teams
+                fixSeatsRequested: undefined,
+                fixSeatBidPrice: undefined,
+                fixSeatClearingPrice: undefined,
                 // Before allocation, also hide any allocated amounts
                 fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
               },
@@ -424,6 +427,9 @@ io.on('connection', async (socket) => {
             decisions: {
               ...team.decisions,
               fixSeatsPurchased: undefined, // Hide from other teams
+              fixSeatsRequested: undefined,
+              fixSeatBidPrice: undefined,
+              fixSeatClearingPrice: undefined,
               fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
             },
             totalProfit: team.totalProfit
@@ -653,9 +659,12 @@ io.on('connection', async (socket) => {
 
       const humanDecisions = {
         price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
+        fixSeatsRequested: Number(humanTeam.decisions?.fixSeatsRequested ?? humanTeam.decisions?.fixSeatsPurchased ?? 0),
         fixSeatsPurchased: Number(humanTeam.decisions?.fixSeatsPurchased || 0),
         poolingAllocation: Number(humanTeam.decisions?.poolingAllocation || 0),
-        hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel)
+        hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel),
+        fixSeatBidPrice: Number(humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60),
+        fixSeatClearingPrice: Number(humanTeam.decisions?.fixSeatClearingPrice || humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60)
       };
 
       const teams = [
@@ -689,9 +698,12 @@ io.on('connection', async (socket) => {
           name: `AI Team ${i + 1}`,
           decisions: {
             price: irnd(180, 280),
+            fixSeatsRequested: aiFixSeats,
             fixSeatsPurchased: aiFixSeats,
             poolingAllocation: aiPooling,
-            hotelCapacity: perTeamHotel
+            hotelCapacity: perTeamHotel,
+            fixSeatBidPrice: irnd(50, 120),
+            fixSeatClearingPrice: null
           },
           totalProfit: 0
         });
@@ -701,16 +713,76 @@ io.on('connection', async (socket) => {
       const totalCapacity = settings.totalAircraftSeats || 1000;
       const poolingReserveRatio = 0.3; // 30% reserved for pooling, like real game
       const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
-      const requestedSeats = teams.map(t => Number(t.decisions?.fixSeatsPurchased || 0));
-      const totalRequested = requestedSeats.reduce((a, b) => a + b, 0);
-      const allocationRatio = totalRequested > maxFixCapacity ? (maxFixCapacity / Math.max(1, totalRequested)) : 1.0;
 
-      const allocations = teams.map((team, idx) => {
-        const requested = Number(team.decisions?.fixSeatsPurchased || 0);
-        const allocated = Math.floor(requested * allocationRatio);
+      const defaultBid = Number(settings.fixSeatPrice || 60) || 60;
+      const requests = teams.map(team => {
+        const requested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
+        const bidPrice = Number.isFinite(Number(team.decisions?.fixSeatBidPrice)) && Number(team.decisions.fixSeatBidPrice) > 0
+          ? Math.round(Number(team.decisions.fixSeatBidPrice))
+          : defaultBid;
+        return { team, requested, bidPrice };
+      });
+
+      const groupedRequests = [...requests].sort((a, b) => {
+        if (b.bidPrice !== a.bidPrice) return b.bidPrice - a.bidPrice;
+        return a.team.id.localeCompare(b.team.id);
+      }).reduce((map, req) => {
+        if (!map.has(req.bidPrice)) map.set(req.bidPrice, []);
+        map.get(req.bidPrice).push(req);
+        return map;
+      }, new Map());
+
+      let remaining = maxFixCapacity;
+      const allocationMap = new Map();
+
+      for (const [price, group] of groupedRequests.entries()) {
+        if (remaining <= 0) {
+          group.forEach(req => allocationMap.set(req.team.id, { allocated: 0, price }));
+          continue;
+        }
+        const totalGroupRequested = group.reduce((sum, req) => sum + req.requested, 0);
+        if (totalGroupRequested <= remaining) {
+          for (const req of group) {
+            allocationMap.set(req.team.id, { allocated: req.requested, price });
+            remaining -= req.requested;
+          }
+          continue;
+        }
+
+        const ratio = remaining / totalGroupRequested;
+        const provisional = group.map(req => {
+          const exact = req.requested * ratio;
+          const base = Math.floor(exact);
+          const remainder = exact - base;
+          return { req, base, remainder };
+        });
+        let seatsLeft = remaining - provisional.reduce((sum, item) => sum + item.base, 0);
+        provisional.sort((a, b) => {
+          if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+          return a.req.team.id.localeCompare(b.req.team.id);
+        });
+        for (const item of provisional) {
+          let extra = 0;
+          if (seatsLeft > 0) {
+            extra = 1;
+            seatsLeft -= 1;
+          }
+          allocationMap.set(item.req.team.id, { allocated: item.base + extra, price });
+        }
+        remaining = 0;
+      }
+
+      const allocations = teams.map(team => {
+        const allocInfo = allocationMap.get(team.id) || { allocated: 0, price: defaultBid };
+        const requested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
+        const allocated = Math.max(0, Math.min(requested, allocInfo.allocated));
+        const price = allocInfo.price;
+        team.decisions.fixSeatsRequested = requested;
         team.decisions.fixSeatsPurchased = allocated;
         team.decisions.fixSeatsAllocated = allocated;
-        return { teamId: team.id, teamName: team.name, requested, allocated };
+        team.decisions.fixSeatClearingPrice = allocated > 0 ? price : null;
+        team.decisions.fixSeatBidPrice = price;
+        return { teamId: team.id, teamName: team.name, requested, allocated, bidPrice: price, clearingPrice: team.decisions.fixSeatClearingPrice };
       });
 
       const totalAllocated = allocations.reduce((sum, a) => sum + a.allocated, 0);
@@ -736,7 +808,7 @@ io.on('connection', async (socket) => {
         config: { aiCount, prePurchaseDurationSec, daysPerUpdate, daysTotal },
         settings,
         phases: {
-          prePurchase: { allocations, maxFixCapacity, totalRequested, allocationRatio },
+          prePurchase: { allocations, maxFixCapacity, totalRequested: allocations.reduce((sum, a) => sum + a.requested, 0) },
           simulation: { summary: { currentPrice: settings.poolingMarket.currentPrice } }
         },
         rounds: [{ round: 1, teamResults: rr }],
@@ -1076,7 +1148,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
     const teamDemand = Math.round(monthlyDemand * teamShare);
 
     // Calculate available capacity (fix seats + pooling allocation)
-    const fixSeats = team.decisions.fixSeatsPurchased || 0;
+    const fixSeats = team.decisions.fixSeatsAllocated ?? team.decisions.fixSeatsPurchased || 0;
     const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
     const totalPoolingCapacity = Math.round((settings.totalAircraftSeats || 1000) * poolingAllocation);
     const availableCapacity = fixSeats + totalPoolingCapacity;
@@ -1089,7 +1161,10 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
     const passengerRevenue = sold * price;
 
     // Costs
-    const fixSeatCost = fixSeats * (settings.fixSeatPrice || 60);
+    const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions.fixSeatClearingPrice) > 0
+      ? Number(team.decisions.fixSeatClearingPrice)
+      : (settings.fixSeatPrice || 60);
+    const fixSeatCost = fixSeats * clearingPrice;
     const poolingCost = totalPoolingCapacity * (settings.poolingCost || 30); // Assume pooling cost
     const operationalCost = sold * 15; // Variable operational costs
 

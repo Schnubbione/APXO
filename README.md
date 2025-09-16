@@ -17,44 +17,149 @@ A real-time, multi-user simulation game for learning touristic procurement and d
 - **Hotel Capacity & Costs**: Equal hotel capacity per team; empty beds incur costs, selling beyond hotel capacity is allowed
 - **Production-Safe Admin Auth**: Admin password via environment variables; no hardcoded defaults in production
 
-## Quick Start
+## Detailed Setup Guide
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js 18+ and npm (or yarn)
+- Git
+- SQLite (comes with Node.js)
 
-### Installation
+### Development Setup
 
-1. **Clone the repository**
+1. **Clone and Install**
    ```bash
    git clone https://github.com/Schnubbione/APXO.git
    cd APXO
-   ```
-
-2. **Install frontend dependencies**
-   ```bash
    npm install
+   cd server && npm install && cd ..
    ```
 
-3. **Install backend dependencies**
+2. **Environment Configuration**
+   
+   Create `.env` files:
+   
+   **Frontend (.env.local)**
+   ```bash
+   VITE_SERVER_URL=http://localhost:3001
+   ```
+   
+   **Backend (server/.env)**
+   ```bash
+   PORT=3001
+   NODE_ENV=development
+   FRONTEND_URL=http://localhost:5173
+   ADMIN_PASSWORD=admin123  # Only for local development
+   ```
+
+3. **Database Setup**
    ```bash
    cd server
-   npm install
-   cd ..
-   ```
-
-4. **Start the backend server**
-   ```bash
-   cd server
+   # Database is automatically created on first run
    npm start
    ```
-   The server will run on http://localhost:3001
 
-5. **Start the frontend (in a new terminal)**
+4. **Start Development Servers**
+   
+   **Terminal 1: Backend**
+   ```bash
+   cd server
+   npm run dev  # or npm start
+   ```
+   
+   **Terminal 2: Frontend**
    ```bash
    npm run dev
    ```
-   The app will be available at http://localhost:5173
+
+5. **Access the Application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:3001
+
+### Production Setup
+
+#### Option 1: Vercel + Render
+
+1. **Deploy Backend to Render**
+   - Connect GitHub repo
+   - Set build command: `npm install`
+   - Set start command: `npm start`
+   - Environment variables:
+     ```
+     PORT=10000
+     NODE_ENV=production
+     FRONTEND_URL=https://your-app.vercel.app
+     ADMIN_PASSWORD=your-secure-password
+     ```
+
+2. **Deploy Frontend to Vercel**
+   - Connect GitHub repo
+   - Set build command: `npm run build`
+   - Environment variables:
+     ```
+     VITE_SERVER_URL=https://your-backend.onrender.com
+     ```
+
+#### Option 2: Docker
+
+```dockerfile
+# Dockerfile for backend
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3001
+CMD ["npm", "start"]
+```
+
+```bash
+# Build and run
+docker build -t apxo-backend .
+docker run -p 3001:3001 apxo-backend
+```
+
+### Testing
+
+```bash
+# Frontend tests
+npm test
+
+# Backend tests
+cd server && npm test
+
+# E2E tests
+npm run test:e2e
+
+# Storybook for UI component development
+npm run storybook
+```
+
+### Storybook
+
+Storybook is configured for developing and testing UI components in isolation:
+
+```bash
+npm run storybook
+```
+
+This will start Storybook on `http://localhost:6006` where you can:
+- View all UI components with different variants
+- Test component interactions
+- Generate documentation automatically
+- Run visual regression tests
+
+Available stories include:
+- **Button**: All variants (default, destructive, outline, etc.) and sizes
+- **Card**: Basic cards, cards with footers, and game-specific layouts
+- **Input**: Form inputs with validation states
+- **And more...**
+
+### Troubleshooting
+
+- **Port conflicts**: Change PORT in .env
+- **CORS errors**: Verify FRONTEND_URL matches your frontend domain
+- **Socket connection fails**: Check VITE_SERVER_URL and firewall settings
+- **Database issues**: Delete database.sqlite and restart server
 
 ## How to Play
 
@@ -111,11 +216,221 @@ The simulation features three different procurement products with varying risk p
 
 ## Architecture
 
-- **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Backend**: Node.js + Express + Socket.io
-- **Real-time Communication**: WebSocket connections for live updates
-- **State Management**: React Context for game state
-- **UI Components**: Shadcn/ui component library
+### Overview
+APXO is a real-time multi-user simulation game built with a client-server architecture. The frontend provides an interactive UI for teams and admins, while the backend manages game state, business logic, and real-time communication.
+
+### Frontend Architecture
+- **Framework**: React 19 with TypeScript for type safety
+- **Build Tool**: Vite for fast development and optimized production builds
+- **Styling**: Tailwind CSS with Shadcn/ui components
+- **State Management**: React Context (GameContext) for global game state
+- **Real-time Communication**: Socket.IO client for WebSocket connections
+- **Routing**: React Router for navigation (if needed)
+- **Charts**: Recharts for data visualization
+- **Animations**: Framer Motion for smooth transitions
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js
+- **Real-time**: Socket.IO for bidirectional communication
+- **Database**: SQLite with Sequelize ORM
+- **Authentication**: Simple password-based admin auth (production-safe)
+- **API**: RESTful endpoints with JSON responses
+- **Error Handling**: Centralized error middleware
+- **Logging**: Console-based logging (can be extended with Winston)
+
+### Data Flow
+1. **Client Connection**: Teams connect via Socket.IO
+2. **State Synchronization**: Server broadcasts game state updates
+3. **Decision Updates**: Teams send decisions → Server validates → Updates DB → Broadcasts changes
+4. **Phase Management**: Server handles phase transitions and timing
+5. **Results Calculation**: Server computes round results and persists to DB
+
+### Key Components
+- `MultiUserApp.tsx`: Main application component handling UI state
+- `GameContext.tsx`: Centralized state management and Socket.IO integration
+- `AdminPanel.tsx`: Admin controls and monitoring
+- `TeamRegistration.tsx`: Team onboarding
+- `RoundTimer.tsx`: Phase timing and countdown
+- `server.js`: Main server entry point
+- `gameService.js`: Business logic and database operations
+- `models.js`: Database models and relationships
+
+### Database Schema
+- **Team**: Stores team info, decisions, and socket connections
+- **GameSession**: Current game settings and state
+- **RoundResult**: Historical results per round
+- **HighScore**: Leaderboard data
+
+### Security Considerations
+- Input validation on both client and server
+- CORS configuration for allowed origins
+- Admin authentication via environment variables
+- UUID-based team identification
+- Rate limiting for API endpoints
+
+## API Documentation
+
+### REST Endpoints
+
+#### GET /
+Health check endpoint
+```json
+{
+  "message": "APXO Server is running!",
+  "environment": "development",
+  "timestamp": "2025-09-06T12:00:00.000Z"
+}
+```
+
+### Socket.IO Events
+
+#### Client → Server Events
+
+**Team Management**
+- `registerTeam(teamName: string)` → Registers a new team
+- `resumeTeam(token: string, ack: function)` → Resumes a team session
+- `logoutTeam(ack: function)` → Logs out current team
+
+**Admin Management**
+- `adminLogin(password: string)` → Authenticates admin
+- `updateGameSettings(settings: object)` → Updates game configuration
+- `startPrePurchasePhase()` → Starts pre-purchase phase
+- `startSimulationPhase()` → Starts simulation phase
+- `endRound()` → Ends current round
+- `endPhase()` → Ends current phase
+- `resetAllData()` → Resets all game data
+- `resetCurrentGame()` → Resets current game (keeps high scores)
+
+**Game Actions**
+- `updateTeamDecision(decision: object, ack: function)` → Updates team decisions
+- `startPracticeMode(config: object)` → Starts practice mode
+- `getAnalytics()` → Requests analytics data
+
+#### Server → Client Events
+
+**Game State**
+- `gameState(gameState: object)` → Initial game state on connection
+- `gameStateUpdate(gameState: object)` → Game state updates
+- `phaseStarted(phase: string)` → Phase start notification
+- `phaseEnded(data: object)` → Phase end notification
+- `roundEnded(data: object)` → Round end with results
+- `fixSeatsAllocated(data: object)` → Fix seat allocation results
+
+**Team Management**
+- `registrationSuccess(team: object)` → Team registration success
+- `registrationError(message: string)` → Team registration failure
+- `resumeToken(token: string)` → Resume token for session recovery
+
+**Admin Management**
+- `adminLoginSuccess()` → Admin login success
+- `adminLoginError(message: string)` → Admin login failure
+
+**Practice Mode**
+- `practiceResults(data: object)` → Practice mode results
+- `practiceError(message: string)` → Practice mode error
+
+**System**
+- `error(message: string)` → General error notification
+- `dataReset(data: object)` → Data reset confirmation
+- `currentGameReset(data: object)` → Current game reset confirmation
+
+### Data Structures
+
+#### GameState
+```typescript
+interface GameState {
+  teams: Team[];
+  currentRound: number;
+  isActive: boolean;
+  baseDemand: number;
+  spread: number;
+  shock: number;
+  sharedMarket: boolean;
+  seed: number;
+  roundTime: number;
+  fares: Fare[];
+  currentPhase: 'prePurchase' | 'simulation';
+  phaseTime: number;
+  totalCapacity: number;
+  totalAircraftSeats: number;
+  totalFixSeats: number;
+  availableFixSeats: number;
+  fixSeatPrice: number;
+  poolingCost?: number;
+  simulationMonths: number;
+  departureDate: Date;
+  fixSeatsAllocated?: boolean;
+  poolingReserveCapacity?: number;
+  poolingMarketUpdateInterval?: number;
+  simulatedWeeksPerUpdate?: number;
+  demandVolatility?: number;
+  priceElasticity?: number;
+  marketConcentration?: number;
+  costVolatility?: number;
+  crossElasticity?: number;
+  poolingMarket?: {
+    currentPrice: number;
+    totalPoolingCapacity: number;
+    availablePoolingCapacity: number;
+    offeredPoolingCapacity: number;
+    currentDemand: number;
+    lastUpdate: string;
+    priceHistory: Array<{ price: number; timestamp: string }>;
+  };
+  hotelBedCost?: number;
+  hotelCapacityAssigned?: boolean;
+  hotelCapacityPerTeam?: number;
+  hotelCapacityRatio?: number;
+  perTeamBudget?: number;
+  remainingTime?: number;
+  simulatedDaysUntilDeparture?: number;
+  simState?: {
+    perTeam: Record<string, {
+      fixRemaining?: number;
+      poolRemaining?: number;
+      sold?: number;
+      poolUsed?: number;
+      demand?: number;
+      initialFix?: number;
+      initialPool?: number;
+      revenue?: number;
+      cost?: number;
+      insolvent?: boolean;
+    }>;
+    returnedDemandRemaining?: number;
+  };
+}
+```
+
+#### Team
+```typescript
+interface Team {
+  id: string;
+  name: string;
+  decisions: {
+    price: number;
+    buy: Record<string, number>;
+    fixSeatsPurchased: number;
+    fixSeatsAllocated?: number;
+    poolingAllocation: number;
+    hotelCapacity?: number;
+  };
+  totalProfit: number;
+}
+```
+
+#### RoundResult
+```typescript
+interface RoundResult {
+  teamId: string;
+  sold: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  unsold: number;
+  insolvent?: boolean;
+}
+```
 
 ## Development
 
