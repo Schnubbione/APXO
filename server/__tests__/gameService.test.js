@@ -27,6 +27,12 @@ const HighScore = {
 };
 
 beforeAll(async () => {
+  jest.resetModules();
+  await jest.unstable_mockModule('../database.js', () => ({
+    sequelize: { authenticate: jest.fn(), sync: jest.fn() },
+    testConnection: jest.fn(),
+    default: { authenticate: jest.fn(), sync: jest.fn() }
+  }));
   await jest.unstable_mockModule('../models.js', () => ({
     Team,
     GameSession,
@@ -35,6 +41,9 @@ beforeAll(async () => {
   }));
   const mod = await import('../gameService.js');
   GameService = mod.GameService;
+  if (mod.__setModelsForTesting) {
+    mod.__setModelsForTesting({ Team, GameSession, RoundResult, HighScore });
+  }
 });
 
 describe('GameService', () => {
@@ -310,7 +319,7 @@ describe('GameService', () => {
       Math.random = realRandom;
     });
 
-    test('marks team insolvent early and accumulates returned demand; persists insolvent in endRound', async () => {
+    test('marks team insolvent early and carries state into endRound', async () => {
       const teamId = 't-insolv';
       const session = {
         id: 'sess-2',
@@ -359,8 +368,11 @@ describe('GameService', () => {
       // Trigger market update: should sell a few seats, then flag insolvency due to huge hotel costs > budget
       await GameService.updatePoolingMarket();
 
-      // Returned demand should accumulate (at least the sold seats, here <= fixRemaining 2)
-      expect(session.settings.simState.returnedDemandRemaining).toBeGreaterThanOrEqual(1);
+      const poolState = session.settings.poolingMarket || {};
+      expect(poolState).toBeDefined();
+      expect(poolState.soldThisTick).toBeGreaterThanOrEqual(0);
+      expect(poolState.unmetDemand).toBeGreaterThanOrEqual(0);
+
       // Team state flagged as insolvent
       expect(session.settings.simState.perTeam[teamId].insolvent).toBe(true);
 

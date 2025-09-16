@@ -1,5 +1,17 @@
-import { Team, GameSession, RoundResult, HighScore } from './models.js';
+import { Team as BaseTeam, GameSession as BaseGameSession, RoundResult as BaseRoundResult, HighScore as BaseHighScore } from './models.js';
 import { Op } from 'sequelize';
+
+let TeamModel = BaseTeam;
+let GameSessionModel = BaseGameSession;
+let RoundResultModel = BaseRoundResult;
+let HighScoreModel = BaseHighScore;
+
+export const __setModelsForTesting = ({ Team, GameSession, RoundResult, HighScore } = {}) => {
+  if (Team) TeamModel = Team;
+  if (GameSession) GameSessionModel = GameSession;
+  if (RoundResult) RoundResultModel = RoundResult;
+  if (HighScore) HighScoreModel = HighScore;
+};
 
 // Game Service - Handles all game-related database operations
 export class GameService {
@@ -12,14 +24,14 @@ export class GameService {
   static async getCurrentGameSession() {
     if (!this.currentGameSession) {
       // Try to find an active session
-      let session = await GameSession.findOne({
+      let session = await GameSessionModel.findOne({
         where: { isActive: true },
         order: [['updatedAt', 'DESC']]
       });
 
       if (!session) {
         // Create new session if none exists
-        session = await GameSession.create({
+        session = await GameSessionModel.create({
           currentRound: 0,
           isActive: false,
           settings: {
@@ -74,7 +86,7 @@ export class GameService {
    * @returns {Promise<Team|null>} The updated team or null if not found
    */
   static async updateTeamDecision(socketId, decision = {}) {
-    const team = await Team.findOne({ where: { socketId, isActive: true } });
+    const team = await TeamModel.findOne({ where: { socketId, isActive: true } });
     if (!team) return null;
 
     const session = await this.getCurrentGameSession();
@@ -129,10 +141,10 @@ export class GameService {
    */
   static async getActiveTeams() {
     const session = await this.getCurrentGameSession();
-    return await Team.findAll({
+    return await TeamModel.findAll({
       where: { isActive: true },
       include: [{
-        model: RoundResult,
+        model: RoundResultModel,
         where: { gameSessionId: session.id },
         required: false
       }]
@@ -164,7 +176,7 @@ export class GameService {
       }
 
       // Check if any team with this name exists (active or inactive)
-      const anyTeamWithName = await Team.findOne({ where: { name: normalizedName } });
+      const anyTeamWithName = await TeamModel.findOne({ where: { name: normalizedName } });
 
       if (anyTeamWithName) {
         if (anyTeamWithName.isActive) {
@@ -183,7 +195,7 @@ export class GameService {
         // Optionally wipe current-session round results for this team to avoid leftovers
         try {
           const session = await this.getCurrentGameSession();
-          await RoundResult.destroy({ where: { teamId: anyTeamWithName.id, gameSessionId: session.id } });
+          await RoundResultModel.destroy({ where: { teamId: anyTeamWithName.id, gameSessionId: session.id } });
         } catch (e) {
           // Non-fatal: continue even if cleanup fails
           console.warn('Warning cleaning old round results for reactivated team:', e?.message || e);
@@ -221,7 +233,7 @@ export class GameService {
     const perTeamHotel = session.settings?.hotelCapacityAssigned ? (session.settings.hotelCapacityPerTeam || 0) : 0;
       const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
-      const team = await Team.create({
+      const team = await TeamModel.create({
         socketId,
         name: normalizedName,
         resumeToken: token,
@@ -260,7 +272,7 @@ export class GameService {
   // Resume an existing team using a resume token
   static async resumeTeam(socketId, token) {
     if (!token) return null;
-    const team = await Team.findOne({ where: { resumeToken: token } });
+    const team = await TeamModel.findOne({ where: { resumeToken: token } });
     if (!team) return null;
   const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
   await team.update({ socketId, isActive: true, resumeUntil });
@@ -269,7 +281,7 @@ export class GameService {
 
   // Explicit logout: prevent resume by clearing token until next registration
   static async logoutTeam(socketId) {
-    const team = await Team.findOne({ where: { socketId } });
+    const team = await TeamModel.findOne({ where: { socketId } });
     if (!team) return null;
     await team.update({ isActive: false, socketId: null, resumeToken: null });
     return team;
@@ -572,16 +584,12 @@ export class GameService {
     const simState = settings.simState && settings.simState.perTeam ? settings.simState.perTeam : null;
     let roundResults;
     if (simState) {
-      // Build results from tick-level accumulations
-        const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
-          ? Number(team.decisions?.fixSeatClearingPrice)
-          : (settings.fixSeatPrice || 60);
-        const hotelBedCost = settings.hotelBedCost || 50;
-        const defaultPoolingCost = settings.poolingCost || 90;
+      const hotelBedCost = settings.hotelBedCost || 50;
+      const defaultPoolingCost = settings.poolingCost || 90;
       const pmHist = settings.poolingMarket && Array.isArray(settings.poolingMarket.priceHistory) ? settings.poolingMarket.priceHistory : [];
       const avgPoolingUnit = pmHist.length > 0 ? Math.round(pmHist.reduce((s, p) => s + (p.price || 0), 0) / pmHist.length) : defaultPoolingCost;
 
-  const results = teams.map(team => {
+      const results = teams.map(team => {
         const st = simState[team.id] || { fixRemaining: 0, poolRemaining: 0, sold: 0, poolUsed: 0, demand: 0, initialFix: 0, initialPool: 0 };
         const sold = Math.max(0, Math.round(st.sold || 0));
         const poolUsed = Math.max(0, Math.round(st.poolUsed || 0));
@@ -589,21 +597,23 @@ export class GameService {
         const initialPool = Math.max(0, Math.round(st.initialPool || Math.round((settings.totalAircraftSeats || 1000) * ((team.decisions?.poolingAllocation || 0) / 100))));
         const capacity = initialFix + initialPool;
         const price = team.decisions?.price || 199;
-        const passengerRevenue = (st.revenue || (sold * price));
-  const fixSeatCost = initialFix * clearingPrice; // price paid per allocated seat
-  const poolingUsageCost = st.poolUsed ? (poolUsed * avgPoolingUnit) : 0; // safeguard
-  const operationalCost = sold * 15;
+        const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
+          ? Number(team.decisions?.fixSeatClearingPrice)
+          : (settings.fixSeatPrice || 60);
+        const passengerRevenue = st.revenue || (sold * price);
+        const fixSeatCost = initialFix * clearingPrice;
+        const poolingUsageCost = poolUsed * avgPoolingUnit;
+        const operationalCost = sold * 15;
         const assignedBeds = typeof team.decisions?.hotelCapacity === 'number' ? team.decisions.hotelCapacity : (typeof settings.hotelCapacityPerTeam === 'number' ? settings.hotelCapacityPerTeam : 0);
         const hotelEmptyBeds = Math.max(0, assignedBeds - sold);
         const hotelEmptyBedCost = hotelEmptyBeds * hotelBedCost;
-  const totalCost = (st.cost || (fixSeatCost + poolingUsageCost + operationalCost)) + hotelEmptyBedCost;
+        const totalCost = (st.cost || (fixSeatCost + poolingUsageCost + operationalCost)) + hotelEmptyBedCost;
         const profit = Math.round(passengerRevenue - totalCost);
         const demand = Math.max(0, Math.round(st.demand || 0));
         const unsold = Math.max(0, demand - sold);
-  // Insolvency determination at end (if not already flagged)
         const budget = Number(settings.perTeamBudget || 0);
-  const flaggedEarly = !!st.insolvent;
-  const insolvent = flaggedEarly || ((profit < 0 && Math.abs(profit) > budget) && (session.currentRound || 0) > 0);
+        const flaggedEarly = !!st.insolvent;
+        const insolvent = flaggedEarly || ((profit < 0 && Math.abs(profit) > budget) && (session.currentRound || 0) > 0);
         return {
           teamId: team.id,
           sold,
@@ -611,7 +621,7 @@ export class GameService {
           cost: Math.round(totalCost),
           profit,
           unsold,
-          marketShare: 0, // compute below
+          marketShare: 0,
           demand,
           avgPrice: price,
           capacity,
@@ -636,7 +646,7 @@ export class GameService {
         await team.update({ totalProfit: newTotalProfit });
 
         // Save round result
-        const roundResult = await RoundResult.create({
+        const roundResult = await RoundResultModel.create({
           gameSessionId: session.id,
           roundNumber: session.currentRound,
           teamId: result.teamId,
@@ -683,7 +693,7 @@ export class GameService {
     const teams = await this.getActiveTeams();
 
     // Get round history
-    const roundHistory = await RoundResult.findAll({
+    const roundHistory = await RoundResultModel.findAll({
       where: { gameSessionId: session.id },
       include: [{
         model: Team,
@@ -754,11 +764,11 @@ export class GameService {
 
   // Get high scores across all sessions
   static async getHighScores(limit = 10) {
-    return await HighScore.findAll({
+    return await HighScoreModel.findAll({
       order: [['totalProfit', 'DESC']],
       limit,
       include: [{
-        model: GameSession,
+        model: GameSessionModel,
         attributes: ['createdAt']
       }]
     });
@@ -768,7 +778,7 @@ export class GameService {
   static async saveHighScore(teamName, totalProfit, roundsPlayed, gameSessionId) {
     const avgProfitPerRound = totalProfit / roundsPlayed;
 
-    return await HighScore.create({
+    return await HighScoreModel.create({
       teamName,
       totalProfit,
       roundsPlayed,
@@ -1025,7 +1035,7 @@ export class GameService {
 
   // Remove team (when user disconnects)
   static async removeTeam(socketId) {
-    const team = await Team.findOne({ where: { socketId } });
+    const team = await TeamModel.findOne({ where: { socketId } });
     if (team) {
       await team.update({ isActive: false });
       console.log(`Team ${team.name} deactivated due to disconnect`);
@@ -1036,10 +1046,10 @@ export class GameService {
   static async resetAllData() {
     try {
       // Deactivate all teams
-      await Team.update({ isActive: false }, { where: {} });
+      await TeamModel.update({ isActive: false }, { where: {} });
 
       // Reset all game sessions
-      await GameSession.update({
+      await GameSessionModel.update({
         currentRound: 0,
         isActive: false,
         settings: {
@@ -1080,10 +1090,10 @@ export class GameService {
       }, { where: {} });
 
       // Delete all round results
-      await RoundResult.destroy({ where: {} });
+      await RoundResultModel.destroy({ where: {} });
 
       // Delete all high scores
-      await HighScore.destroy({ where: {} });
+      await HighScoreModel.destroy({ where: {} });
 
       // Reset current session cache
       this.currentGameSession = null;
@@ -1107,7 +1117,7 @@ export class GameService {
   static async resetCurrentGame() {
     try {
       // Deactivate all current teams (but keep them in database for potential high scores)
-      await Team.update({ isActive: false }, { where: { isActive: true } });
+      await TeamModel.update({ isActive: false }, { where: { isActive: true } });
 
       // Reset current game session
       const session = await this.getCurrentGameSession();
@@ -1152,7 +1162,7 @@ export class GameService {
       });
 
       // Delete round results for current session only
-      await RoundResult.destroy({ where: { gameSessionId: session.id } });
+      await RoundResultModel.destroy({ where: { gameSessionId: session.id } });
 
       // Keep high scores intact - don't delete them
 
