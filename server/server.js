@@ -1148,7 +1148,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
     const teamDemand = Math.round(monthlyDemand * teamShare);
 
     // Calculate available capacity (fix seats + pooling allocation)
-    const fixSeats = team.decisions.fixSeatsAllocated ?? team.decisions.fixSeatsPurchased || 0;
+    const fixSeats = (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0);
     const poolingAllocation = (team.decisions.poolingAllocation || 0) / 100;
     const totalPoolingCapacity = Math.round((settings.totalAircraftSeats || 1000) * poolingAllocation);
     const availableCapacity = fixSeats + totalPoolingCapacity;
