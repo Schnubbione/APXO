@@ -43,6 +43,7 @@ export function PracticeMode({
   const [teams, setTeams] = useState<PracticeTeam[]>([]);
   const [settings, setSettings] = useState<PracticeSettings | null>(null);
   const [results, setResults] = useState<any[] | null>(null);
+  const [simulationSummary, setSimulationSummary] = useState<{ finalPoolingPrice?: number; remainingPoolingCapacity?: number } | null>(null);
   const [initialPrice, setInitialPrice] = useState<number>(199);
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -69,7 +70,7 @@ export function PracticeMode({
     if (practice && 'running' in practice && !practice.running && (practice as any).results) {
       const payload: any = (practice as any).results;
       setSettings(payload.settings);
-      // Convert ids to consistent types
+      setSimulationSummary(payload?.phases?.simulation?.summary || null);
       const last = payload.rounds[payload.rounds.length - 1]?.teamResults || [];
       setResults(last);
     }
@@ -129,6 +130,8 @@ export function PracticeMode({
                   <div>Base Demand: {settings?.baseDemand}</div>
                   <div>Hotel Beds/Team: {settings && results.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / results.length) : '—'}</div>
                   <div>Fix Seat Price: €{settings?.fixSeatPrice}</div>
+                  <div>Final Pooling Price: €{simulationSummary?.finalPoolingPrice ?? settings?.poolingMarket?.currentPrice ?? '—'}</div>
+                  <div>Remaining Pool Capacity: {simulationSummary?.remainingPoolingCapacity ?? settings?.poolingMarket?.availablePoolingCapacity ?? '—'}</div>
                 </div>
               </div>
               

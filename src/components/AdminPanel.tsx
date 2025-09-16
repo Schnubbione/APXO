@@ -45,6 +45,10 @@ interface AdminPanelProps {
   setDemandVolatility?: (value: number) => void;
   priceElasticity?: number;
   setPriceElasticity?: (value: number) => void;
+  marketPriceElasticity?: number;
+  setMarketPriceElasticity?: (value: number) => void;
+  referencePrice?: number;
+  setReferencePrice?: (value: number) => void;
   marketConcentration?: number;
   setMarketConcentration?: (value: number) => void;
   costVolatility?: number;
@@ -86,6 +90,8 @@ export default function AdminPanel({
   totalAircraftSeats, setTotalAircraftSeats,
   demandVolatility, setDemandVolatility,
   priceElasticity, setPriceElasticity,
+  marketPriceElasticity, setMarketPriceElasticity,
+  referencePrice, setReferencePrice,
   marketConcentration, setMarketConcentration,
   costVolatility, setCostVolatility,
   crossElasticity, setCrossElasticity,
@@ -185,6 +191,8 @@ export default function AdminPanel({
                         setBaseDemand(irnd(80, 240));
                         setDemandVolatility && setDemandVolatility(rr(0.05, 0.2));
                         setPriceElasticity && setPriceElasticity(rr(-2.7, -0.9));
+                        setMarketPriceElasticity && setMarketPriceElasticity(rr(-1.8, -0.5));
+                        setReferencePrice && setReferencePrice(irnd(170, 230));
                         setCrossElasticity && setCrossElasticity(rr(0.1, 0.6));
                         setMarketConcentration && setMarketConcentration(rr(0.5, 0.9));
                         setCostVolatility && setCostVolatility(rr(0.03, 0.1));
@@ -212,6 +220,8 @@ export default function AdminPanel({
                         setBaseDemand(100);
                         setDemandVolatility && setDemandVolatility(0.1);
                         setPriceElasticity && setPriceElasticity(-1.5);
+                        setMarketPriceElasticity && setMarketPriceElasticity(-0.9);
+                        setReferencePrice && setReferencePrice(199);
                         setCrossElasticity && setCrossElasticity(0.3);
                         setMarketConcentration && setMarketConcentration(0.7);
                         setCostVolatility && setCostVolatility(0.05);
@@ -399,6 +409,37 @@ export default function AdminPanel({
                             min={-300} max={-50} step={5} className="w-full" />
                   </div>
                   <div className="text-sm text-slate-400 text-center">{(priceElasticity ?? -1.5).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Market Price Elasticity</Label>
+                    <div className="text-xs text-slate-500 mt-1">Overall demand reaction to market-wide prices (-2.0 to -0.3)</div>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <Slider
+                      value={[Math.round(((marketPriceElasticity ?? -0.9) * 100))]}
+                      onValueChange={([v]) => setMarketPriceElasticity && setMarketPriceElasticity(Number((v / 100).toFixed(2)))}
+                      min={-200}
+                      max={-30}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="text-sm text-slate-400 text-center">{(marketPriceElasticity ?? -0.9).toFixed(2)}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300 text-sm font-medium">Reference Market Price (€)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Benchmark price level used in demand weighting</div>
+                  </div>
+                  <Input
+                    type="number"
+                    value={referencePrice === undefined ? '' : referencePrice}
+                    onChange={e => setReferencePrice && setReferencePrice(Number(e.target.value || 0))}
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                  />
                 </div>
 
                 <div className="space-y-3">

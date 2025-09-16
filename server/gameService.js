@@ -46,6 +46,8 @@ export class GameService {
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
             poolingMarketUpdateInterval: 1, // 1 second = 1 day
             simulatedWeeksPerUpdate: 1, // 1 day per update
+            referencePrice: 199,
+            marketPriceElasticity: -0.9,
             // Hotel defaults
             hotelCapacityRatio: 0.6, // 60% der Flugkapazität als Hotelbetten insgesamt
             hotelBedCost: 50, // Kosten pro leerem Bett

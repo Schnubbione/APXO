@@ -52,6 +52,8 @@ interface GameState {
   simulatedWeeksPerUpdate?: number; // weeks simulated per market update
   demandVolatility?: number;
   priceElasticity?: number;
+  marketPriceElasticity?: number;
+  referencePrice?: number;
   marketConcentration?: number;
   costVolatility?: number;
   crossElasticity?: number;
@@ -190,6 +192,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     poolingReserveCapacity: 300,
     poolingMarketUpdateInterval: 1, // 1 second = 1 day
     simulatedWeeksPerUpdate: 1, // 1 day per update
+    referencePrice: 199,
+    marketPriceElasticity: -0.9,
     poolingMarket: {
       currentPrice: 150,
       totalPoolingCapacity: 300,

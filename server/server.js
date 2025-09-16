@@ -621,7 +621,7 @@ io.on('connection', async (socket) => {
       // Ensure a registered team exists for this socket
       const humanTeam = await Team.findOne({ where: { socketId: socket.id, isActive: true } });
       if (!humanTeam) {
-        socket.emit('practiceError', 'Bitte zuerst als Team registrieren.');
+        socket.emit('practiceError', 'Please register your team before starting practice mode.');
         return;
       }
 
@@ -640,6 +640,8 @@ io.on('connection', async (socket) => {
         baseDemand: irnd(80, 240),
         demandVolatility: rnd(0.05, 0.2),
         priceElasticity: -(rnd(0.9, 2.7)),
+        marketPriceElasticity: -(rnd(0.5, 1.8)),
+        referencePrice: irnd(170, 230),
         crossElasticity: rnd(0.0, 1.0),
         marketConcentration: rnd(0.5, 0.9),
         totalAircraftSeats: irnd(600, 1400),
@@ -787,31 +789,169 @@ io.on('connection', async (socket) => {
 
       const totalAllocated = allocations.reduce((sum, a) => sum + a.allocated, 0);
 
-      // Phase 2: Simulation (year). We compute final results once, representing the period.
-      const raw = calculateRoundResults(teams, settings);
-      const rr = raw.map(res => ({
-        ...res,
-        teamName: teams.find(t => t.id === res.teamId)?.name || String(res.teamId)
-      }));
+      // Phase 2: Market simulation over the configured period
+      const poolingReserve = Math.max(0, (settings.totalAircraftSeats || 1000) - totalAllocated);
+      let poolAvailable = poolingReserve;
+      const basePoolCost = settings.poolingCost || 90;
+      let poolPrice = typeof settings.poolingMarket?.currentPrice === 'number'
+        ? settings.poolingMarket.currentPrice
+        : basePoolCost;
+      const poolPriceHistory = [];
 
-      // Accumulate total profit (as if over the simulated period)
-      rr.forEach(res => {
-        const t = teams.find(t => t.id === res.teamId);
-        if (t) t.totalProfit = Number(t.totalProfit || 0) + Number(res.profit || 0);
+      const teamState = teams.map(team => {
+        const allocated = Math.max(0, team.decisions?.fixSeatsAllocated || 0);
+        const clearing = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions.fixSeatClearingPrice) > 0
+          ? Number(team.decisions.fixSeatClearingPrice)
+          : (settings.fixSeatPrice || 60);
+        return {
+          team,
+          fixRemaining: allocated,
+          sold: 0,
+          poolUsed: 0,
+          demand: 0,
+          revenue: 0,
+          cost: allocated * clearing,
+          initialFix: allocated,
+          initialPool: 0,
+          insolvent: false
+        };
+      });
+
+      const ticks = Math.max(1, Math.ceil(daysTotal / Math.max(1, daysPerUpdate)));
+      for (let tick = 0; tick < ticks; tick++) {
+        const baseDemand = Math.max(10, settings.baseDemand || 100);
+        const volatility = Math.abs(settings.demandVolatility || 0.1);
+        const demandNoise = (Math.random() * 2 - 1) * volatility;
+        const totalDemand = Math.max(0, Math.round(baseDemand * (1 + demandNoise)));
+
+        const minPrice = teams.reduce((min, team) => Math.min(min, team.decisions.price || 199), Infinity);
+        const refPrice = typeof settings.referencePrice === 'number' ? settings.referencePrice : 199;
+        const elasticity = Math.abs(settings.priceElasticity || 1.2);
+        const marketElasticity = Math.abs(settings.marketPriceElasticity || elasticity * 0.6);
+
+        const weights = teams.map(team => {
+          const price = team.decisions.price || 199;
+          const relToMin = price / Math.max(1, minPrice);
+          const relToRef = price / Math.max(1, refPrice);
+          const competitiveness = Math.pow(relToMin, -elasticity);
+          const demandModifier = Math.pow(relToRef, -marketElasticity);
+          return Math.max(competitiveness * demandModifier, 0.0001);
+        });
+        const weightSum = weights.reduce((sum, w) => sum + w, 0) || teams.length;
+        const desiredDemand = teams.map((_, idx) => (totalDemand * weights[idx]) / weightSum);
+        const demandInt = desiredDemand.map(Math.floor);
+        let remainder = totalDemand - demandInt.reduce((sum, val) => sum + val, 0);
+        const remainders = desiredDemand.map((value, idx) => ({ idx, frac: value - Math.floor(value) }))
+          .sort((a, b) => b.frac - a.frac || a.idx - b.idx);
+        for (const entry of remainders) {
+          if (remainder <= 0) break;
+          demandInt[entry.idx] += 1;
+          remainder -= 1;
+        }
+
+        const ranking = teams.map((team, idx) => ({ idx, price: team.decisions.price || 199, name: team.name }))
+          .sort((a, b) => {
+            if (a.price !== b.price) return a.price - b.price;
+            return a.name.localeCompare(b.name);
+          });
+
+        let unsatisfied = 0;
+        for (const { idx } of ranking) {
+          const state = teamState[idx];
+          const demand = demandInt[idx];
+          const sellFix = Math.min(demand, state.fixRemaining);
+          let remaining = demand - sellFix;
+          const sellPool = Math.min(remaining, Math.max(0, poolAvailable));
+          poolAvailable -= sellPool;
+          remaining -= sellPool;
+          unsatisfied += Math.max(0, remaining);
+
+          state.fixRemaining = Math.max(0, state.fixRemaining - sellFix);
+          state.sold += sellFix + sellPool;
+          state.poolUsed += sellPool;
+          state.demand += demand;
+          state.initialPool = Math.max(state.initialPool, state.poolUsed);
+
+          const price = teams[idx].decisions.price || 199;
+          state.revenue += (sellFix + sellPool) * price;
+          state.cost += sellPool * poolPrice;
+        }
+
+        const utilization = poolingReserve > 0 ? (poolingReserve - Math.max(0, poolAvailable)) / poolingReserve : 0;
+        if (unsatisfied > 0 || utilization > 0.85) {
+          poolPrice += Math.min(25, (unsatisfied > 0 ? 10 : 0) + (utilization - 0.85) * 80);
+        } else if (utilization < 0.4 && unsatisfied === 0) {
+          poolPrice -= Math.min(20, (0.4 - utilization) * 70);
+        }
+        poolPrice = Math.round(Math.max(basePoolCost * 0.6, Math.min(basePoolCost * 2.2, poolPrice + (Math.random() - 0.5) * 4)));
+        poolPriceHistory.push({ price: poolPrice, timestamp: new Date().toISOString() });
+
+        const budget = Number(settings.perTeamBudget || 0);
+        teamState.forEach(state => {
+          const assignedBeds = typeof state.team.decisions?.hotelCapacity === 'number'
+            ? state.team.decisions.hotelCapacity
+            : Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / teams.length);
+          const emptyBeds = Math.max(0, assignedBeds - state.sold);
+          const hotelCost = emptyBeds * (settings.hotelBedCost || 50);
+          const profit = state.revenue - (state.cost + hotelCost);
+          if (profit < 0 && Math.abs(profit) > budget) {
+            state.insolvent = true;
+          }
+        });
+
+        if (poolAvailable <= 0) break;
+      }
+
+      const totalSold = teamState.reduce((sum, state) => sum + state.sold, 0) || 1;
+      const practiceResults = teams.map((team, idx) => {
+        const state = teamState[idx];
+        const assignedBeds = typeof team.decisions?.hotelCapacity === 'number'
+          ? team.decisions.hotelCapacity
+          : Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / teams.length);
+        const emptyBeds = Math.max(0, assignedBeds - state.sold);
+        const hotelCost = emptyBeds * (settings.hotelBedCost || 50);
+        const profit = Math.round(state.revenue - (state.cost + hotelCost));
+        team.totalProfit = profit;
+        return {
+          teamId: team.id,
+          teamName: team.name,
+          sold: Math.round(state.sold),
+          revenue: Math.round(state.revenue),
+          cost: Math.round(state.cost + hotelCost),
+          profit,
+          demand: Math.round(state.demand),
+          capacity: Math.round(state.initialFix + state.initialPool),
+          insolvent: !!state.insolvent,
+          marketShare: state.sold / totalSold,
+          avgPrice: team.decisions.price || 199
+        };
       });
 
       const leaderboard = teams
-        .map(t => ({ name: t.name, profit: Math.round(Number(t.totalProfit || 0)) }))
+        .map(team => ({ name: team.name, profit: Math.round(team.totalProfit || 0) }))
         .sort((a, b) => b.profit - a.profit);
+
+      settings.poolingMarket = {
+        currentPrice: poolPrice,
+        totalPoolingCapacity: poolingReserve,
+        availablePoolingCapacity: Math.max(0, poolAvailable),
+        priceHistory: poolPriceHistory,
+        lastUpdate: new Date().toISOString()
+      };
 
       socket.emit('practiceResults', {
         config: { aiCount, prePurchaseDurationSec, daysPerUpdate, daysTotal },
         settings,
         phases: {
           prePurchase: { allocations, maxFixCapacity, totalRequested: allocations.reduce((sum, a) => sum + a.requested, 0) },
-          simulation: { summary: { currentPrice: settings.poolingMarket.currentPrice } }
+          simulation: {
+            summary: {
+              finalPoolingPrice: poolPrice,
+              remainingPoolingCapacity: Math.max(0, poolAvailable)
+            }
+          }
         },
-        rounds: [{ round: 1, teamResults: rr }],
+        rounds: [{ round: 1, teamResults: practiceResults }],
         leaderboard
       });
     } catch (err) {

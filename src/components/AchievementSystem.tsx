@@ -159,9 +159,11 @@ export default function AchievementSystem({ currentTeam, roundResults, leaderboa
       }
 
       // Check Perfect Round (100% capacity utilization)
-      const totalCapacity = Object.values(currentTeam.decisions.buy).reduce((a: number, b: any) => a + Number(b), 0);
+      const totalCapacity = typeof latestResult.capacity === 'number'
+        ? latestResult.capacity
+        : (currentTeam.decisions?.fixSeatsAllocated || currentTeam.decisions?.fixSeatsPurchased || 0);
       if (!updated.find(a => a.id === ACHIEVEMENT_TYPES.PERFECT_ROUND)?.unlocked &&
-          totalCapacity > 0 && latestResult.sold === totalCapacity) {
+          totalCapacity > 0 && latestResult.sold >= totalCapacity) {
         const index = updated.findIndex(a => a.id === ACHIEVEMENT_TYPES.PERFECT_ROUND);
         updated[index].unlocked = true;
         newUnlock = ACHIEVEMENT_TYPES.PERFECT_ROUND;

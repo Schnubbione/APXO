@@ -255,6 +255,10 @@ export const MultiUserApp: React.FC = () => {
           setDemandVolatility={(v) => updateGameSettings({ demandVolatility: v })}
           priceElasticity={gameState.priceElasticity}
           setPriceElasticity={(v) => updateGameSettings({ priceElasticity: v })}
+          marketPriceElasticity={(gameState as any).marketPriceElasticity}
+          setMarketPriceElasticity={(v) => updateGameSettings({ marketPriceElasticity: v })}
+          referencePrice={(gameState as any).referencePrice}
+          setReferencePrice={(v) => updateGameSettings({ referencePrice: v })}
           marketConcentration={gameState.marketConcentration}
           setMarketConcentration={(v) => updateGameSettings({ marketConcentration: v })}
           costVolatility={gameState.costVolatility}
@@ -526,6 +530,20 @@ export const MultiUserApp: React.FC = () => {
           setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
           perTeamBudget={(gameState as any).perTeamBudget}
           setPerTeamBudget={(v) => updateGameSettings({ perTeamBudget: v })}
+          demandVolatility={gameState.demandVolatility}
+          setDemandVolatility={(v) => updateGameSettings({ demandVolatility: v })}
+          priceElasticity={gameState.priceElasticity}
+          setPriceElasticity={(v) => updateGameSettings({ priceElasticity: v })}
+          marketPriceElasticity={(gameState as any).marketPriceElasticity}
+          setMarketPriceElasticity={(v) => updateGameSettings({ marketPriceElasticity: v })}
+          referencePrice={(gameState as any).referencePrice}
+          setReferencePrice={(v) => updateGameSettings({ referencePrice: v })}
+          marketConcentration={gameState.marketConcentration}
+          setMarketConcentration={(v) => updateGameSettings({ marketConcentration: v })}
+          costVolatility={gameState.costVolatility}
+          setCostVolatility={(v) => updateGameSettings({ costVolatility: v })}
+          crossElasticity={gameState.crossElasticity}
+          setCrossElasticity={(v) => updateGameSettings({ crossElasticity: v })}
           isAdmin={isAdmin}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
