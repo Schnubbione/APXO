@@ -51,13 +51,13 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               </div>
         <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-green-400">Phase 1: Pre-Purchase (Limited Time)</div>
-          <div className="text-sm">Purchase fixed seats at €{fixPrice} each. Limited availability under information asymmetry. These seats are guaranteed but must be paid regardless of demand. <span className="text-orange-400 font-semibold">Exact remaining availability and other teams' purchases are hidden—make strategic decisions under uncertainty.</span> Each team also receives an equal hotel capacity allocation at this stage; empty beds will incur costs later (currently €{bedCost}/bed).</div>
+                  <div className="font-semibold text-green-400">Phase 1: Seat Auction</div>
+                  <div className="text-sm">Submit <strong>a bid per seat</strong> and <strong>a desired quantity</strong>. The airline allocates fixed seats starting with the highest bids until capacity is exhausted. Competing bids and remaining availability stay hidden, so you must weigh risk, budget and expected demand. Immediately after the auction, every team receives the same hotel capacity; empty beds later cost €{bedCost} each.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-blue-400">Phase 2: Simulation (365 Days)</div>
-                  <div className="text-sm">Set customer prices and allocate pooling capacity. Customer demand increases as departure approaches. Compete with other teams for market share!</div>
-                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Real-time Market:</strong> Prices update every second, simulating one day of market activity. Set your initial price before the simulation starts!</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Live Market Simulation (365 days)</div>
+                  <div className="text-sm">Every second equals one simulated day. Travelers always start with the lowest customer price, moving up the ladder only if seats remain. You can top up supply through pooling; the pooling price reacts to supply/demand imbalances in real time.</div>
+                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Real-time Control:</strong> Set an initial price before the simulation begins, then adjust while the market runs to protect margin or gain share.</div>
                 </div>
               </div>
             </div>
@@ -72,25 +72,23 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li><strong>Phase 1:</strong> Purchase fixed seats (€{fixPrice} each) without seeing exact remaining availability or others’ purchases. Equal hotel capacity per team is assigned.</li>
-                <li><strong>Phase 2:</strong> Set customer prices and pooling allocation. Fix seat allocation details become visible after the first round.</li>
-                <li>Simulation runs for 365 days with increasing demand</li>
-                <li>Monitor live pooling market data (updates every second = 1 simulated day)</li>
-                <li>Monthly results show sales, revenue, and profits</li>
-                <li>Compare final results across all teams</li>
+                <li><strong>Submit your auction bid.</strong> Pick the quantity and maximum price per seat. The allocation is revealed once the timer expires.</li>
+                <li><strong>Prepare for launch.</strong> Review the seats you actually won, note your hotel capacity, and set an opening customer price.</li>
+                <li><strong>Run the year-long simulation.</strong> Monitor live demand, adjust prices, and decide when buying pooling seats is worth it as the airline price reacts to utilization.</li>
+                <li><strong>Review the results.</strong> After each round, inspect profit, market share, demand, and achievements to refine your strategy for the next auction.</li>
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Buy early in Phase 1—seats are limited and exact availability is hidden. Use market intelligence and risk assessment.</div>
+                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Bid aggressively only when you can monetize the seats. Overbidding creates expensive inventory and higher hotel risk.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Balance fixed costs with flexible capacity</div>
+                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Balance committed seats with flexible pooling supply; the lowest retail price is not always the most profitable.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> Optimize pricing as departure nears</div>
+                  <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> React quickly to pooling price shocks and competitor pricing to stay ahead.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📈 <strong>Market Intelligence:</strong> Use pooling market data to predict demand trends</div>
+                  <div className="text-sm text-slate-400">📈 <strong>Market Intelligence:</strong> Use the live pooling ticker to gauge demand trends and anticipate shortages.</div>
                 </div>
               </div>
             </div>

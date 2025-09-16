@@ -587,7 +587,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // If needed, we could track and clear timeouts per input field
   };
 
-  const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => {
+  const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number; overrideFixSeats?: number; overrideBid?: number }) => {
     // Toggle off if running
     if (practice?.running) { stopPracticeMode(); return; }
     // Do not allow starting practice while a live game is active

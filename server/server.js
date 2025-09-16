@@ -659,14 +659,24 @@ io.on('connection', async (socket) => {
       const totalTeams = aiCount + 1;
       const perTeamHotel = Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / totalTeams);
 
+      const defaultRequest = Math.max(10, Math.floor(((settings.totalAircraftSeats || 1000) * 0.4) / totalTeams));
+      const requestedSeats = Number.isFinite(Number(config.overrideFixSeats)) && Number(config.overrideFixSeats) > 0
+        ? Math.floor(Number(config.overrideFixSeats))
+        : Number(humanTeam.decisions?.fixSeatsRequested ?? humanTeam.decisions?.fixSeatsPurchased ?? defaultRequest);
+      const bidPrice = Number.isFinite(Number(config.overrideBid)) && Number(config.overrideBid) > 0
+        ? Math.round(Number(config.overrideBid))
+        : Number(humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60);
+
       const humanDecisions = {
         price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
-        fixSeatsRequested: Number(humanTeam.decisions?.fixSeatsRequested ?? humanTeam.decisions?.fixSeatsPurchased ?? 0),
-        fixSeatsPurchased: Number(humanTeam.decisions?.fixSeatsPurchased || 0),
-        poolingAllocation: Number(humanTeam.decisions?.poolingAllocation || 0),
+        fixSeatsRequested: Math.max(1, requestedSeats),
+        fixSeatsPurchased: Math.max(1, requestedSeats),
+        poolingAllocation: Number.isFinite(Number(humanTeam.decisions?.poolingAllocation))
+          ? Number(humanTeam.decisions?.poolingAllocation)
+          : irnd(20, 40),
         hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel),
-        fixSeatBidPrice: Number(humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60),
-        fixSeatClearingPrice: Number(humanTeam.decisions?.fixSeatClearingPrice || humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60)
+        fixSeatBidPrice: bidPrice,
+        fixSeatClearingPrice: bidPrice
       };
 
       const teams = [

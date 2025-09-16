@@ -23,6 +23,8 @@ type PracticeSettings = {
   baseDemand: number;
   demandVolatility: number;
   priceElasticity: number; // negative
+  marketPriceElasticity?: number;
+  referencePrice?: number;
   marketConcentration: number;
   totalAircraftSeats: number;
   fixSeatPrice: number;
@@ -45,6 +47,8 @@ export function PracticeMode({
   const [results, setResults] = useState<any[] | null>(null);
   const [simulationSummary, setSimulationSummary] = useState<{ finalPoolingPrice?: number; remainingPoolingCapacity?: number } | null>(null);
   const [initialPrice, setInitialPrice] = useState<number>(199);
+  const [initialQuantity, setInitialQuantity] = useState<number>(40);
+  const [initialBid, setInitialBid] = useState<number>(60);
   const [hasStarted, setHasStarted] = useState(false);
 
   // Init random scenario
@@ -62,7 +66,12 @@ export function PracticeMode({
 
   const startAndRun = async () => {
     setHasStarted(true);
-    startPracticeMode({ rounds: 3, overridePrice: initialPrice });
+    startPracticeMode({
+      rounds: 3,
+      overridePrice: initialPrice,
+      overrideFixSeats: initialQuantity,
+      overrideBid: initialBid
+    });
   };
 
   // When server sends results, show them
@@ -94,19 +103,42 @@ export function PracticeMode({
                 <br/>• Dynamic pricing and market share competition
                 <br/>Rounds start automatically; parameters are randomized for each session.
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-slate-300 text-sm">Your Initial Price (€)</Label>
-                  <Input type="number" value={initialPrice} onChange={e => setInitialPrice(Number(e.target.value || 0))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-300 text-sm">Your Initial Price (€)</Label>
+                    <Input type="number" value={initialPrice} onChange={e => setInitialPrice(Number(e.target.value || 0))}
                          className="bg-slate-700/50 border-slate-600 text-white"/>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300 text-sm">Requested Fixed Seats</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={initialQuantity}
+                      onChange={e => setInitialQuantity(Math.max(1, Number(e.target.value || 0)))}
+                      className="bg-slate-700/50 border-slate-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300 text-sm">Bid per Seat (€)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={initialBid}
+                      onChange={e => setInitialBid(Math.max(1, Number(e.target.value || 0)))}
+                      className="bg-slate-700/50 border-slate-600 text-white"
+                    />
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    Opponents: {teams.length > 0 ? teams.length - 1 : '—'}
+                    <br/>Base Demand: {settings?.baseDemand ?? '—'}
+                    <br/>Aircraft Seats: {settings?.totalAircraftSeats ?? '—'}
+                    <br/>Hotel Beds/Team: {settings && teams.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / teams.length) : '—'}
+                  </div>
                 </div>
-                <div className="text-sm text-slate-400">
-                  Opponents: {teams.length > 0 ? teams.length - 1 : '—'}
-                  <br/>Base Demand: {settings?.baseDemand ?? '—'}
-                  <br/>Aircraft Seats: {settings?.totalAircraftSeats ?? '—'}
-                  <br/>Hotel Beds/Team: {settings && teams.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / teams.length) : '—'}
+                <div className="text-xs text-slate-500">
+                  Phase 1 runs an auction with your bid and requested seats. Phase 2 simulates a full year of daily demand; passengers buy from the cheapest offers and pooling prices adapt dynamically.
                 </div>
-              </div>
               <div className="flex gap-2">
                 <Button onClick={startAndRun} className="bg-gradient-to-r from-indigo-500 to-purple-600">Start Practice</Button>
                 <Button variant="outline" onClick={onClose} className="border-slate-500 text-slate-200">Close</Button>
