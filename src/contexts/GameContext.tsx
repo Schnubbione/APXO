@@ -588,7 +588,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (practice?.running) { stopPracticeMode(); return; }
     // Do not allow starting practice while a live game is active
     if (gameState.isActive) {
-      setLastError('Practice Mode kann nicht gestartet werden, solange ein Live-Spiel läuft.');
+      setLastError('Practice mode cannot be started while a live game is running.');
       return;
     }
 

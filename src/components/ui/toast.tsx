@@ -58,7 +58,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             >
               {t.title && <div className="font-semibold mb-1">{t.title}</div>}
               {t.description && <div className="text-sm opacity-90">{t.description}</div>}
-              <button className="mt-2 text-xs underline opacity-80" onClick={() => remove(t.id)}>Schließen</button>
+              <button className="mt-2 text-xs underline opacity-80" onClick={() => remove(t.id)}>Close</button>
             </motion.div>
           ))}
         </AnimatePresence>

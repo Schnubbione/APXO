@@ -658,10 +658,10 @@ export const MultiUserApp: React.FC = () => {
 
                   <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
                     <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
-                  <div>• Airline reference price derzeit: €{gameState.fixSeatPrice} (Auktion entscheidet tatsächlichen Sitzpreis)</div>
-                  <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
-                  <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
-                </div>
+                    <div>• Current airline reference price: €{gameState.fixSeatPrice} (auction determines the final price)</div>
+                    <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
+                    <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
+                  </div>
               </CardContent>
             </Card>
           )}
@@ -679,7 +679,7 @@ export const MultiUserApp: React.FC = () => {
                 <div className="space-y-4">
                   <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
                   <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">Gebot pro Fix-Sitz (€)</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Bid per Fixed Seat (€)</Label>
                     <Input
                       type="number"
                       min={1}
@@ -724,7 +724,7 @@ export const MultiUserApp: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm text-slate-400">
-                    Erwartete Kosten: €{
+                    Estimated Cost: €{
                       (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? 0)
                       * (currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60))
                     } { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
