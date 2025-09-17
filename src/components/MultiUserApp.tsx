@@ -22,6 +22,15 @@ const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06
 
 const TOURIST_ICONS = [Sun, Camera, Compass, Anchor, MapPin, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee];
 
+type AllocationEntry = {
+  teamId: string;
+  teamName: string;
+  requested: number;
+  bidPrice: number;
+  allocated: number;
+  clearingPrice: number | null;
+};
+
 // Function to get a consistent icon for each team based on team name
 const getTeamIconByName = (teamName: string) => {
   const iconIndex = teamName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % TOURIST_ICONS.length;
@@ -38,6 +47,7 @@ export const MultiUserApp: React.FC = () => {
     roundResults,
     leaderboard,
   roundHistory,
+    allocationSummary,
   lastError,
   clearLastError,
   practice,
@@ -69,12 +79,56 @@ export const MultiUserApp: React.FC = () => {
   const [tempPrice, setTempPrice] = useState(199);
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
+  const allocationToastRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (lastError) {
       toast({ variant: 'destructive', title: 'Aktion fehlgeschlagen', description: lastError });
       clearLastError();
     }
   }, [lastError]);
+
+  React.useEffect(() => {
+    if (!allocationSummary || !currentTeam) {
+      if (!allocationSummary) {
+        allocationToastRef.current = null;
+      }
+      return;
+    }
+
+    const allocationForToast = allocationSummary.allocations.find(a => a.teamId === currentTeam.id);
+    if (!allocationForToast) return;
+
+    const toastKey = `${allocationForToast.teamId}:${allocationForToast.allocated}:${allocationForToast.clearingPrice ?? 'na'}`;
+    if (allocationToastRef.current === toastKey) return;
+    allocationToastRef.current = toastKey;
+
+    const clearing = allocationForToast.clearingPrice ?? gameState.fixSeatPrice;
+    toast({
+      title: 'Fixplätze zugeteilt',
+      description: `Dein Team erhielt ${allocationForToast.allocated} Fixplätze${clearing ? ` zum Clearing-Preis von €${clearing}` : ''}.`
+    });
+  }, [allocationSummary, currentTeam, toast, gameState.fixSeatPrice]);
+
+  const sortedAllocations = React.useMemo<AllocationEntry[]>(() => {
+    if (!allocationSummary) return [];
+    return [...allocationSummary.allocations].sort((a, b) => {
+      if (b.allocated !== a.allocated) return b.allocated - a.allocated;
+      return a.teamName.localeCompare(b.teamName);
+    });
+  }, [allocationSummary]);
+
+  const myAllocation = React.useMemo(() => {
+    if (!allocationSummary || !currentTeam) return null;
+    return allocationSummary.allocations.find(a => a.teamId === currentTeam.id) || null;
+  }, [allocationSummary, currentTeam]);
+
+  const mySimState = React.useMemo(() => {
+    if (!currentTeam) return null;
+    return gameState.simState?.perTeam?.[currentTeam.id] ?? null;
+  }, [gameState.simState, currentTeam]);
+
+  const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
+  const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
 
   // Play sound effects for game events
   useEffect(() => {
@@ -683,6 +737,76 @@ export const MultiUserApp: React.FC = () => {
               </CardContent>
             </Card>
           )}
+          {allocationSummary && sortedAllocations.length > 0 && (
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="fixseat-allocation">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl text-white">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <Award className="w-5 h-5 text-green-400" />
+                  </div>
+                  Fixplatz-Zuteilung (Phase 1)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="lg:col-span-1 p-4 rounded-xl border border-green-500/40 bg-green-500/10 shadow-inner">
+                    <div className="text-xs uppercase tracking-wide text-green-200/80 mb-1">Dein Ergebnis</div>
+                    <div className="text-3xl font-semibold text-white">
+                      {myAllocation ? myAllocation.allocated : 0}
+                    </div>
+                    <div className="text-sm text-slate-200 mt-2">
+                      {myAllocation
+                        ? myAllocation.allocated > 0
+                          ? `Clearing-Preis: €${(myAllocation.clearingPrice ?? gameState.fixSeatPrice || 0).toFixed(0)}`
+                          : 'Keine Fixplätze erhalten'
+                        : currentTeam
+                          ? 'Kein Gebot abgegeben'
+                          : isAdmin
+                            ? 'Admin-Übersicht aktiv'
+                            : 'Noch kein Team registriert'}
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Verfügbare Fixplätze</div>
+                      <div className="text-2xl font-semibold text-white">{allocationSummary.maxFixCapacity}</div>
+                      <div className="text-xs text-slate-400 mt-1">Maximale Kapazität für Runde 1</div>
+                    </div>
+                    <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/10">
+                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Zugewiesen</div>
+                      <div className="text-2xl font-semibold text-white">{allocationSummary.totalAllocated}</div>
+                      <div className="text-xs text-blue-100/80 mt-1">Verbleibende Fixplätze: {Math.max(0, allocationSummary.maxFixCapacity - allocationSummary.totalAllocated)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Zuteilung nach Teams</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {sortedAllocations.map(entry => {
+                      const isMine = currentTeam ? entry.teamId === currentTeam.id : false;
+                      return (
+                        <div
+                          key={entry.teamId}
+                          className={`p-3 rounded-lg border transition-all duration-200 ${isMine ? 'border-indigo-400/70 bg-indigo-500/20 shadow-lg' : 'border-slate-700/60 bg-slate-700/30'}`}
+                        >
+                          <div className="flex items-center justify-between text-sm text-slate-200">
+                            <span className={`font-semibold ${isMine ? 'text-white' : ''}`}>{entry.teamName}</span>
+                            <span className="font-mono text-lg text-white">{entry.allocated}</span>
+                          </div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            Gebot: €{entry.bidPrice} • Clearing: {entry.clearingPrice ? `€${entry.clearingPrice}` : '—'}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">Angefragt: {entry.requested}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
@@ -768,21 +892,12 @@ export const MultiUserApp: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Pooling Allocation (%)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={currentTeam.decisions.poolingAllocation === 0 ? "" : (currentTeam.decisions.poolingAllocation || "")}
-                        placeholder="0"
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const numValue = value === "" ? 0 : Math.max(0, Math.min(100, Number(value)));
-                          updateTeamDecision({ poolingAllocation: numValue });
-                        }}
-                        disabled={!gameState.isActive}
-                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                      />
+                      <Label className="text-slate-300 text-sm font-medium">Pooling-Verkäufe</Label>
+                      <div className="h-full min-h-[48px] rounded-xl border border-slate-600 bg-slate-700/30 px-4 py-3 text-sm text-slate-300 flex items-center justify-between">
+                        <span>Automatisch durch Airline</span>
+                        <span className="font-mono text-base text-slate-100">{poolSoldSoFar}</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Poolinganteile werden in Phase 2 vom System verteilt und können nicht angepasst werden.</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -795,7 +910,7 @@ export const MultiUserApp: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-slate-400">
-                    Your Fix Seats: {currentTeam.decisions.fixSeatsAllocated !== undefined ? currentTeam.decisions.fixSeatsAllocated : (currentTeam.decisions.fixSeatsPurchased || 0)} | Pooling Capacity: {Math.round((currentTeam.decisions.poolingAllocation || 0) / 100 * (gameState.totalAircraftSeats || 1000))}
+                    Fixplätze bereitgestellt: {fixAllocatedTotal} | Pooling verkauft: {poolSoldSoFar}
                   </div>
                 </div>
               ) : (

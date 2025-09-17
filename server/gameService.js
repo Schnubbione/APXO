@@ -101,25 +101,33 @@ export class GameService {
       next.price = Math.max(50, Math.min(500, p));
     }
 
+    const isPrePurchasePhase = settings.currentPhase === 'prePurchase';
+
     if (typeof decision.fixSeatsPurchased === 'number' && Number.isFinite(decision.fixSeatsPurchased)) {
-      // Only intent during pre-purchase; allocation happens separately at phase end
-      const requested = Math.max(0, Math.floor(decision.fixSeatsPurchased));
-      next.fixSeatsPurchased = requested;
-      next.fixSeatsRequested = requested;
+      if (isPrePurchasePhase) {
+        // Only intent during pre-purchase; allocation happens separately at phase end
+        const requested = Math.max(0, Math.floor(decision.fixSeatsPurchased));
+        next.fixSeatsPurchased = requested;
+        next.fixSeatsRequested = requested;
+      }
     }
 
     if (typeof decision.poolingAllocation === 'number' && Number.isFinite(decision.poolingAllocation)) {
-      // Percentage 0..100
-      const pct = Math.max(0, Math.min(100, Math.round(decision.poolingAllocation)));
-      next.poolingAllocation = pct;
+      if (isPrePurchasePhase) {
+        // Percentage 0..100
+        const pct = Math.max(0, Math.min(100, Math.round(decision.poolingAllocation)));
+        next.poolingAllocation = pct;
+      }
     }
 
     if (decision.fixSeatBidPrice !== undefined) {
-      const bid = Number(decision.fixSeatBidPrice);
-      if (Number.isFinite(bid) && bid > 0) {
-        next.fixSeatBidPrice = Math.round(bid);
-      } else {
-        next.fixSeatBidPrice = null;
+      if (isPrePurchasePhase) {
+        const bid = Number(decision.fixSeatBidPrice);
+        if (Number.isFinite(bid) && bid > 0) {
+          next.fixSeatBidPrice = Math.round(bid);
+        } else {
+          next.fixSeatBidPrice = null;
+        }
       }
     }
 
@@ -890,7 +898,6 @@ export class GameService {
     const baseDemand = Math.max(10, settings.baseDemand || 100);
     const volatility = Math.abs(settings.demandVolatility || 0.1);
     const demandNoise = (Math.random() * 2 - 1) * volatility;
-    const totalDemandRaw = Math.max(0, Math.round(baseDemand * (1 + demandNoise)));
 
     const minPrice = aliveTeams.reduce((min, team) => {
       const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 199;
@@ -899,6 +906,11 @@ export class GameService {
     const refPrice = typeof settings.referencePrice === 'number' ? settings.referencePrice : 199;
     const elasticity = Math.abs(settings.priceElasticity || 1.2);
     const marketElasticity = Math.abs(settings.marketPriceElasticity || elasticity * 0.6);
+
+    const globalDemandModifierRaw = Math.pow(minPrice / Math.max(1, refPrice), -marketElasticity * 0.4);
+    const globalDemandModifier = Math.min(1.5, Math.max(0.35, globalDemandModifierRaw || 0));
+    const demandBaseline = baseDemand * (1 + demandNoise);
+    const totalDemandRaw = Math.max(0, Math.round(demandBaseline * globalDemandModifier));
 
     const priceWeights = aliveTeams.map(team => {
       const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 199;

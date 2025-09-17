@@ -105,6 +105,21 @@ interface RoundResult {
   insolvent?: boolean;
 }
 
+interface AllocationSummary {
+  allocations: Array<{
+    teamId: string;
+    teamName: string;
+    requested: number;
+    bidPrice: number;
+    allocated: number;
+    clearingPrice: number | null;
+  }>;
+  totalRequested: number;
+  totalAllocated: number;
+  maxFixCapacity: number;
+  poolingReserveCapacity: number;
+}
+
 interface GameContextType {
   socket: Socket | null;
   isConnected: boolean;
@@ -125,6 +140,8 @@ interface GameContextType {
   analyticsData: any;
   registrationError: string | null;
   adminLoginError: string | null;
+  allocationSummary: AllocationSummary | null;
+  clearAllocationSummary: () => void;
 
   // Tutorial state
   tutorialActive: boolean;
@@ -220,6 +237,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [allocationSummary, setAllocationSummary] = useState<AllocationSummary | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [practice, setPractice] = useState<
     | { running: true; rounds: number; aiCount: number }
@@ -315,12 +333,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (practice?.running) return; // ignore server while practicing
       console.log('Game state broadcast updated:', state);
-    // Stop practice if server starts a phase
-  newSocket.on('phaseStarted', () => {
-      if (practice?.running) {
-        stopPracticeMode();
-      }
-    });
+
       // Ensure each team has all fare codes initialized
       const allCodes = (state.fares || []).map(f => f.code);
       const normalizedTeams = (state.teams || []).map(t => ({
@@ -344,6 +357,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentTeam(myTeam);
       }
     });
+
+    const handlePhaseStarted = (phase: string) => {
+      if (practice?.running) {
+        stopPracticeMode();
+      }
+      if (phase === 'prePurchase') {
+        setAllocationSummary(null);
+      }
+    };
+    newSocket.on('phaseStarted', handlePhaseStarted);
+
+    const handleFixSeatsAllocated = (result: AllocationSummary) => {
+      if (practice?.running) return;
+      setAllocationSummary(result);
+    };
+    newSocket.on('fixSeatsAllocated', handleFixSeatsAllocated);
 
     // Listen for registration success
     newSocket.on('registrationSuccess', (team: Team) => {
@@ -423,6 +452,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLeaderboard(null);
       setRoundHistory([]);
       setAnalyticsData(null);
+      setAllocationSummary(null);
     });
 
     newSocket.on('resetAllDataError', (error: string) => {
@@ -445,6 +475,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLeaderboard(null);
       setRoundHistory([]);
       setAnalyticsData(null);
+      setAllocationSummary(null);
     });
 
     newSocket.on('resetComplete', (result: any) => {
@@ -452,6 +483,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      newSocket.off('phaseStarted', handlePhaseStarted);
+      newSocket.off('fixSeatsAllocated', handleFixSeatsAllocated);
       newSocket.close();
     };
   }, []);
@@ -598,6 +631,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 3));
     setPractice({ running: true, rounds: 1, aiCount });
+    setAllocationSummary(null);
     // Snapshot live state
     liveGameSnapshot.current = gameState;
 
@@ -1011,6 +1045,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTutorialStep(step);
   }, []);
 
+  const clearAllocationSummary = useCallback(() => {
+    setAllocationSummary(null);
+  }, []);
+
   const value: GameContextType = {
     socket,
   isConnected,
@@ -1027,6 +1065,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     analyticsData,
     registrationError,
     adminLoginError,
+    allocationSummary,
+    clearAllocationSummary,
     tutorialActive,
     tutorialStep,
     startTutorial,

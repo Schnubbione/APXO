@@ -191,6 +191,45 @@ describe('GameService', () => {
     });
   });
 
+  describe('updateTeamDecision (phase restrictions)', () => {
+    test('ignores fix seat and pooling changes outside pre-purchase', async () => {
+      const mockTeam = {
+        decisions: {
+          price: 199,
+          fixSeatsPurchased: 2,
+          fixSeatsRequested: 2,
+          poolingAllocation: 25,
+          fixSeatBidPrice: 60,
+          fixSeatsAllocated: 2,
+          hotelCapacity: 100
+        },
+        update: jest.fn().mockResolvedValue(true)
+      };
+
+      Team.findOne.mockResolvedValue(mockTeam);
+      GameService.currentGameSession = {
+        settings: { currentPhase: 'simulation' }
+      };
+
+      await GameService.updateTeamDecision('socket-1', {
+        price: 205,
+        fixSeatsPurchased: 50,
+        poolingAllocation: 80,
+        fixSeatBidPrice: 120
+      });
+
+      expect(mockTeam.update).toHaveBeenCalledWith({
+        decisions: expect.objectContaining({
+          price: 205,
+          fixSeatsPurchased: 2,
+          fixSeatsRequested: 2,
+          poolingAllocation: 25,
+          fixSeatBidPrice: 60
+        })
+      });
+    });
+  });
+
   describe('getActiveTeams', () => {
     test('should return teams for current session', async () => {
       const mockSession = { id: 1 };
