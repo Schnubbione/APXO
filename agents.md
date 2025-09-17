@@ -1,20 +1,21 @@
 # APXO – Agents Guide
 
-Stand: 13. September 2025
+Stand: 12. März 2026
 
 Dieses Dokument liefert kompakten Kontext zum aktuellen Projektstatus und skizziert die nächsten sinnvollen Schritte. Es richtet sich an Maintainer:innen, Contributor:innen und Automations-/KI-Agenten, die Aufgaben planen oder priorisieren.
 
 ## Kurzüberblick
-- Zweck: Echtzeit, Multi-User-Simulation für Beschaffung & Nachfrage im Tourismus.
-- Architektur: React + Vite (Frontend) · Node/Express + Socket.IO (Backend) · SQLite/Sequelize (Persistenz).
-- Entwicklungs-Hilfen: Storybook, Jest/Vitest, Playwright, ESLint, Tailwind + shadcn/ui.
-- Deploy-Ziele: Frontend auf Vercel, Backend auf Render/Railway (alternativ lokale Netzfreigabe).
+- Zweck: Echtzeit Multi-User-Simulation (Fixplatz-Auktion + Live-Markt) für Touristik-Beschaffung & Nachfrage.
+- Architektur: React + Vite (Frontend) · Agent-v1-Simulation in TypeScript (`src/lib/simulation`) · Node/Express + Socket.IO (Backend) · SQLite/Sequelize (Persistenz).
+- Entwicklungs-Hilfen: Storybook, Jest (inkl. Engine-Tests), Playwright, ESLint, Tailwind + shadcn/ui.
+- Deploy-Ziele: Frontend via Vercel, Backend via Render/Railway (alternativ lokale Netzfreigabe).
 
 ## Aktueller Zustand
-- Frontend: Läuft mit Vite-Dev-Server (`npm run dev`). UI-Komponenten in `src/components` und `src/components/ui`. Globaler Zustand in `src/contexts/GameContext.tsx`. Storybook vorhanden (`npm run storybook`).
-- Backend: Start über `server/` mit `npm run dev` (lokal) bzw. `npm start`. Socket.IO für Realtime. DB: SQLite, Modelle und Logik in `server/models.js`, `server/gameService.js`.
-- Dokumentation: Ausführliche README mit Architektur, Setup, API-Events und Tech-Day-Checkliste.
-- Tests & Qualität: Jest-Konfiguration vorhanden (Frontend/Backend getrennt testbar). E2E via Playwright. ESLint eingerichtet. 
+- **Frontend**: Vite-Dev-Server (`npm run dev`). UI unter `src/components`, Practice Mode nutzt Agent-v1-Engine. Globaler Zustand in `src/contexts/GameContext.tsx`. Storybook funktionsfähig (`npm run storybook`).
+- **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit-Tests decken Auktion, Fix-vor-Pooling, Airline-Repricing, Hotel-Penalty & Siegerbedingung ab (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
+- **Backend**: Legacy-Service (`server/gameService.js`) liefert Lobby/Realtime weiterhin. Integration auf neue Engine steht aus.
+- **Dokumentation**: README aktualisiert (Simulation Core, Practice Mode, Setup). Agents-Guide liefert Prioritäten.
+- **Tests & Qualität**: Jest (Frontend + Engine), Backend-Jest separiert (`server/`). Playwright vorhanden, ESLint aktiv.
 
 ## Environments & Skripte
 - Frontend `.env.local`:
@@ -31,65 +32,72 @@ Dieses Dokument liefert kompakten Kontext zum aktuellen Projektstatus und skizzi
   - `dev` → `node server.js`, `start` → `node index.js`, `test` (Jest)
 
 ## Fähigkeiten (Ist)
-- Multi-User-Teamregistrierung, Admin-Login (Passwort via Env), Runden- & Phasensteuerung.
-- Live-Synchronisation über Socket.IO; Leaderboard & Ergebnisse in Echtzeit.
-- Einkaufsphase mit Informationsasymmetrie (Fix/ProRata/Pooling), Budgetlogik inkl. Insolvenzprüfung.
-- Hotelkapazität: Gleichverteilung pro Team; Leerkosten berücksichtigt.
-- UI: Responsiv, Komponentenbibliothek mit Varianten; Storybook-Beispiele für `Button`, `Card`, `Input`.
+- Multi-User-Teamregistrierung, Admin-Login (Env-Passwort), Phasensteuerung (Auktion → Live-Markt) im Backend.
+- Agent-v1-Simulation vollständig in TypeScript verfügbar (Fix-Auktion, 12–15 Ticks, Airline-Repricing, Tools, Hotel-Penalty).
+- Practice Mode nutzt neue Engine end-to-end; Live-Spiel verwendet noch Legacy-Serverberechnungen.
+- UI: Responsive, Komponentenbibliothek (shadcn/ui), Storybook-Stories & Animations.
+- Datenhaltung: SQLite via Sequelize, automatische Anlage. Persistierte Sessions/Teams vorhanden.
 
 ## Bekannte Lücken / Risiken
-- Persistenz: SQLite im Standard – Migrations- und Backup-Strategie für Produktion noch vereinfachend.
-- Sicherheit: Admin-Auth einfach (Passwort). Kein Rate Limiting/Brute-Force-Schutz konfiguriert.
-- Beobachtbarkeit: Logging ist konsolenbasiert; es fehlen strukturierte Logs/Tracing.
-- Lastverhalten: Keine Lasttests/Benchmarks dokumentiert.
-- Fehlerrobustheit: Eingabevalidierung nur grob skizziert; fehlende zentrale Schema-Validierung.
+- **Engine-Integration**: Backend nutzt weiterhin Legacy-Berechnungen. Socket-Events müssen auf neue Engine migriert werden.
+- **Persistenz**: SQLite ohne Migrationen/Backups; keine Versionierung von Spielständen.
+- **Security**: Admin-Auth simpel, kein Rate Limiting oder Auditing.
+- **Validation**: Keine zentrale Schema-/Env-Validierung (z.B. Zod/envalid).
+- **Observability**: Logging = Console, keine strukturierten Logs/Request-IDs.
+- **Load/Chaos**: Keine Last- oder Ausfallszenarien dokumentiert.
 
-## Roadmap (vorschlag)
-1. Stabilität & Sicherheit
-   - Env-Validierung (z. B. `zod`/`envalid`), zentrale Request-Validierung (z. B. `zod` oder `yup`).
-   - Rate Limiting & Admin-Login-Abhärtung; CORS-Whitelist klar definieren.
-   - Strukturierte Logs (z. B. `pino`) + Request-IDs.
-2. Daten & Persistenz
-   - DB-Migrationen einführen (z. B. `sequelize-cli`/`umzug`).
-   - Optionale Postgres-Unterstützung für Produktionsbetrieb.
-   - Export/Import von Spielständen (JSON) für Demos/Tech Day.
-3. Qualität & Tests
-   - CI-Workflow (Build, Lint, Test, Storybook-Build, ggf. Chromatic Visual Tests).
-   - Unit-Tests für `server/gameService.js` und kritische Berechnungen.
-   - Contract-Tests für Socket.IO Events.
-4. UX & Features
-   - Erweiterte Analytics-Ansicht (Nachfragekurven, Preiselastizität, Zeitverlauf).
-   - Admin-Panel: Presets/Scenarios speichern & laden.
-   - Onboarding/Tutorial erweitern (interaktive Hilfen, Tooltips).
-5. Deployment
-   - Produktions-Runbooks (Scaling, Monitoring, Backups).
-   - Health-/Readiness-Probes; Status-Endpoint härten.
+## Roadmap (Vorschlag)
+1. **Engine ↔ Backend**
+   - Socket-Events (`tick:briefing`, `tick:results`, etc.) auf neue Engine umstellen.
+   - Persistente Speicherung der Fixplatz-Allokation + Tick-Decisions.
+   - Historisierung/Replay (optional JSON-Export).
+2. **Stabilität & Sicherheit**
+   - Env-/Request-Validierung (z.B. `zod` oder `envalid`).
+   - Rate Limiting, Audit-Logs, härteres Admin-Login (z.B. Passkeys oder temporäre Codes).
+   - Strukturierte Logs (`pino`), Request-IDs.
+3. **Persistenz & Daten**
+   - Migrationen (Umzug/Sequelize-CLI), Option Postgres.
+   - Backup-/Restore-Strategie, ggf. Snapshotting nach jeder Runde.
+4. **Qualität & CI**
+   - GitHub Actions: lint/test/build/storybook.
+   - Contract-Tests für Socket.IO, zusätzliche Engine-Cases (Tools, Collusion, Hold-Strategien).
+   - Visuelle Tests (Chromatic/Playwright-Snapshots) für kritische Screens.
+5. **UX & Enablement**
+   - Analytics-Panel (Nachfragekurven, Preisverlauf, Attention).
+   - Admin-Presets (vorkonfigurierte `apxo.config.yaml` Varianten).
+   - Onboarding (interaktive Guides, Tooltips), erweiterter Practice Mode Export.
+6. **Deployment**
+   - Produktions-Runbook (Monitoring, Scaling, Incident-Response).
+   - Health-/Readiness-Probes + Status-Endpoint härten.
 
 ## Technische Entscheidungen (Auszug)
-- Client: React 19, Vite, Tailwind, shadcn/ui für schnelle UI-Iterationen.
-- Server: Node + Express + Socket.IO für Realtime; einfache Admin-Auth via Env.
-- DB: SQLite per Default; Sequelize als ORM zur späteren DB-Agnostik.
-- Docs: README als Single-Source-of-Truth; Storybook für UI-Dokumentation.
+- Client: React 19, Vite, Tailwind, shadcn/ui, Framer Motion.
+- Simulation: TypeScript Engine (`src/lib/simulation`), Config via YAML Loader (`yaml`-Dependency).
+- Server: Node/Express + Socket.IO, Admin-Passwort via Env, Legacy GameService pending refactor.
+- DB: SQLite (default) über Sequelize, Optionale Erweiterung auf Postgres geplant.
+- Docs: README = Architektur & Setup; Agents-Guide = Priorisierung.
 
 ## Offene Fragen
-- Sollen Spielstände langfristig versioniert werden (Kompatibilität zwischen Releases)?
-- Ziel-DB für Produktion (SQLite vs. Postgres) und Migrationsstrategie?
-- Auth-Erweiterungen (z. B. Session-Handling, Tokens) nötig?
-- Visual Regression in CI gewünscht (Chromatic/Playwright Snapshots)?
+- Wie erfolgt die vollständige Migration des Live-Spiels auf die Agent-v1-Engine (State- und Event-Modell)?
+- Welche Datenbank soll Produktionsstandard werden (SQLite vs. Postgres) und wie sieht die Migrationsstrategie aus?
+- Brauchen wir erweiterte Auth (Sessions, MFA, Rollen)?
+- Soll Visual Regression (Chromatic/Playwright Snapshots) Teil der CI werden?
+- Wie werden Spielstände versioniert/archiviert (Kompatibilität zwischen Releases)?
 
-## Quickstart für Agents
-- Lokal starten:
+- **Lokal starten**
   ```bash
-  # Backend
+  # Backend (Legacy Gameplay)
   cd server && npm run dev
   # Frontend in neuem Terminal
   npm run dev
   # Storybook
   npm run storybook
   ```
-- Prüfpunkte:
-  - Frontend auf `http://localhost:5173`, Backend auf `http://localhost:3001`.
-  - Socket.IO Verbindungen stabil; Teamregistrierung und Admin-Login funktionieren.
-  - Stories rendern in Storybook; UI-Regressionen im Blick behalten.
+- **Simulation prüfen**
+  ```bash
+  npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts
+  ```
+- **Practice Mode**: Im Frontend oben rechts aktivierbar, nutzt neue Engine.
+- **Watchpoints**: Socket.IO-Events, Config-Änderungen (`apxo.config.yaml`), Admin-Panel (Legacy vs. neue Engine).
 
 Hinweis: Dieses Dokument bezieht sich ausschließlich auf APXO und enthält keine Referenzen auf andere Projekte.

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Target, ShoppingCart, TrendingUp, Lightbulb } from "lucide-react";
 import { useGame } from "@/contexts/GameContext";
+import { defaultConfig } from "@/lib/simulation/defaultConfig";
 
 interface TutorialProps {
   onStart: () => void;
@@ -13,6 +14,14 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
   const { gameState } = useGame();
   const fixPrice = typeof gameState.fixSeatPrice === 'number' ? gameState.fixSeatPrice : 60;
   const bedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
+  const agentConfig = defaultConfig;
+  const tickCount = agentConfig.ticks_total;
+  const secondsPerTick = agentConfig.seconds_per_tick;
+  const priceGuardPct = Math.round(agentConfig.rules.price_jump_threshold * 100);
+  const pushCosts = agentConfig.rules.push_cost_per_level;
+  const airlineStart = agentConfig.airline.P_airline_start;
+  const airlineMin = agentConfig.airline.P_min;
+  const airlineMax = agentConfig.airline.P_max;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <Card className="max-w-4xl w-full bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
@@ -51,13 +60,13 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               </div>
         <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-green-400">Phase 1: Seat Auction</div>
-                  <div className="text-sm">Submit <strong>a bid per seat</strong> and <strong>a desired quantity</strong>. The airline allocates fixed seats starting with the highest bids until capacity is exhausted. Competing bids and remaining availability stay hidden, so you must weigh risk, budget and expected demand. Immediately after the auction, every team receives the same hotel capacity; empty beds later cost €{bedCost} each.</div>
+                  <div className="font-semibold text-green-400">Phase 1: Fixplatz-Auktion</div>
+                  <div className="text-sm">Gib <strong>ein maximales Gebot pro Sitz</strong> und <strong>deine Wunschmenge</strong> ab. Die Airline vergibt Fixplätze absteigend (Pay-as-Bid), bis die Kapazität erschöpft ist. Konkurrenzgebote und Restverfügbarkeit bleiben verborgen – dein Forecast entscheidet. Direkt danach erhält jedes Team identisches Hotelkontingent; jedes leere Bett kostet €{bedCost}.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-blue-400">Phase 2: Live Market Simulation (365 days)</div>
-                  <div className="text-sm">Every second equals one simulated day. Travelers always start with the lowest customer price, moving up the ladder only if seats remain. You can top up supply through pooling; the pooling price reacts to supply/demand imbalances in real time.</div>
-                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Real-time Control:</strong> Set an initial price before the simulation begins, then adjust while the market runs to protect margin or gain share.</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Live-Markt ({tickCount} Ticks)</div>
+                  <div className="text-sm">Jeder Tick dauert ca. {secondsPerTick} Sekunden Echtzeit. Du setzt Retailpreis (Preisänderungen sind auf ±{priceGuardPct}% begrenzt), wählst einen Push-Level, kannst Fixplätze bewusst zurückhalten und optional ein Tool (<em>hedge</em>, <em>spotlight</em>, <em>commit</em>) aktivieren. Verkäufe ziehen zuerst aus Fixbeständen, danach – nur bei tatsächlichem Verkauf – aus Airline-Restkapazität zum aktuellen Poolingpreis (Start €{airlineStart}, Grenzen €{airlineMin}–€{airlineMax}).</div>
+                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Realtime Control:</strong> Tools verursachen Kosten ({pushCosts.join(' / ')} €) und Cooldowns. Airline-Repricing reagiert nach jedem Tick auf Nachfrageabweichungen – halte deine Preise, Aufmerksamkeit und Fix-Hold stets im Blick.</div>
                 </div>
               </div>
             </div>
@@ -72,23 +81,24 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li><strong>Submit your auction bid.</strong> Pick the quantity and maximum price per seat. The allocation is revealed once the timer expires.</li>
-                <li><strong>Prepare for launch.</strong> Review the seats you actually won, note your hotel capacity, and set an opening customer price.</li>
-                <li><strong>Run the year-long simulation.</strong> Monitor live demand, adjust prices, and decide when buying pooling seats is worth it as the airline price reacts to utilization.</li>
-                <li><strong>Review the results.</strong> After each round, inspect profit, market share, demand, and achievements to refine your strategy for the next auction.</li>
+                <li><strong>Gebot platzieren.</strong> Menge &amp; Maximalpreis definieren, Auktionsende abwarten.</li>
+                <li><strong>Allocation auswerten.</strong> Fixplätze, Durchschnittskosten und Hotelkontingent prüfen, erste Preisstrategie festlegen.</li>
+                <li><strong>Ticker entscheiden.</strong> Pro Tick Preis, Push-Level, Fix-Hold-% und optionales Tool setzen – Pooling wird bei Bedarf automatisch eingekauft.</li>
+                <li><strong>Briefing &amp; Debrief lesen.</strong> Airlinepreis, Restkapazität, Nachfrage und Profitranking analysieren.</li>
+                <li><strong>Finalbericht nutzen.</strong> Sieg = höchster Profit <em>und</em> Ø-Verkaufspreis ≥ Ø-Einkaufspreis.</li>
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Bid aggressively only when you can monetize the seats. Overbidding creates expensive inventory and higher hotel risk.</div>
+                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Fixplätze lohnen nur, wenn du sie profitabel drehen kannst – sie kosten sofort mindestens €{fixPrice} plus Hotelrisiko.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Balance committed seats with flexible pooling supply; the lowest retail price is not always the most profitable.</div>
+                  <div className="text-sm text-slate-400">📊 <strong>Strategie:</strong> Push-Level erhöhen Aufmerksamkeit, aber auch Kosten; halte Budget für kritische Ticks bereit.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">🎯 <strong>Goal:</strong> React quickly to pooling price shocks and competitor pricing to stay ahead.</div>
+                  <div className="text-sm text-slate-400">🎯 <strong>Ziel:</strong> Preise taktisch anpassen ohne den Sprungwächter (±{priceGuardPct}%) zu brechen – stetige Moves schlagen hektische Reaktionen.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📈 <strong>Market Intelligence:</strong> Use the live pooling ticker to gauge demand trends and anticipate shortages.</div>
+                  <div className="text-sm text-slate-400">📈 <strong>Insights:</strong> Tick-Briefings zeigen Airlinepreis &amp; Ranking; Debriefs trennen Fix- und Poolingverkäufe, damit du Margen sofort siehst.</div>
                 </div>
               </div>
             </div>
@@ -117,10 +127,10 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
-                <strong>Advanced:</strong> Demand responds to market prices and capacity. Monitor patterns over 365 days and adjust pricing dynamically.
-                Use the live pooling market to anticipate trends; pooling usage costs apply at the current market price. Hotel empty beds incur a cost; selling beyond hotel capacity is allowed and remains profitable (minus seat costs).
-                <span className="text-indigo-300">Set your initial price before the simulation starts, then use the "Update Price" button during the simulation.</span>
-                <span className="text-orange-400 font-semibold"> Remember: Information asymmetry in Phase 1 requires strategic risk assessment!</span>
+                <strong>Advanced:</strong> Die Nachfrage folgt einer Logit-Funktion (α={agentConfig.market.alpha}, β={agentConfig.market.beta}) rund um den Referenzpreis €{agentConfig.market.P_ref}. Airline-Repricing nutzt Forecast vs. Verkäufe (`γ={agentConfig.airline.gamma}`, `κ={agentConfig.airline.kappa}`) – behalte deine kumulierten Verkäufe im Blick.
+                Poolingkäufe kosten sofort den aktuellen Airlinepreis; Hotel-Leerbetten schlagen mit €{bedCost} pro Bett zu Buche. Verkäufe über das Hotelkontingent hinaus bleiben erlaubt (nur Sitzkosten fallen an).
+                <span className="text-indigo-300">Plane Tools und Push-Level voraus: Kosten, Cooldowns und Aufmerksamkeit entscheiden über deine Marktanteile.</span>
+                <span className="text-orange-400 font-semibold"> Phase 1 bleibt intransparenter Wettbewerb – sichere Forecasts und Risikoszenarien sind entscheidend!</span>
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Settings, TrendingUp, Users, Target, Activity, Award } from "lucide-react";
+import { defaultConfig } from "@/lib/simulation/defaultConfig";
 import {
   LineChart,
   Line,
@@ -105,6 +106,8 @@ export default function AdminPanel({
   onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
+  const agentConfig = defaultConfig;
+  const pushCosts = agentConfig.rules.push_cost_per_level.join(' / ');
 
   // Load analytics data when analytics tab is selected
   useEffect(() => {
@@ -173,11 +176,44 @@ export default function AdminPanel({
         {/* Tab Content */}
         <div className="overflow-y-auto max-h-[calc(95vh-200px)] sm:max-h-[400px]">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="settings" className="mt-0">
-              <CardContent className="space-y-5 p-6">
-                {/* Quick Actions (moved to top) */}
-                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-slate-300 text-sm font-semibold mb-2">Quick Actions</div>
+          <TabsContent value="settings" className="mt-0">
+            <CardContent className="space-y-5 p-6">
+              <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                <div className="text-slate-200 text-sm font-semibold mb-2">Agent&nbsp;v1 Simulation Snapshot (Practice Mode)</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Ticks · Tickdauer</div>
+                    <div className="font-semibold text-white">{agentConfig.ticks_total} · {agentConfig.seconds_per_tick}s</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Airlinepreis</div>
+                    <div className="font-semibold text-white">Start €{agentConfig.airline.P_airline_start} · Range €{agentConfig.airline.P_min}–€{agentConfig.airline.P_max}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Nachfrage (α/β) · Referenzpreis</div>
+                    <div className="font-semibold text-white">{agentConfig.market.alpha} / {agentConfig.market.beta} · €{agentConfig.market.P_ref}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Hotel &amp; Tools</div>
+                    <div className="font-semibold text-white">Hotelpenalty €{agentConfig.hotel.penalty_empty_bed} · Tool-Cooldown {agentConfig.rules.tool_cooldown_ticks} Ticks</div>
+                    <div className="text-xs text-slate-400">Push-Level Kosten: {pushCosts} €</div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 mt-3">
+                  Änderungen an diesen Werten erfolgen aktuell über <code>apxo.config.yaml</code>. Practice Mode und Engine-Tests nutzen exakt diese Konfiguration.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                <div className="text-amber-100 text-sm font-semibold mb-1">Legacy Live Session Controls</div>
+                <p className="text-xs text-amber-200">
+                  Die folgenden Einstellungen wirken auf den bestehenden Socket.IO-Spielablauf des Backends. Sie bleiben vorerst verfügbar, bis der Server vollständig auf die Agent-v1-Engine migriert ist.
+                </p>
+              </div>
+
+              {/* Quick Actions (moved to top) */}
+              <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-slate-300 text-sm font-semibold mb-2">Legacy Quick Actions</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Button
                       variant="outline"
@@ -210,7 +246,7 @@ export default function AdminPanel({
                         setPerTeamBudget && setPerTeamBudget(irnd(15000, 40000));
                       }}
                     >
-                      Randomize Parameters
+                      Randomize Legacy Parameters
                     </Button>
                     <Button
                       variant="outline"
@@ -236,14 +272,14 @@ export default function AdminPanel({
                         setPerTeamBudget && setPerTeamBudget(20000);
                       }}
                     >
-                      Restore Defaults
+                      Restore Legacy Defaults
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Phase Time</Label>
-                    <div className="text-xs text-slate-500 mt-1">Time limit for Pre-Purchase phase only (1-30 minutes)</div>
+                    <Label className="text-slate-300 text-sm font-medium">Pre-Purchase Timer (Legacy)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Nur für den aktuellen Pre-Purchase-Countdown des Legacy-Backends (1-30 Minuten)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
@@ -253,8 +289,8 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Pooling Market Update Interval</Label>
-                    <div className="text-xs text-slate-500 mt-1">How often the pooling market updates during Simulation phase (1-10 seconds)</div>
+                    <Label className="text-slate-300 text-sm font-medium">Pooling Update Interval (Legacy)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Wirkt nur auf den bisherigen Pooling-Ticker des Legacy-Servers (1-10 Sekunden)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[poolingMarketUpdateInterval]} onValueChange={([v]) => setPoolingMarketUpdateInterval(v)} min={1} max={10} step={1} className="w-full" />
@@ -371,7 +407,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Base Demand</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Base Demand (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Average base demand level</div>
                   </div>
                   <Input
@@ -387,7 +423,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Demand Volatility</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Demand Volatility (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Random variation in demand (0.00 - 0.50)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -400,7 +436,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Price Elasticity</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Price Elasticity (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Sensitivity of demand to price (-3.0 to -0.5)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -413,7 +449,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Market Price Elasticity</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Market Price Elasticity (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Overall demand reaction to market-wide prices (-2.0 to -0.3)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -431,7 +467,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Reference Market Price (€)</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Reference Market Price (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Benchmark price level used in demand weighting</div>
                   </div>
                   <Input
@@ -444,7 +480,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Cross Elasticity</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Cross Elasticity (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Substitution effect between teams (0.0 - 1.0)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -457,7 +493,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Market Concentration</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Market Concentration (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Concentration/Competition in market (0.0 - 1.0)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -470,7 +506,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Cost Volatility</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Cost Volatility (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Random variation in costs (0.00 - 0.20)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -483,7 +519,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Shock Intensity</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Shock Intensity (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">External shocks impacting demand (0.00 - 1.00)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -496,7 +532,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Spread</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Spread (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Baseline price spread or variance (0 - 200)</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
@@ -509,7 +545,7 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Seed</Label>
+                    <Label className="text-slate-300 text-sm font-medium">Seed (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Reproducible simulations</div>
                   </div>
                   <Input
@@ -528,7 +564,7 @@ export default function AdminPanel({
                 <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <Switch checked={sharedMarket} onCheckedChange={setSharedMarket} id="shared" className="data-[state=checked]:bg-indigo-500" />
                   <div>
-                    <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market</Label>
+                    <Label htmlFor="shared" className="text-slate-300 text-sm font-medium cursor-pointer">Shared Market (Legacy)</Label>
                     <div className="text-xs text-slate-500 mt-1">Toggle for market structure</div>
                   </div>
                 </div>

@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-  description: 'Phase 1: Pre-Purchase — Buy fixed seats at the configured price under information asymmetry; exact remaining availability and others\' purchases are hidden. Equal hotel capacity is assigned per team. Phase 2: Simulation — Set prices and pooling allocation for 365 days with real-time market monitoring; fix allocation becomes visible after the first round.',
+    description: 'Phase 1: Fixplatz-Auktion – gib einmalig ein Pay-as-Bid-Gebot ab, Konkurrenz bleibt verborgen und Hotelkapazität wird nach Abschluss gleich verteilt. Phase 2: Live-Markt – es folgen ca. 12–15 Ticks à 60 s; pro Tick setzt du Preis, Push-Level, Fix-Hold und optional ein Tool. Verkäufe ziehen zuerst Fixplätze, Airline repriced den Poolingpreis danach.',
     position: 'center'
   },
   {
@@ -63,14 +63,14 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-decisions',
     title: 'Your Decisions',
-  description: 'Make strategic decisions by phase. Pre-purchase: buy fix seats without seeing exact remaining availability; equal hotel capacity is assigned and empty beds later cost money. Simulation: set prices and pooling allocation; fix allocation details are shown after the first round.',
+    description: 'Phase 1: Menge & Maximalpreis festlegen – Pay-as-Bid, Restkapazität bleibt unbekannt. Phase 2: In jedem Tick Retailpreis (Preiswächter ±10%), Push-Level, Fix-Hold-% und optional Tools (hedge, spotlight, commit) wählen; Pooling wird automatisch nur bei Verkauf genutzt.',
     target: '[data-tutorial="team-decisions"]',
     position: 'top'
   },
   {
     id: 'pooling-market',
     title: 'Live Pooling Market',
-    description: 'Monitor the dynamic pooling market with transparent pricing. Prices update every second, simulating one day of market activity each time. Set your initial price before the simulation starts, then use the "Update Price" button to adjust during the simulation.',
+    description: 'Tick-Briefings zeigen Airlinepreis, Restkapazität und Profitranking. Poolingkäufe erfolgen automatisch nur dann, wenn dein Preis zu einem Verkauf führt; der Airlinepreis bleibt zwischen den konfigurierten Grenzen und reagiert auf Forecast-Abweichungen.',
     target: '[data-tutorial="pooling-market"]',
     position: 'top'
   },
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You\'re all set! Remember: balance risk and reward under information asymmetry, monitor demand patterns, watch the live pooling market (updates every second = 1 day), and make strategic decisions to maximize your profits. Don\'t forget to set your initial price before the simulation starts!',
+    description: 'Los geht\'s! Merke: Informationsasymmetrie in Phase 1 erfordert klares Risikomanagement, Phase 2 belohnt kontinuierliche Tick-Entscheidungen. Halte Preiswächter, Tool-Cooldowns und Hotelkosten im Blick – Sieg gibt es nur mit Gewinn UND positiver Marge.',
     position: 'center'
   }
 ];

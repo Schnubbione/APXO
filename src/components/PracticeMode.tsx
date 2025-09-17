@@ -1,201 +1,180 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useGame } from '@/contexts/GameContext';
+import { Label } from '@/components/ui/label';
+import { defaultConfig } from '@/lib/simulation/defaultConfig';
+import { runAuction, initRuntime, runTick, finalize } from '@/lib/simulation/engine';
+import type { AuctionBid, Decision, FinalReport } from '@/lib/simulation/types';
 
-type PracticeTeam = {
-  id: number;
-  name: string;
-  decisions: {
-    price: number;
-    buy: { F: number; P: number; O: number };
-    fixSeatsPurchased?: number; // for parity with server model
-    fixSeatsAllocated?: number;
-    poolingAllocation: number; // percent 0..100
-    hotelCapacity?: number;
-  };
-  totalProfit: number;
-};
-
-type PracticeSettings = {
-  baseDemand: number;
-  demandVolatility: number;
-  priceElasticity: number; // negative
-  marketPriceElasticity?: number;
-  referencePrice?: number;
-  marketConcentration: number;
-  totalAircraftSeats: number;
-  fixSeatPrice: number;
-  hotelBedCost: number;
-  costVolatility: number;
-  poolingMarket?: { currentPrice: number };
-  // No more fare classes - simplified to Fix Seats + Pooling only
-};
-
-export function PracticeMode({
-  onClose,
-  humanTeamName,
-}: {
+interface PracticeModeProps {
   onClose: () => void;
   humanTeamName: string;
-}) {
-  const { startPracticeMode, practice } = useGame();
-  const [teams, setTeams] = useState<PracticeTeam[]>([]);
-  const [settings, setSettings] = useState<PracticeSettings | null>(null);
-  const [results, setResults] = useState<any[] | null>(null);
-  const [simulationSummary, setSimulationSummary] = useState<{ finalPoolingPrice?: number; remainingPoolingCapacity?: number } | null>(null);
-  const [initialPrice, setInitialPrice] = useState<number>(199);
-  const [initialQuantity, setInitialQuantity] = useState<number>(40);
-  const [initialBid, setInitialBid] = useState<number>(60);
-  const [hasStarted, setHasStarted] = useState(false);
+}
 
-  // Init random scenario
-  useEffect(() => {
-    // Reset local UI state on open
-    setResults(null);
-    setHasStarted(false);
-  }, [humanTeamName]);
+type PracticeSummary = {
+  report: FinalReport[];
+  auction: ReturnType<typeof runAuction>;
+};
 
-  // Update human initial price before start
-  useEffect(() => {
-    if (!teams.length) return;
-    setTeams(prev => prev.map(t => t.id === 1 ? { ...t, decisions: { ...t.decisions, price: initialPrice } } : t));
-  }, [initialPrice]);
+const aiBid = (teamId: string, basePrice: number): AuctionBid => ({
+  teamId,
+  bid_price_per_seat: basePrice,
+  bid_quantity: 60,
+});
 
-  const startAndRun = async () => {
-    setHasStarted(true);
-    startPracticeMode({
-      rounds: 3,
-      overridePrice: initialPrice,
-      overrideFixSeats: initialQuantity,
-      overrideBid: initialBid
-    });
+const aiDecision = (teamId: string, tick: number, runtimePrice: number): Decision => ({
+  teamId,
+  price: Math.max(99, Math.round(runtimePrice * (1 - 0.01 * tick))),
+  push_level: (tick % 4 === 0 ? 1 : 0),
+  fix_hold_pct: tick > 3 ? 10 : 0,
+  tool: tick % 5 === 0 ? 'spotlight' : 'none',
+});
+
+export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
+  const [initialPrice, setInitialPrice] = useState(199);
+  const [bidPrice, setBidPrice] = useState(150);
+  const [bidQuantity, setBidQuantity] = useState(60);
+  const [summary, setSummary] = useState<PracticeSummary | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const config = useMemo(() => ({
+    ...defaultConfig,
+    teams: defaultConfig.teams.map((team, index) => ({
+      ...team,
+      id: index === 0 ? humanTeamName || team.id : team.id,
+    })),
+  }), [humanTeamName]);
+
+  const startSimulation = () => {
+    setRunning(true);
+    const bids: AuctionBid[] = [
+      {
+        teamId: config.teams[0].id,
+        bid_price_per_seat: Math.max(50, bidPrice),
+        bid_quantity: Math.max(1, Math.floor(bidQuantity)),
+      },
+      aiBid(config.teams[1].id, 148),
+      aiBid(config.teams[2].id, 142),
+    ];
+
+    const auction = runAuction(config, bids);
+    const runtime = initRuntime(config, auction);
+
+    for (let tick = config.ticks_total; tick >= 1; tick -= 1) {
+      const decisions: Decision[] = [
+        {
+          teamId: config.teams[0].id,
+          price: Math.max(99, initialPrice - (config.ticks_total - tick) * 3),
+          push_level: (tick % 3 === 0 ? 1 : 0),
+          fix_hold_pct: tick > 6 ? 5 : 0,
+          tool: tick === 8 ? 'commit' : 'none',
+        },
+        aiDecision(config.teams[1].id, tick, config.teams[1].P_start),
+        aiDecision(config.teams[2].id, tick, config.teams[2].P_start),
+      ];
+
+      runTick(config, runtime, decisions);
+    }
+
+    const report = finalize(config, runtime);
+    setSummary({ report, auction });
+    setRunning(false);
   };
 
-  // When server sends results, show them
-  useEffect(() => {
-    if (practice && 'running' in practice && !practice.running && (practice as any).results) {
-      const payload: any = (practice as any).results;
-      setSettings(payload.settings);
-      setSimulationSummary(payload?.phases?.simulation?.summary || null);
-      const last = payload.rounds[payload.rounds.length - 1]?.teamResults || [];
-      setResults(last);
-    }
-  }, [practice]);
-
-  // Leaderboard is provided by server via practice.results.leaderboard
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl bg-slate-800/95 border-slate-600 text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-2xl bg-slate-900 text-white border border-slate-700 shadow-lg">
         <CardHeader>
           <CardTitle>Practice Mode</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {!hasStarted && (
-            <div className="space-y-4">
-              <div className="text-slate-300 text-sm">
-                Compete against AI teams with realistic strategies. Practice all game mechanics including:
-                <br/>• Fix Seat allocation and Pooling market usage
-                <br/>• Hotel capacity management and costs
-                <br/>• Dynamic pricing and market share competition
-                <br/>Rounds start automatically; parameters are randomized for each session.
-              </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-300 text-sm">Your Initial Price (€)</Label>
-                    <Input type="number" value={initialPrice} onChange={e => setInitialPrice(Number(e.target.value || 0))}
-                         className="bg-slate-700/50 border-slate-600 text-white"/>
-                  </div>
-                  <div>
-                    <Label className="text-slate-300 text-sm">Requested Fixed Seats</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={initialQuantity}
-                      onChange={e => setInitialQuantity(Math.max(1, Number(e.target.value || 0)))}
-                      className="bg-slate-700/50 border-slate-600 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300 text-sm">Bid per Seat (€)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={initialBid}
-                      onChange={e => setInitialBid(Math.max(1, Number(e.target.value || 0)))}
-                      className="bg-slate-700/50 border-slate-600 text-white"
-                    />
-                  </div>
-                  <div className="text-sm text-slate-400">
-                    Opponents: {teams.length > 0 ? teams.length - 1 : '—'}
-                    <br/>Base Demand: {settings?.baseDemand ?? '—'}
-                    <br/>Aircraft Seats: {settings?.totalAircraftSeats ?? '—'}
-                    <br/>Hotel Beds/Team: {settings && teams.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / teams.length) : '—'}
-                  </div>
+        <CardContent className="space-y-6">
+          {!summary && (
+            <>
+              <p className="text-sm text-slate-300">
+                Runs a full Agent v1 simulation with two phases: a pay-as-bid auction followed by 12 live market ticks. Adjust your initial bid and price to explore the new mechanics.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-slate-300">Initial Retail Price (€)</Label>
+                  <Input
+                    type="number"
+                    value={initialPrice}
+                    onChange={(event) => setInitialPrice(Number(event.target.value) || 0)}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
                 </div>
-                <div className="text-xs text-slate-500">
-                  Phase 1 runs an auction with your bid and requested seats. Phase 2 simulates a full year of daily demand; passengers buy from the cheapest offers and pooling prices adapt dynamically.
+                <div>
+                  <Label className="text-slate-300">Bid Price per Seat (€)</Label>
+                  <Input
+                    type="number"
+                    value={bidPrice}
+                    onChange={(event) => setBidPrice(Number(event.target.value) || 0)}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
                 </div>
-              <div className="flex gap-2">
-                <Button onClick={startAndRun} className="bg-gradient-to-r from-indigo-500 to-purple-600">Start Practice</Button>
-                <Button variant="outline" onClick={onClose} className="border-slate-500 text-slate-200">Close</Button>
+                <div>
+                  <Label className="text-slate-300">Bid Quantity</Label>
+                  <Input
+                    type="number"
+                    value={bidQuantity}
+                    onChange={(event) => setBidQuantity(Number(event.target.value) || 0)}
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                </div>
               </div>
-            </div>
+              <div className="flex gap-3">
+                <Button onClick={startSimulation} disabled={running} className="bg-indigo-500 hover:bg-indigo-600">
+                  {running ? 'Running…' : 'Start Simulation'}
+                </Button>
+                <Button variant="outline" onClick={onClose} className="border-slate-600 text-slate-200">
+                  Close
+                </Button>
+              </div>
+            </>
           )}
 
-          {hasStarted && (!results) && (
-            <div className="text-slate-300">Running simulation…</div>
-          )}
-
-          {results && (
-            <div className="space-y-4">
-              <div className="text-lg font-semibold">Practice Session Summary</div>
-              
-              {/* Market Overview */}
-              <div className="p-3 bg-slate-700/30 rounded border border-slate-600">
-                <div className="text-sm font-medium text-slate-300 mb-2">Market Conditions</div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
-                  <div>Total Aircraft Seats: {settings?.totalAircraftSeats}</div>
-                  <div>Base Demand: {settings?.baseDemand}</div>
-                  <div>Hotel Beds/Team: {settings && results.length > 0 ? Math.floor((settings.totalAircraftSeats || 1000) * 0.6 / results.length) : '—'}</div>
-                  <div>Fix Seat Price: €{settings?.fixSeatPrice}</div>
-                  <div>Final Pooling Price: €{simulationSummary?.finalPoolingPrice ?? settings?.poolingMarket?.currentPrice ?? '—'}</div>
-                  <div>Remaining Pool Capacity: {simulationSummary?.remainingPoolingCapacity ?? settings?.poolingMarket?.availablePoolingCapacity ?? '—'}</div>
-                </div>
-              </div>
-              
-              {/* Team Results */}
-              <div className="text-lg font-semibold">Team Performance</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {results.map(r => (
-                  <div key={r.teamId} className="p-3 bg-slate-700/40 rounded border border-slate-600">
-                    <div className="font-medium">{String(r.teamName || r.teamId)}</div>
-                    <div className="text-sm text-slate-300">
-                      Sold: {r.sold} | Demand: {r.demand} | Capacity: {r.capacity}
-                    </div>
-                    <div className="text-sm text-slate-400">
-                      Price: €{r.avgPrice || r.price} | Market Share: {(r.marketShare * 100).toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-green-400">Profit: €{r.profit}</div>
-                  </div>
-                ))}
-              </div>
+          {summary && (
+            <div className="space-y-5">
               <div>
-                <div className="text-sm text-slate-400 mb-2">Leaderboard</div>
-                <div className="space-y-2">
-                  {(practice as any)?.results?.leaderboard?.map((e: any, i: number) => (
-                    <div key={e.name} className="flex items-center justify-between p-2 bg-slate-700/40 rounded border border-slate-600">
-                      <div className="flex items-center gap-2"><span className="w-6 text-center">{i + 1}.</span>{e.name}</div>
-                      <div className="font-semibold text-green-400">€{Number(e.profit).toFixed(0)}</div>
+                <div className="text-sm text-slate-400 uppercase tracking-wide">Phase 1</div>
+                <div className="text-lg font-semibold">Auction Result</div>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {summary.auction.allocations.map((allocation) => (
+                    <div key={allocation.teamId} className="rounded-lg border border-slate-700 bg-slate-800/70 p-3">
+                      <div className="text-sm text-slate-400">Team {allocation.teamId}</div>
+                      <div className="text-xl font-semibold">{allocation.awarded_fixed} seats</div>
+                      <div className="text-xs text-slate-500">Avg cost: €{allocation.avg_fixed_cost.toFixed(0)}</div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="pt-2">
-                <Button onClick={onClose} className="bg-gradient-to-r from-indigo-500 to-purple-600">Finish</Button>
+
+              <div>
+                <div className="text-sm text-slate-400 uppercase tracking-wide">Phase 2</div>
+                <div className="text-lg font-semibold">Final Report</div>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {summary.report.map((team) => (
+                    <div key={team.teamId} className={`rounded-lg border ${team.winner ? 'border-emerald-400' : 'border-slate-700'} bg-slate-800/70 p-3`}>
+                      <div className="flex items-center justify-between text-sm text-slate-400">
+                        <span>Team {team.teamId}</span>
+                        {team.winner && <span className="text-emerald-400 font-semibold">Winner</span>}
+                      </div>
+                      <div className="mt-2 text-xl font-semibold tabular-nums">€{Math.round(team.profit)}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Sold: {team.sold_total} &nbsp;|&nbsp; Load: {(team.load_factor * 100).toFixed(1)}%
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">Avg sell: €{team.avg_sell_price.toFixed(0)}</div>
+                      <div className="mt-1 text-xs text-slate-500">Avg buy: €{team.avg_buy_price.toFixed(0)}</div>
+                      <div className="mt-1 text-xs text-rose-400">Hotel penalty: €{team.hotel_penalty.toFixed(0)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={() => setSummary(null)} className="bg-indigo-500 hover:bg-indigo-600">Run Again</Button>
+                <Button variant="outline" onClick={onClose} className="border-slate-600 text-slate-200">Finish</Button>
               </div>
             </div>
           )}
@@ -204,13 +183,4 @@ export function PracticeMode({
     </div>
   );
 }
-
-// ================= Client-only logic remain for fallback/local testing (unused when server connected) =================
-// Fallback round calculation removed (server provides results)
-
-// removed unused helper
-// other fallback helpers removed (server authoritative)
-
-// deterministic RNG helper removed (unused)
-
 export default PracticeMode;

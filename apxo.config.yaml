@@ -1,0 +1,47 @@
+# apxo.config.yaml
+# Default configuration for the Allotment Procurement & Demand Simulation (Agent v1)
+
+# Phase / timing controls
+ticks_total: 12            # 12 Monats-Ticks ≈ 12 Minuten
+seconds_per_tick: 60
+rng_seed: 42
+
+airline:
+  C_total: 180             # Gesamtsitze auf dem Flug
+  P_airline_start: 120
+  P_min: 80
+  P_max: 400
+  gamma: 0.15              # Repricing-Geschwindigkeit (Forecast-Feedback)
+  kappa: 50                # Glättung
+
+market:
+  # Booking-Curve: wenig früh, stark ansteigend zum Abflug
+  D_base: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79]
+  alpha: 1.1               # Preisempfindlichkeit
+  beta: 6.0                # Preis-Treue im Logit
+  P_ref: 150               # Referenzpreis für Preis-Response
+
+hotel:
+  capacity_per_team: 60
+  penalty_empty_bed: 50
+
+teams:
+  - id: "A"
+    P_start: 199
+    P_floor: 99
+    P_ceil: 499
+  - id: "B"
+    P_start: 189
+    P_floor: 99
+    P_ceil: 499
+  - id: "C"
+    P_start: 209
+    P_floor: 99
+    P_ceil: 499
+
+rules:
+  need_price_above_cost: true
+  push_cost_per_level: [0, 200, 600]   # Budgetabzug (falls Budget-Modell genutzt)
+  tool_cooldown_ticks: 3
+  price_jump_threshold: 0.10           # “große” Preisänderung >10%/Tick (für Cooldown/Warnings)
+  anti_collusion_band_pct: 0.01        # ±1% Band über 3 Ticks ⇒ kleiner Attention-Malus
