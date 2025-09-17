@@ -214,7 +214,7 @@ export class GameService {
           totalProfit: 0
         });
 
-        // After reactivation, update hotel per-team preview if not yet assigned
+        // After reactivation, recompute and distribute hotel capacity evenly
         try {
           const sess = await this.getCurrentGameSession();
           const teams = await this.getActiveTeams();
@@ -223,14 +223,24 @@ export class GameService {
           const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
           const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
           await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
+          await Promise.all(teams.map(t => {
+            const currentDecisions = t.decisions ? { ...t.decisions } : {};
+            if (currentDecisions.hotelCapacity === perTeam) return undefined;
+            return t.update({ decisions: { ...currentDecisions, hotelCapacity: perTeam } });
+          }));
         } catch (e) {
           console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
         }
         return anyTeamWithName;
       }
 
-    // No existing team with that name -> create fresh
-    const perTeamHotel = session.settings?.hotelCapacityAssigned ? (session.settings.hotelCapacityPerTeam || 0) : 0;
+      // No existing team with that name -> create fresh
+      const baseSettings = session.settings || {};
+      const ratio = (typeof baseSettings.hotelCapacityRatio === 'number') ? baseSettings.hotelCapacityRatio : 0.6;
+      const totalSeats = baseSettings.totalAircraftSeats || 1000;
+      const activeTeams = await this.getActiveTeams();
+      const expectedTeamCount = activeTeams.length + 1;
+      const perTeamHotel = expectedTeamCount > 0 ? Math.floor((totalSeats * ratio) / expectedTeamCount) : 0;
       const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
       const team = await TeamModel.create({
@@ -241,13 +251,13 @@ export class GameService {
         decisions: {
           price: 199,
           fixSeatsPurchased: 0,
-      poolingAllocation: 0,
-      hotelCapacity: perTeamHotel
+          poolingAllocation: 0,
+          hotelCapacity: perTeamHotel
         },
         totalProfit: 0
       });
 
-      // After new registration, update hotel per-team preview if not yet assigned
+      // After new registration, recompute and distribute hotel capacity evenly
       try {
         const sess = await this.getCurrentGameSession();
         const teams = await this.getActiveTeams();
@@ -256,6 +266,11 @@ export class GameService {
         const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
         const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
         await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
+        await Promise.all(teams.map(t => {
+          const currentDecisions = t.decisions ? { ...t.decisions } : {};
+          if (currentDecisions.hotelCapacity === perTeam) return undefined;
+          return t.update({ decisions: { ...currentDecisions, hotelCapacity: perTeam } });
+        }));
       } catch (e) {
         console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
       }
@@ -517,7 +532,7 @@ export class GameService {
       currentPhase: 'prePurchase',
       isActive: true,
       hotelCapacityAssigned: true,
-  hotelCapacityPerTeam: perTeam
+      hotelCapacityPerTeam: perTeam
     };
 
     // Set both the top-level session flag and the settings flag for compatibility
@@ -569,10 +584,24 @@ export class GameService {
   static async endPhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-  const updatedSettings = { ...currentSettings, isActive: false };
+    const currentPhase = currentSettings.currentPhase;
+    let nextPhase = currentPhase;
+    if (currentPhase === 'prePurchase') {
+      nextPhase = 'simulation';
+    } else if (currentPhase === 'simulation') {
+      nextPhase = 'prePurchase';
+    }
 
-  // Unset both the top-level session flag and the settings flag for compatibility
-  await session.update({ settings: updatedSettings, isActive: false });
+    const updatedSettings = {
+      ...currentSettings,
+      isActive: false,
+      currentPhase: nextPhase
+    };
+
+    // Unset both the top-level session flag and the settings flag for compatibility
+    await session.update({ settings: updatedSettings, isActive: false });
+    session.settings = updatedSettings;
+    session.isActive = false;
     return session;
   }
 

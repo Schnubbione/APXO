@@ -138,23 +138,26 @@ describe('GameService', () => {
   });
 
   describe('registerTeam', () => {
-    test('should create a new team', async () => {
-      const mockSession = { id: 1 };
-      const mockTeam = {
+    test('should create a new team with equal hotel capacity', async () => {
+      const mockSession = {
+        id: 1,
+        settings: {},
+        update: jest.fn().mockResolvedValue(undefined)
+      };
+      const createdTeam = {
         id: 1,
         name: 'Test Team',
         sessionId: 1,
-        decisions: {
-          price: 199,
-          fixSeatsPurchased: 0,
-          fixSeatsAllocated: 0,
-          poolingAllocation: 0
-        },
-        totalProfit: 0
+        decisions: {},
+        totalProfit: 0,
+        update: jest.fn().mockResolvedValue(undefined)
       };
 
       GameService.currentGameSession = mockSession;
-      Team.create.mockResolvedValue(mockTeam);
+      Team.findAll
+        .mockResolvedValueOnce([]) // Before new team joins
+        .mockResolvedValueOnce([createdTeam]); // After join for redistribution
+      Team.create.mockResolvedValue(createdTeam);
 
       const team = await GameService.registerTeam('socket123', 'Test Team');
 
@@ -165,11 +168,19 @@ describe('GameService', () => {
           price: 199,
           fixSeatsPurchased: 0,
           poolingAllocation: 0,
-          hotelCapacity: 0
+          hotelCapacity: 600
         }),
         totalProfit: 0
       }));
-      expect(team).toBe(mockTeam);
+      expect(mockSession.update).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          hotelCapacityPerTeam: 600
+        })
+      }));
+      expect(createdTeam.update).toHaveBeenCalledWith(expect.objectContaining({
+        decisions: expect.objectContaining({ hotelCapacity: 600 })
+      }));
+      expect(team).toBe(createdTeam);
     });
 
     test('should throw error if round is in progress', async () => {
@@ -306,6 +317,68 @@ describe('GameService', () => {
       expect(a2.allocated).toBe(2);
       expect(a2.bidPrice).toBe(50);
       expect(a2.clearingPrice).toBe(50);
+    });
+  });
+
+  describe('endPhase', () => {
+    test('moves from pre-purchase to simulation when phase ends', async () => {
+      const session = {
+        id: 'sess-end-1',
+        currentRound: 0,
+        isActive: true,
+        settings: { currentPhase: 'prePurchase' },
+        update: jest.fn(function (payload) {
+          if (payload?.settings) this.settings = payload.settings;
+          if (Object.prototype.hasOwnProperty.call(payload || {}, 'isActive')) {
+            this.isActive = payload.isActive;
+          }
+          return Promise.resolve(this);
+        })
+      };
+
+      GameService.currentGameSession = session;
+
+      const result = await GameService.endPhase();
+
+      expect(session.update).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          currentPhase: 'simulation',
+          isActive: false
+        }),
+        isActive: false
+      }));
+      expect(result.settings.currentPhase).toBe('simulation');
+      expect(result.isActive).toBe(false);
+    });
+
+    test('moves from simulation back to pre-purchase when phase ends', async () => {
+      const session = {
+        id: 'sess-end-2',
+        currentRound: 1,
+        isActive: true,
+        settings: { currentPhase: 'simulation' },
+        update: jest.fn(function (payload) {
+          if (payload?.settings) this.settings = payload.settings;
+          if (Object.prototype.hasOwnProperty.call(payload || {}, 'isActive')) {
+            this.isActive = payload.isActive;
+          }
+          return Promise.resolve(this);
+        })
+      };
+
+      GameService.currentGameSession = session;
+
+      const result = await GameService.endPhase();
+
+      expect(session.update).toHaveBeenCalledWith(expect.objectContaining({
+        settings: expect.objectContaining({
+          currentPhase: 'prePurchase',
+          isActive: false
+        }),
+        isActive: false
+      }));
+      expect(result.settings.currentPhase).toBe('prePurchase');
+      expect(result.isActive).toBe(false);
     });
   });
 
