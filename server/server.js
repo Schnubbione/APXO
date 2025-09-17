@@ -139,12 +139,15 @@ function startPoolingMarketUpdates() {
 
   // Get current settings for update interval (default to 1 second if not set)
   let updateInterval = 1000; // default: 1s per update
+  let secondsPerDay = 1;
   try {
     const session = GameService.currentGameSession; // fast path if cached
-    const intervalSec = session?.settings?.poolingMarketUpdateInterval ?? 1;
+    const intervalSec = session?.settings?.secondsPerDay ?? session?.settings?.poolingMarketUpdateInterval ?? 1;
     const parsed = Number(intervalSec);
-    updateInterval = (Number.isFinite(parsed) && parsed > 0) ? parsed * 1000 : 1000;
+    secondsPerDay = (Number.isFinite(parsed) && parsed > 0) ? parsed : 1;
+    updateInterval = secondsPerDay * 1000;
   } catch {
+    secondsPerDay = 1;
     updateInterval = 1000;
   }
 
@@ -164,7 +167,9 @@ function startPoolingMarketUpdates() {
     }
   }, updateInterval);
 
-  console.log(`🏊 Pooling market updates started (every ${updateInterval/1000}s; days per update = current setting)`);
+  const sessionForLog = GameService.currentGameSession;
+  const dayStepForLog = Number(sessionForLog?.settings?.simulatedWeeksPerUpdate ?? 1);
+  console.log(`🏊 Pooling market updates started (every ${secondsPerDay}s; days per update = ${dayStepForLog})`);
 }
 
 // Stop pooling market updates
