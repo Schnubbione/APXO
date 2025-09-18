@@ -131,6 +131,23 @@ export class GameService {
       }
     }
 
+    // Agent v1 live controls: can be set during simulation phase
+    if (!isPrePurchasePhase) {
+      if (decision.push_level !== undefined) {
+        const lvl = Number(decision.push_level);
+        if ([0,1,2].includes(lvl)) next.push_level = lvl;
+      }
+      if (decision.fix_hold_pct !== undefined) {
+        const pct = Math.max(0, Math.min(100, Math.round(Number(decision.fix_hold_pct))));
+        next.fix_hold_pct = pct;
+      }
+      if (decision.tool !== undefined) {
+        const allowed = ['none','hedge','spotlight','commit'];
+        const tool = typeof decision.tool === 'string' && allowed.includes(decision.tool) ? decision.tool : 'none';
+        next.tool = tool;
+      }
+    }
+
     // Preserve hotel capacity and allocated seats fields as they are managed by server phases
     if (team.decisions && typeof team.decisions.hotelCapacity === 'number') {
       next.hotelCapacity = team.decisions.hotelCapacity;

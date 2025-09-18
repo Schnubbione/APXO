@@ -22,8 +22,6 @@ import {
 } from 'recharts';
 
 interface AdminPanelProps {
-  numTeams: number;
-  setNumTeams: (value: number) => void;
   baseDemand: number;
   setBaseDemand: (value: number) => void;
   spread: number;
@@ -394,7 +392,7 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Per-Team Budget (€)</Label>
-                    <div className="text-xs text-slate-500 mt-1">Applies to both phases and is equal for all teams</div>
+                    <div className="text-xs text-slate-500 mt-1">Gilt für beide Phasen; identisch für alle Teams. In der Simulation kann eine negative Marge &gt; Budget zur sofortigen Insolvenz führen.</div>
                   </div>
                   <Input
                     type="number"

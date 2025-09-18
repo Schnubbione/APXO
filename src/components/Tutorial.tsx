@@ -61,7 +61,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
         <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-green-400">Phase 1: Fixplatz-Auktion</div>
-                  <div className="text-sm">Gib <strong>ein maximales Gebot pro Sitz</strong> und <strong>deine Wunschmenge</strong> ab. Die Airline vergibt Fixplätze absteigend (Pay-as-Bid), bis die Kapazität erschöpft ist. Konkurrenzgebote und Restverfügbarkeit bleiben verborgen – dein Forecast entscheidet. Direkt danach erhält jedes Team identisches Hotelkontingent; jedes leere Bett kostet €{bedCost}.</div>
+                  <div className="text-sm">Gib <strong>ein maximales Gebot pro Sitz</strong> und <strong>deine Wunschmenge</strong> ab. Die Airline vergibt Fixplätze absteigend (Pay-as-Bid), bis die Kapazität erschöpft ist. <em>Budget-Cap:</em> Deine gewünschte Menge wird auf <code>floor(Budget / Gebot)</code> gedeckelt. Konkurrenzgebote und Restverfügbarkeit bleiben verborgen – dein Forecast entscheidet. Direkt danach erhält jedes Team identisches Hotelkontingent; jedes leere Bett kostet €{bedCost}.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-blue-400">Phase 2: Live-Markt ({tickCount} Ticks)</div>
@@ -93,6 +93,9 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">📊 <strong>Strategie:</strong> Push-Level erhöhen Aufmerksamkeit, aber auch Kosten; halte Budget für kritische Ticks bereit.</div>
+                </div>
+                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-sm text-slate-400">🏦 <strong>Budget & Insolvenz:</strong> Während der Simulation gilt: Wenn deine kumulierte Marge negativ ist und den Budgetbetrag übersteigt, wirst du sofort insolvent erklärt; deine Verkäufe fallen zurück in den Markt.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">🎯 <strong>Ziel:</strong> Preise taktisch anpassen ohne den Sprungwächter (±{priceGuardPct}%) zu brechen – stetige Moves schlagen hektische Reaktionen.</div>

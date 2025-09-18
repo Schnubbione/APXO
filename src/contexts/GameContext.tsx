@@ -11,10 +11,14 @@ interface Team {
     fixSeatsPurchased: number;
     fixSeatsAllocated?: number; // Actually allocated fix seats (may be less than purchased)
     poolingAllocation: number;
-    fixSeatBidPrice?: number;
+    fixSeatBidPrice?: number | null;
     fixSeatsRequested?: number;
-    fixSeatClearingPrice?: number;
+    fixSeatClearingPrice?: number | null;
     hotelCapacity?: number;
+    // Agent v1 live controls (preview)
+    push_level?: 0 | 1 | 2;
+    fix_hold_pct?: number;
+    tool?: 'none' | 'hedge' | 'spotlight' | 'commit';
   };
   totalProfit: number;
 }
@@ -158,7 +162,7 @@ interface GameContextType {
   loginAsAdmin: (password: string) => void;
   logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
-  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number }) => void;
+  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number; push_level?: 0 | 1 | 2; fix_hold_pct?: number; tool?: 'none' | 'hedge' | 'spotlight' | 'commit' }) => void;
   startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
   stopPracticeMode: () => void;
   startPrePurchasePhase: () => void;
@@ -521,7 +525,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('updateGameSettings', settings);
   };
 
-  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number }) => {
+  const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number; push_level?: 0 | 1 | 2; fix_hold_pct?: number; tool?: 'none' | 'hedge' | 'spotlight' | 'commit' }) => {
     // Handle in-practice locally
     if (practice?.running) {
       // Local update only
@@ -535,7 +539,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
             ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
             ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
-            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
+            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {}),
+            ...(decision.push_level !== undefined ? { push_level: decision.push_level } : {}),
+            ...(decision.fix_hold_pct !== undefined ? { fix_hold_pct: decision.fix_hold_pct } : {}),
+            ...(decision.tool !== undefined ? { tool: decision.tool } : {})
           }
         };
       });
@@ -552,7 +559,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
               ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
               ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
-              ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
+              ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {}),
+              ...(decision.push_level !== undefined ? { push_level: decision.push_level } : {}),
+              ...(decision.fix_hold_pct !== undefined ? { fix_hold_pct: decision.fix_hold_pct } : {}),
+              ...(decision.tool !== undefined ? { tool: decision.tool } : {})
             }
           } : t)
         };
@@ -575,7 +585,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...(decision.buy ? { buy: { ...prev.decisions.buy, ...decision.buy } } : {}),
           ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
           ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
-          ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
+          ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {}),
+          ...(decision.push_level !== undefined ? { push_level: decision.push_level } : {}),
+          ...(decision.fix_hold_pct !== undefined ? { fix_hold_pct: decision.fix_hold_pct } : {}),
+          ...(decision.tool !== undefined ? { tool: decision.tool } : {})
         }
       };
     });
@@ -594,7 +607,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...(decision.buy ? { buy: { ...t.decisions.buy, ...decision.buy } } : {}),
             ...(decision.fixSeatsPurchased !== undefined ? { fixSeatsPurchased: decision.fixSeatsPurchased, fixSeatsRequested: decision.fixSeatsPurchased } : {}),
             ...(decision.poolingAllocation !== undefined ? { poolingAllocation: decision.poolingAllocation } : {}),
-            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {})
+            ...(decision.fixSeatBidPrice !== undefined ? { fixSeatBidPrice: decision.fixSeatBidPrice } : {}),
+            ...(decision.push_level !== undefined ? { push_level: decision.push_level } : {}),
+            ...(decision.fix_hold_pct !== undefined ? { fix_hold_pct: decision.fix_hold_pct } : {}),
+            ...(decision.tool !== undefined ? { tool: decision.tool } : {})
           }
         } : t)
       };

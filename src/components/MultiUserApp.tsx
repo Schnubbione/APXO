@@ -275,8 +275,6 @@ export const MultiUserApp: React.FC = () => {
           </Button>
         </div>
         <AdminPanel
-          numTeams={gameState.teams.length}
-          setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
           baseDemand={gameState.baseDemand}
           setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
           spread={gameState.spread}
@@ -554,8 +552,6 @@ export const MultiUserApp: React.FC = () => {
         />
 
         <AdminPanel
-          numTeams={gameState.teams.length}
-          setNumTeams={() => { /* Teamanzahl wird durch Registrierungen bestimmt */ }}
           baseDemand={gameState.baseDemand}
           setBaseDemand={(v) => updateGameSettings({ baseDemand: v })}
           spread={gameState.spread}
@@ -757,7 +753,7 @@ export const MultiUserApp: React.FC = () => {
                     <div className="text-sm text-slate-200 mt-2">
                       {myAllocation
                         ? myAllocation.allocated > 0
-                          ? `Clearing-Preis: €${(myAllocation.clearingPrice ?? gameState.fixSeatPrice || 0).toFixed(0)}`
+                          ? `Clearing-Preis: €${(((myAllocation.clearingPrice ?? gameState.fixSeatPrice) || 0)).toFixed(0)}`
                           : 'Keine Fixplätze erhalten'
                         : currentTeam
                           ? 'Kein Gebot abgegeben'
@@ -900,6 +896,51 @@ export const MultiUserApp: React.FC = () => {
                       <p className="text-xs text-slate-500">Poolinganteile werden in Phase 2 vom System verteilt und können nicht angepasst werden.</p>
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Push-Level</Label>
+                      <div className="flex gap-2">
+                        {[0,1,2].map((lvl) => (
+                          <Button key={lvl}
+                            variant={currentTeam.decisions.push_level === lvl ? 'default' : 'outline'}
+                            disabled={!gameState.isActive}
+                            onClick={() => updateTeamDecision({ push_level: lvl as 0|1|2 })}
+                            className={currentTeam.decisions.push_level === lvl ? 'bg-indigo-600' : 'border-slate-600 text-slate-200'}
+                          >L{lvl}</Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Fix-Hold (%)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={typeof currentTeam.decisions.fix_hold_pct === 'number' ? currentTeam.decisions.fix_hold_pct : ''}
+                        placeholder="0"
+                        onChange={(e)=>{
+                          const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(e.target.value))));
+                          updateTeamDecision({ fix_hold_pct: v });
+                        }}
+                        disabled={!gameState.isActive}
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-300 text-sm font-medium">Tool</Label>
+                      <select
+                        value={currentTeam.decisions.tool || 'none'}
+                        onChange={(e)=> updateTeamDecision({ tool: e.target.value as any })}
+                        disabled={!gameState.isActive}
+                        className="w-full bg-slate-700/50 border-slate-600 text-white min-h-[48px] rounded-xl px-3"
+                      >
+                        <option value="none">None</option>
+                        <option value="hedge">Hedge</option>
+                        <option value="spotlight">Spotlight</option>
+                        <option value="commit">Commit</option>
+                      </select>
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       onClick={() => updateTeamDecision({ price: currentTeam.decisions.price })}
@@ -910,7 +951,7 @@ export const MultiUserApp: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-slate-400">
-                    Fixplätze bereitgestellt: {fixAllocatedTotal} | Pooling verkauft: {poolSoldSoFar}
+                    Fixplätze bereitgestellt: {fixAllocatedTotal} | Pooling verkauft: {poolSoldSoFar} | Push: L{currentTeam.decisions.push_level ?? 0} | Hold: {currentTeam.decisions.fix_hold_pct ?? 0}% | Tool: {currentTeam.decisions.tool || 'none'}
                   </div>
                 </div>
               ) : (
