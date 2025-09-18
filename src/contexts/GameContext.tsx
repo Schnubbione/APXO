@@ -865,7 +865,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startSimInterval = () => {
       simTimerRef.current = setInterval(() => {
         setGameState(prev => {
-          // Nur Phase prüfen; Stoppen wird über stopPracticeMode() erledigt
+          // Only check the phase; stopping is handled via stopPracticeMode()
           if (prev.currentPhase !== 'simulation') return prev;
           const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
 
@@ -873,7 +873,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const baseD = Math.max(10, prev.baseDemand || 100);
           const demandToday = Math.round(baseD * (0.8 + Math.random() * 0.4));
 
-          // Preisabhängige Nachfrageverteilung auf Teams (Softmax um den Durchschnittspreis)
+          // Price-dependent demand distribution across teams (softmax around the average price)
           const teams = prev.teams.map(t => ({
             ...t,
             decisions: {
@@ -888,7 +888,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const sumW = weights.reduce((a, b) => a + b, 0) || 1;
           const demandPerTeam = teams.map((_, i) => Math.max(0, Math.round(demandToday * (weights[i] / sumW))));
 
-          // Per-tick Matching: verwalte verbleibende Kapazitäten
+          // Per-tick matching: manage remaining capacities
           if (!simDataRef.current || (simDataRef.current.remainingFix.length !== teams.length)) {
             // Fallback-Init, falls nicht gesetzt
             simDataRef.current = {
@@ -900,7 +900,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           const data = simDataRef.current!;
 
-          // Preisbildung vor Konsum: nutze "verfügbare" (vor Tick) Pooling-Angebot und Fix-Rest
+          // Pricing before consumption: use pre-tick available pooling supply and remaining fixed seats
           const remainingFixBefore = data.remainingFix.slice();
           const remainingPoolBefore = data.remainingPool.slice();
           const poolingDemand = demandPerTeam.reduce((s, d, i) => s + Math.max(0, d - remainingFixBefore[i]), 0);
@@ -912,7 +912,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let delta = 0;
           if (ratioSD < 0.9) delta = Math.min(20, (0.9 - ratioSD) * 40);
           else if (ratioSD > 1.1) delta = Math.max(-20, (ratioSD - 1.1) * -30);
-          const baseline = (poolingCost || 90) * 1.2; // etwas über Kosten
+          const baseline = (poolingCost || 90) * 1.2; // slight markup above cost
           const noise = (Math.random() - 0.5) * 2; // -1..1
           const drift = (baseline - (pm.currentPrice || 150)) * 0.02; // Mean-Reversion
           const rawPrice = (pm.currentPrice || 150) + delta * 0.35 + drift + noise;
@@ -945,7 +945,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (day <= 0) {
             clearInterval(simTimerRef.current);
-            // Auswertung für aktuelles Team inkl. Preiseffekt & Hotelkosten
+            // Evaluate current team including price effects and hotel costs
             const meIndex = teams.findIndex(t => t.id === myId);
             const myPrice = teams[meIndex]?.decisions.price || 199;
             const sold = meIndex >= 0 ? data.sold[meIndex] : 0;

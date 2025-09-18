@@ -58,15 +58,15 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                 </div>
                 <h3 className="text-xl font-semibold text-white">Two-Phase System</h3>
               </div>
-        <div className="space-y-3 text-slate-300">
+              <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-green-400">Phase 1: Fixplatz-Auktion</div>
-                  <div className="text-sm">Gib <strong>ein maximales Gebot pro Sitz</strong> und <strong>deine Wunschmenge</strong> ab. Die Airline vergibt Fixplätze absteigend (Pay-as-Bid), bis die Kapazität erschöpft ist. <em>Budget-Cap:</em> Deine gewünschte Menge wird auf <code>floor(Budget / Gebot)</code> gedeckelt. Konkurrenzgebote und Restverfügbarkeit bleiben verborgen – dein Forecast entscheidet. Direkt danach erhält jedes Team identisches Hotelkontingent; jedes leere Bett kostet €{bedCost}.</div>
+                  <div className="font-semibold text-green-400">Phase 1: Fixed-Seat Auction (Pay-as-Bid)</div>
+                  <div className="text-sm">Submit a sealed bid with a <strong>maximum price per seat</strong> and a <strong>desired quantity</strong>. The airline fills demand from the highest bids downward, subject to each team&apos;s optional budget cap. Competing bids and remaining capacity stay hidden, so forecasting risk matters. Once the auction clears every team receives the same hotel allotment and each empty bed later costs €{bedCost}.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-blue-400">Phase 2: Live-Markt ({tickCount} Ticks)</div>
-                  <div className="text-sm">Jeder Tick dauert ca. {secondsPerTick} Sekunden Echtzeit. Du setzt Retailpreis (Preisänderungen sind auf ±{priceGuardPct}% begrenzt), wählst einen Push-Level, kannst Fixplätze bewusst zurückhalten und optional ein Tool (<em>hedge</em>, <em>spotlight</em>, <em>commit</em>) aktivieren. Verkäufe ziehen zuerst aus Fixbeständen, danach – nur bei tatsächlichem Verkauf – aus Airline-Restkapazität zum aktuellen Poolingpreis (Start €{airlineStart}, Grenzen €{airlineMin}–€{airlineMax}).</div>
-                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Realtime Control:</strong> Tools verursachen Kosten ({pushCosts.join(' / ')} €) und Cooldowns. Airline-Repricing reagiert nach jedem Tick auf Nachfrageabweichungen – halte deine Preise, Aufmerksamkeit und Fix-Hold stets im Blick.</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Live Market ({tickCount} ticks)</div>
+                  <div className="text-sm">Each tick lasts roughly {secondsPerTick} seconds. Set your retail price (large moves are capped at ±{priceGuardPct}%), pick a push level, optionally hold back a share of fixed seats, and trigger tools (<em>hedge</em>, <em>spotlight</em>, <em>commit</em>) to influence attention. Sales always consume fixed inventory first; only when that is gone does the airline provide just-in-time seats at the current pooling price (start €{airlineStart}, bounded by €{airlineMin}–€{airlineMax}).</div>
+                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Dynamic control:</strong> Push levels cost {pushCosts.join(' / ')} € and tools come with cooldowns, so pace your budget. Airline repricing adjusts after every tick based on the gap between forecast and actual sales.</div>
                 </div>
               </div>
             </div>
@@ -81,27 +81,24 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
-                <li><strong>Gebot platzieren.</strong> Menge &amp; Maximalpreis definieren, Auktionsende abwarten.</li>
-                <li><strong>Allocation auswerten.</strong> Fixplätze, Durchschnittskosten und Hotelkontingent prüfen, erste Preisstrategie festlegen.</li>
-                <li><strong>Ticker entscheiden.</strong> Pro Tick Preis, Push-Level, Fix-Hold-% und optionales Tool setzen – Pooling wird bei Bedarf automatisch eingekauft.</li>
-                <li><strong>Briefing &amp; Debrief lesen.</strong> Airlinepreis, Restkapazität, Nachfrage und Profitranking analysieren.</li>
-                <li><strong>Finalbericht nutzen.</strong> Sieg = höchster Profit <em>und</em> Ø-Verkaufspreis ≥ Ø-Einkaufspreis.</li>
+                <li><strong>Enter your sealed bid.</strong> Choose quantity and maximum seat price, then wait for the auction to clear.</li>
+                <li><strong>Review the allocation.</strong> Note awarded seats, average cost, and the hotel allotment before picking an opening price.</li>
+                <li><strong>Play the ticks.</strong> For every tick pick price, push level, fixed-seat hold %, and an optional tool; pooling seats are purchased automatically only when a sale occurs.</li>
+                <li><strong>Read the briefings.</strong> Snapshots highlight airline price, remaining capacity, demand hints, and standings; debriefs break down fixed versus pooling sales and margins.</li>
+                <li><strong>Inspect the final report.</strong> Victory demands the highest profit <em>and</em> an average sell price that meets or beats your average buy price.</li>
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro Tip:</strong> Fixplätze lohnen nur, wenn du sie profitabel drehen kannst – sie kosten sofort mindestens €{fixPrice} plus Hotelrisiko.</div>
+                  <div className="text-sm text-slate-400">💡 <strong>Pro tip:</strong> Fixed seats only pay off when you can resell them profitably – they cost at least €{fixPrice} up front plus potential hotel penalties.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📊 <strong>Strategie:</strong> Push-Level erhöhen Aufmerksamkeit, aber auch Kosten; halte Budget für kritische Ticks bereit.</div>
+                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Push levels boost attention but reduce budget headroom; reserve cash for key ticks and tool activations.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">🏦 <strong>Budget & Insolvenz:</strong> Während der Simulation gilt: Wenn deine kumulierte Marge negativ ist und den Budgetbetrag übersteigt, wirst du sofort insolvent erklärt; deine Verkäufe fallen zurück in den Markt.</div>
+                  <div className="text-sm text-slate-400">🏦 <strong>Budget & solvency:</strong> During live play the legacy backend flags insolvency if cumulative profit drops beyond the team budget – monitor your margin so you stay in the game.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">🎯 <strong>Ziel:</strong> Preise taktisch anpassen ohne den Sprungwächter (±{priceGuardPct}%) zu brechen – stetige Moves schlagen hektische Reaktionen.</div>
-                </div>
-                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📈 <strong>Insights:</strong> Tick-Briefings zeigen Airlinepreis &amp; Ranking; Debriefs trennen Fix- und Poolingverkäufe, damit du Margen sofort siehst.</div>
+                  <div className="text-sm text-slate-400">📈 <strong>Insights:</strong> Tick briefings give airline price and ranking trends; debriefs surface margins instantly for fixed versus pooling sales.</div>
                 </div>
               </div>
             </div>
@@ -130,10 +127,10 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             </div>
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
-                <strong>Advanced:</strong> Die Nachfrage folgt einer Logit-Funktion (α={agentConfig.market.alpha}, β={agentConfig.market.beta}) rund um den Referenzpreis €{agentConfig.market.P_ref}. Airline-Repricing nutzt Forecast vs. Verkäufe (`γ={agentConfig.airline.gamma}`, `κ={agentConfig.airline.kappa}`) – behalte deine kumulierten Verkäufe im Blick.
-                Poolingkäufe kosten sofort den aktuellen Airlinepreis; Hotel-Leerbetten schlagen mit €{bedCost} pro Bett zu Buche. Verkäufe über das Hotelkontingent hinaus bleiben erlaubt (nur Sitzkosten fallen an).
-                <span className="text-indigo-300">Plane Tools und Push-Level voraus: Kosten, Cooldowns und Aufmerksamkeit entscheiden über deine Marktanteile.</span>
-                <span className="text-orange-400 font-semibold"> Phase 1 bleibt intransparenter Wettbewerb – sichere Forecasts und Risikoszenarien sind entscheidend!</span>
+                <strong>Advanced:</strong> Demand follows a logit curve (α={agentConfig.market.alpha}, β={agentConfig.market.beta}) centred on the reference price €{agentConfig.market.P_ref}. Airline repricing applies forecast feedback (`γ={agentConfig.airline.gamma}`, `κ={agentConfig.airline.kappa}`), so track cumulative sales against the booking curve.
+                Pooling purchases are charged immediately at the current airline price, while empty beds still cost €{bedCost}. Selling beyond the hotel allotment remains profitable because only seat costs are deducted.
+                <span className="text-indigo-300">Plan push levels and tools ahead of time – their costs, cooldowns, and attention boosts determine how visible you are each tick.</span>
+                <span className="text-orange-400 font-semibold"> Phase 1 is a blind auction: solid forecasts and risk buffers are the difference between victory and overcommitting.</span>
               </div>
             </div>
           </div>

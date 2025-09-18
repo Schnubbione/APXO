@@ -1,7 +1,7 @@
 /// <reference types="jest" />
 import '@testing-library/jest-dom';
 
-// Zusätzliche Sicherstellung für import.meta (falls jest.setup.js nicht ausreicht)
+// Extra guard for import.meta (in case jest.setup.js is not enough)
 if (typeof globalThis !== 'undefined' && !(globalThis as any).import?.meta) {
   (globalThis as any).import = {
     meta: {
@@ -12,7 +12,7 @@ if (typeof globalThis !== 'undefined' && !(globalThis as any).import?.meta) {
   };
 }
 
-// Mock für Socket.IO
+// Mock socket.io client
 jest.mock('socket.io-client', () => ({
   io: jest.fn(() => ({
     on: jest.fn(),
@@ -25,7 +25,7 @@ jest.mock('socket.io-client', () => ({
   }))
 }));
 
-// Mock für localStorage
+// Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),
   setItem: jest.fn(),
@@ -36,7 +36,7 @@ const localStorageMock = {
 };
 globalThis.localStorage = localStorageMock as any;
 
-// Mock für matchMedia
+// Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation((query: string) => ({
@@ -51,7 +51,7 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Cleanup nach jedem Test
+// Cleanup after each test
 afterEach(() => {
   jest.clearAllMocks();
 });

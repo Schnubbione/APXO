@@ -177,35 +177,35 @@ export default function AdminPanel({
           <TabsContent value="settings" className="mt-0">
             <CardContent className="space-y-5 p-6">
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                <div className="text-slate-200 text-sm font-semibold mb-2">Agent&nbsp;v1 Simulation Snapshot (Practice Mode)</div>
+                <div className="text-slate-200 text-sm font-semibold mb-2">Agent v1 Simulation Snapshot (Practice Mode)</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Ticks · Tickdauer</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Ticks · Seconds per Tick</div>
                     <div className="font-semibold text-white">{agentConfig.ticks_total} · {agentConfig.seconds_per_tick}s</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Airlinepreis</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Airline Price</div>
                     <div className="font-semibold text-white">Start €{agentConfig.airline.P_airline_start} · Range €{agentConfig.airline.P_min}–€{agentConfig.airline.P_max}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Nachfrage (α/β) · Referenzpreis</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Demand (α / β) · Reference Price</div>
                     <div className="font-semibold text-white">{agentConfig.market.alpha} / {agentConfig.market.beta} · €{agentConfig.market.P_ref}</div>
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-wide text-slate-500">Hotel &amp; Tools</div>
-                    <div className="font-semibold text-white">Hotelpenalty €{agentConfig.hotel.penalty_empty_bed} · Tool-Cooldown {agentConfig.rules.tool_cooldown_ticks} Ticks</div>
-                    <div className="text-xs text-slate-400">Push-Level Kosten: {pushCosts} €</div>
+                    <div className="font-semibold text-white">Hotel penalty €{agentConfig.hotel.penalty_empty_bed} · Tool cooldown {agentConfig.rules.tool_cooldown_ticks} ticks</div>
+                    <div className="text-xs text-slate-400">Push-level costs: {pushCosts} €</div>
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 mt-3">
-                  Änderungen an diesen Werten erfolgen aktuell über <code>apxo.config.yaml</code>. Practice Mode und Engine-Tests nutzen exakt diese Konfiguration.
+                  These values are supplied by <code>apxo.config.yaml</code>. Practice Mode and the engine unit tests use this configuration verbatim.
                 </p>
               </div>
 
               <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
-                <div className="text-amber-100 text-sm font-semibold mb-1">Legacy Live Session Controls</div>
+                <div className="text-amber-100 text-sm font-semibold mb-1">Legacy Live-Session Controls</div>
                 <p className="text-xs text-amber-200">
-                  Die folgenden Einstellungen wirken auf den bestehenden Socket.IO-Spielablauf des Backends. Sie bleiben vorerst verfügbar, bis der Server vollständig auf die Agent-v1-Engine migriert ist.
+                  The settings below still drive the current Socket.IO gameplay loop. They remain available until the backend has been fully migrated to the Agent v1 engine.
                 </p>
               </div>
 
@@ -277,7 +277,7 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Pre-Purchase Timer (Legacy)</Label>
-                    <div className="text-xs text-slate-500 mt-1">Nur für den aktuellen Pre-Purchase-Countdown des Legacy-Backends (1-30 Minuten)</div>
+                    <div className="text-xs text-slate-500 mt-1">Applies only to the legacy pre-purchase countdown (1–30 minutes).</div>
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider value={[roundTime]} onValueChange={([v]) => setRoundTime(v)} min={1} max={30} step={1} className="w-full" />
@@ -392,7 +392,7 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <Label className="text-slate-300 text-sm font-medium">Per-Team Budget (€)</Label>
-                    <div className="text-xs text-slate-500 mt-1">Gilt für beide Phasen; identisch für alle Teams. In der Simulation kann eine negative Marge &gt; Budget zur sofortigen Insolvenz führen.</div>
+                    <div className="text-xs text-slate-500 mt-1">Applies to both phases for every team. In the current simulation a negative margin larger than the budget will trigger immediate insolvency.</div>
                   </div>
                   <Input
                     type="number"

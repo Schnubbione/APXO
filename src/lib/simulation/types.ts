@@ -16,7 +16,7 @@ export interface Config {
     kappa: number;
   };
   market: {
-    D_base: number[]; // Länge = ticks_total
+    D_base: number[]; // length must equal ticks_total
     alpha: number;
     beta: number;
     P_ref: number;
@@ -40,13 +40,13 @@ export interface Config {
   };
 }
 
-/** -------- Phase 1: Auktion -------- */
+/** -------- Phase 1: Auction -------- */
 
 export interface AuctionBid {
   teamId: TeamId;
-  bid_price_per_seat: number; // € max Preis je Fix-Sitz
-  bid_quantity: number;       // gewünschte Fix-Sitze
-  budget_cap?: number;        // optionales Budget (Soft-Check)
+  bid_price_per_seat: number; // maximum willingness to pay per fixed seat (€)
+  bid_quantity: number;       // desired fixed-seat quantity
+  budget_cap?: number;        // optional budget ceiling (soft check)
 }
 
 export interface Allocation {
@@ -65,23 +65,23 @@ export interface AuctionResult {
   airline_capacity_used: number;
 }
 
-/** -------- Phase 2: Monats-Ticks -------- */
+/** -------- Phase 2: Live-Market Ticks -------- */
 
 export type ToolChoice = 'none' | 'hedge' | 'spotlight' | 'commit';
 
 export interface Decision {
   teamId: TeamId;
-  price: number;              // P_i(t)
-  push_level: 0 | 1 | 2;      // skaliert attention
-  fix_hold_pct: number;       // 0..100: Anteil Fix bewusst nicht anbieten
+  price: number;              // retail price P_i(t)
+  push_level: 0 | 1 | 2;      // modifies attention multiplier
+  fix_hold_pct: number;       // 0..100: share of fixed seats intentionally held back
   tool?: ToolChoice;
 }
 
 export interface TeamState {
   teamId: TeamId;
-  fixed_left: number;         // verbleibende Fix-Sitze
-  avg_fixed_cost: number;     // Ø Fixkosten für Reporting
-  price: number;              // aktueller Preis
+  fixed_left: number;         // fixed seats remaining
+  avg_fixed_cost: number;     // average fixed-seat cost (for reporting)
+  price: number;              // current retail price
   revenue: number;
   cost: number;
   sales_fix: number;
@@ -89,7 +89,7 @@ export interface TeamState {
 }
 
 export interface MarketSnapshot {
-  tick: number;               // 12..1 (bis Abflug)
+  tick: number;               // counts down from ticks_total to 1
   P_airline: number;
   C_remain: number;
   price_board: { teamId: TeamId; price: number }[];
@@ -119,6 +119,6 @@ export interface FinalReport {
   avg_sell_price: number;
   avg_buy_price: number;
   sold_total: number;
-  load_factor: number; // verkaufte Sitze / Airline-Gesamtkapazität
+  load_factor: number; // sold seats divided by airline total capacity
   winner: boolean;
 }

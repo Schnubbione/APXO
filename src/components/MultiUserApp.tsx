@@ -104,8 +104,8 @@ export const MultiUserApp: React.FC = () => {
 
     const clearing = allocationForToast.clearingPrice ?? gameState.fixSeatPrice;
     toast({
-      title: 'Fixplätze zugeteilt',
-      description: `Dein Team erhielt ${allocationForToast.allocated} Fixplätze${clearing ? ` zum Clearing-Preis von €${clearing}` : ''}.`
+      title: 'Fixed seats allocated',
+      description: `Your team received ${allocationForToast.allocated} fixed seats${clearing ? ` at a clearing price of €${clearing}` : ''}.`
     });
   }, [allocationSummary, currentTeam, toast, gameState.fixSeatPrice]);
 
@@ -740,44 +740,44 @@ export const MultiUserApp: React.FC = () => {
                   <div className="p-2 bg-green-500/20 rounded-lg">
                     <Award className="w-5 h-5 text-green-400" />
                   </div>
-                  Fixplatz-Zuteilung (Phase 1)
+                  Fixed-Seat Allocation (Phase 1)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-1 p-4 rounded-xl border border-green-500/40 bg-green-500/10 shadow-inner">
-                    <div className="text-xs uppercase tracking-wide text-green-200/80 mb-1">Dein Ergebnis</div>
+                    <div className="text-xs uppercase tracking-wide text-green-200/80 mb-1">Your result</div>
                     <div className="text-3xl font-semibold text-white">
                       {myAllocation ? myAllocation.allocated : 0}
                     </div>
                     <div className="text-sm text-slate-200 mt-2">
                       {myAllocation
                         ? myAllocation.allocated > 0
-                          ? `Clearing-Preis: €${(((myAllocation.clearingPrice ?? gameState.fixSeatPrice) || 0)).toFixed(0)}`
-                          : 'Keine Fixplätze erhalten'
+                          ? `Clearing price: €${(((myAllocation.clearingPrice ?? gameState.fixSeatPrice) || 0)).toFixed(0)}`
+                          : 'No fixed seats awarded'
                         : currentTeam
-                          ? 'Kein Gebot abgegeben'
+                          ? 'No bid submitted'
                           : isAdmin
-                            ? 'Admin-Übersicht aktiv'
-                            : 'Noch kein Team registriert'}
+                            ? 'Admin overview active'
+                            : 'No team registered yet'}
                     </div>
                   </div>
                   <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Verfügbare Fixplätze</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Available fixed seats</div>
                       <div className="text-2xl font-semibold text-white">{allocationSummary.maxFixCapacity}</div>
-                      <div className="text-xs text-slate-400 mt-1">Maximale Kapazität für Runde 1</div>
+                      <div className="text-xs text-slate-400 mt-1">Maximum capacity for round 1</div>
                     </div>
                     <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/10">
-                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Zugewiesen</div>
+                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Allocated</div>
                       <div className="text-2xl font-semibold text-white">{allocationSummary.totalAllocated}</div>
-                      <div className="text-xs text-blue-100/80 mt-1">Verbleibende Fixplätze: {Math.max(0, allocationSummary.maxFixCapacity - allocationSummary.totalAllocated)}</div>
+                      <div className="text-xs text-blue-100/80 mt-1">Remaining fixed seats: {Math.max(0, allocationSummary.maxFixCapacity - allocationSummary.totalAllocated)}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Zuteilung nach Teams</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Allocation by team</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {sortedAllocations.map(entry => {
                       const isMine = currentTeam ? entry.teamId === currentTeam.id : false;
@@ -888,12 +888,12 @@ export const MultiUserApp: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Pooling-Verkäufe</Label>
+                      <Label className="text-slate-300 text-sm font-medium">Pooling sales</Label>
                       <div className="h-full min-h-[48px] rounded-xl border border-slate-600 bg-slate-700/30 px-4 py-3 text-sm text-slate-300 flex items-center justify-between">
                         <span>Automatisch durch Airline</span>
                         <span className="font-mono text-base text-slate-100">{poolSoldSoFar}</span>
                       </div>
-                      <p className="text-xs text-slate-500">Poolinganteile werden in Phase 2 vom System verteilt und können nicht angepasst werden.</p>
+                      <p className="text-xs text-slate-500">Pooling shares are distributed automatically during Phase 2 and cannot be adjusted manually.</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -951,7 +951,7 @@ export const MultiUserApp: React.FC = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-slate-400">
-                    Fixplätze bereitgestellt: {fixAllocatedTotal} | Pooling verkauft: {poolSoldSoFar} | Push: L{currentTeam.decisions.push_level ?? 0} | Hold: {currentTeam.decisions.fix_hold_pct ?? 0}% | Tool: {currentTeam.decisions.tool || 'none'}
+                    Fixed seats provided: {fixAllocatedTotal} | Pooling sold: {poolSoldSoFar} | Push: L{currentTeam.decisions.push_level ?? 0} | Hold: {currentTeam.decisions.fix_hold_pct ?? 0}% | Tool: {currentTeam.decisions.tool || 'none'}
                   </div>
                 </div>
               ) : (
@@ -985,9 +985,9 @@ export const MultiUserApp: React.FC = () => {
                   const assignedBeds = typeof currentTeam.decisions?.hotelCapacity === 'number' ? currentTeam.decisions.hotelCapacity : (gameState.hotelCapacityPerTeam || 0);
                   const sold = Math.max(0, Number(st.sold || 0));
                   const revenueAccum = Math.max(0, Number(st.revenue || (sold * price)));
-                  // cost accum enthält bereits Fixkosten (beim Server simStart), plus variable Pooling-Kosten
+                  // costAccum already includes fixed costs recorded at sim start plus variable pooling costs
                   const costAccum = Math.max(0, Number(st.cost || ((currentTeam.decisions.fixSeatsAllocated || 0) * fixUnit)));
-                  // konservative Schätzung der möglichen Hotelkosten: leere Betten auf aktueller Basis
+                  // conservative estimate of potential hotel costs based on current empty beds
                   const emptyBedsNow = Math.max(0, assignedBeds - sold);
                   const hotelBedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
                   const hotelCostEstimate = emptyBedsNow * hotelBedCost;
