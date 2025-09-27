@@ -13,6 +13,22 @@ export const __setModelsForTesting = ({ Team, GameSession, RoundResult, HighScor
   if (HighScore) HighScoreModel = HighScore;
 };
 
+const AGENT_V1_DEFAULTS = Object.freeze({
+  ticksTotal: 12,
+  secondsPerTick: 60,
+  demandCurve: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79],
+  demandAlpha: 1.1,
+  logitBeta: 6.0,
+  referencePrice: 150,
+  airline: {
+    startPrice: 120,
+    minPrice: 80,
+    maxPrice: 400,
+    gamma: 0.15,
+    kappa: 50,
+  },
+});
+
 // Game Service - Handles all game-related database operations
 export class GameService {
   static currentGameSession = null;
@@ -570,19 +586,17 @@ export class GameService {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
 
-    const dep = new Date(currentSettings.departureDate || Date.now() + 12 * 30 * 24 * 60 * 60 * 1000);
-    const dayMs = 24 * 60 * 60 * 1000;
-    const initialDaysRemaining = Math.max(0, Math.ceil((dep.getTime() - Date.now()) / dayMs));
+    const ticksTotal = Number.isFinite(Number(currentSettings.simulationTicksTotal))
+      ? Math.max(1, Math.floor(Number(currentSettings.simulationTicksTotal)))
+      : AGENT_V1_DEFAULTS.ticksTotal;
 
-    const simulationHorizon = Number.isFinite(Number(currentSettings.simulationHorizon))
-      ? Math.max(1, Math.floor(Number(currentSettings.simulationHorizon)))
-      : 365;
+    const secondsPerTick = Number.isFinite(Number(currentSettings.secondsPerTick)) && Number(currentSettings.secondsPerTick) > 0
+      ? Number(currentSettings.secondsPerTick)
+      : AGENT_V1_DEFAULTS.secondsPerTick;
 
-    const secondsPerDay = Number.isFinite(Number(currentSettings.secondsPerDay)) && Number(currentSettings.secondsPerDay) > 0
-      ? Number(currentSettings.secondsPerDay)
-      : (Number.isFinite(Number(currentSettings.poolingMarketUpdateInterval)) && Number(currentSettings.poolingMarketUpdateInterval) > 0
-        ? Number(currentSettings.poolingMarketUpdateInterval)
-        : 1);
+    const simulationHorizon = ticksTotal;
+    const secondsPerDay = secondsPerTick;
+    const dayStep = 1;
 
     const teams = await this.getActiveTeams();
     const totalSeats = currentSettings.totalAircraftSeats || 1000;
@@ -613,7 +627,7 @@ export class GameService {
     const existingMarket = currentSettings.poolingMarket || {};
     const initialAirlinePrice = Number.isFinite(Number(existingMarket.currentPrice)) && existingMarket.currentPrice > 0
       ? existingMarket.currentPrice
-      : (currentSettings.poolingCost || 150);
+      : (currentSettings.poolingCost || AGENT_V1_DEFAULTS.airline.startPrice);
     const initialPriceHistory = existingMarket.priceHistory && Array.isArray(existingMarket.priceHistory) && existingMarket.priceHistory.length > 0
       ? existingMarket.priceHistory
       : [{ price: initialAirlinePrice, timestamp: new Date().toISOString() }];
@@ -637,10 +651,23 @@ export class GameService {
       ...currentSettings,
       currentPhase: 'simulation',
       isActive: true,
-      simulatedDaysUntilDeparture: initialDaysRemaining,
+      simulatedDaysUntilDeparture: simulationHorizon,
       simulationHorizon,
+      simulationTicksTotal: simulationHorizon,
       secondsPerDay,
       poolingMarketUpdateInterval: secondsPerDay,
+      simulatedWeeksPerUpdate: dayStep,
+      secondsPerTick,
+      demandCurve: Array.isArray(currentSettings.demandCurve) && currentSettings.demandCurve.length > 0
+        ? currentSettings.demandCurve
+        : AGENT_V1_DEFAULTS.demandCurve,
+      priceAlpha: currentSettings.priceAlpha ?? AGENT_V1_DEFAULTS.demandAlpha,
+      priceBeta: currentSettings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta,
+      referencePrice: currentSettings.referencePrice ?? AGENT_V1_DEFAULTS.referencePrice,
+      airlinePriceGamma: currentSettings.airlinePriceGamma ?? AGENT_V1_DEFAULTS.airline.gamma,
+      airlinePriceKappa: currentSettings.airlinePriceKappa ?? AGENT_V1_DEFAULTS.airline.kappa,
+      airlinePriceMin: currentSettings.airlinePriceMin ?? AGENT_V1_DEFAULTS.airline.minPrice,
+      airlinePriceMax: currentSettings.airlinePriceMax ?? AGENT_V1_DEFAULTS.airline.maxPrice,
       poolingMarket: updatedPM,
       simState: { perTeam: perTeamState, returnedDemandRemaining: 0 },
       airlineCapacityInitial: totalSeats,
@@ -650,7 +677,8 @@ export class GameService {
         ? Number(currentSettings.airlineSalesCumulative)
         : committedFix,
       simRngSeed: rngSeed >>> 0,
-      simRngState: (rngSeed >>> 0)
+      simRngState: (rngSeed >>> 0),
+      poolingCost: initialAirlinePrice
     };
 
     await session.update({ settings: updatedSettings, isActive: true });
@@ -962,11 +990,15 @@ export class GameService {
     const perTeam = simState.perTeam || {};
     const aliveTeams = teams.filter(t => !(perTeam?.[t.id]?.insolvent));
 
-    const horizon = Number.isFinite(Number(settings.simulationHorizon)) ? Math.max(1, Math.floor(Number(settings.simulationHorizon))) : 365;
+    const horizon = Number.isFinite(Number(settings.simulationHorizon))
+      ? Math.max(1, Math.floor(Number(settings.simulationHorizon)))
+      : AGENT_V1_DEFAULTS.ticksTotal;
     const daysRemaining = Number.isFinite(Number(settings.simulatedDaysUntilDeparture)) ? Math.max(0, Number(settings.simulatedDaysUntilDeparture)) : horizon;
     const dayElapsed = Math.max(0, Math.min(horizon - 1, horizon - daysRemaining));
 
-    const demandCurve = Array.isArray(settings.demandCurve) ? settings.demandCurve : null;
+    const demandCurve = Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0
+      ? settings.demandCurve
+      : AGENT_V1_DEFAULTS.demandCurve;
     const baseDemandCandidate = Number(demandCurve?.[dayElapsed] ?? settings.baseDemand ?? 100);
     const baseDemand = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate) : 0;
     const volatility = Math.abs(settings.demandVolatility ?? 0.1);
@@ -983,7 +1015,9 @@ export class GameService {
     const demandNoise = (nextRandom() * 2 - 1) * volatility;
 
     if (aliveTeams.length === 0) {
-      const dayStep = Number(settings.simulatedWeeksPerUpdate || 1);
+      const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
+        ? Number(settings.simulatedWeeksPerUpdate)
+        : 1;
       const nextDays = Math.max(0, daysRemaining - dayStep);
       const updatedSettings = {
         ...settings,
@@ -991,7 +1025,12 @@ export class GameService {
         simRngState: rngState
       };
       await session.update({ settings: updatedSettings });
-      return poolingMarket;
+      const phaseCompleted = nextDays <= 0;
+      return {
+        ...poolingMarket,
+        phaseCompleted,
+        ticksRemaining: nextDays,
+      };
     }
 
     const minPrice = aliveTeams.reduce((min, team) => {
@@ -1000,9 +1039,9 @@ export class GameService {
     }, Infinity);
 
     const referenceCurve = Array.isArray(settings.referencePriceCurve) ? settings.referencePriceCurve : null;
-    const refPrice = Number((referenceCurve?.[dayElapsed] ?? settings.referencePrice ?? minPrice) || 199);
+    const refPrice = Number((referenceCurve?.[dayElapsed] ?? settings.referencePrice ?? minPrice) || AGENT_V1_DEFAULTS.referencePrice);
     const referencePrice = Math.max(1, refPrice);
-    const priceAlpha = Math.abs(settings.priceAlpha ?? 0.02);
+    const priceAlpha = Math.abs(settings.priceAlpha ?? AGENT_V1_DEFAULTS.demandAlpha);
 
     const priceRatio = (minPrice - referencePrice) / Math.max(referencePrice, 1);
     const demandScale = Math.exp(-priceAlpha * priceRatio);
@@ -1011,7 +1050,7 @@ export class GameService {
     const demandMax = Number.isFinite(Number(settings.demandMax)) ? Math.max(demandMin, Number(settings.demandMax)) : Number.POSITIVE_INFINITY;
     const totalDemand = Math.max(demandMin, Math.min(demandMax, totalDemandRaw));
 
-    const priceBeta = Math.abs(settings.priceBeta ?? 4);
+    const priceBeta = Math.abs(settings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta);
     const priceWeights = aliveTeams.map(team => {
       const price = Math.max(1, typeof team.decisions?.price === 'number' ? team.decisions.price : 199);
       const relative = price / Math.max(1, minPrice);
@@ -1134,10 +1173,18 @@ export class GameService {
     const newCumulative = cumulativeBefore + soldThisTick;
     const delta = newCumulative - forecastTarget;
 
-    const gamma = Number.isFinite(Number(settings.airlinePriceGamma)) ? Number(settings.airlinePriceGamma) : 0.08;
-    const kappa = Number.isFinite(Number(settings.airlinePriceKappa)) ? Math.max(1, Number(settings.airlinePriceKappa)) : Math.max(50, totalSeatsSetting * 0.05);
-    const priceMin = Number.isFinite(Number(settings.airlinePriceMin)) ? Math.max(1, Number(settings.airlinePriceMin)) : Math.max(10, currentPrice * 0.5);
-    const priceMax = Number.isFinite(Number(settings.airlinePriceMax)) ? Math.max(priceMin + 1, Number(settings.airlinePriceMax)) : Math.max(priceMin + 5, currentPrice * 2.5);
+    const gamma = Number.isFinite(Number(settings.airlinePriceGamma))
+      ? Number(settings.airlinePriceGamma)
+      : AGENT_V1_DEFAULTS.airline.gamma;
+    const kappa = Number.isFinite(Number(settings.airlinePriceKappa))
+      ? Math.max(1, Number(settings.airlinePriceKappa))
+      : AGENT_V1_DEFAULTS.airline.kappa;
+    const priceMin = Number.isFinite(Number(settings.airlinePriceMin))
+      ? Math.max(1, Number(settings.airlinePriceMin))
+      : AGENT_V1_DEFAULTS.airline.minPrice;
+    const priceMax = Number.isFinite(Number(settings.airlinePriceMax))
+      ? Math.max(priceMin + 1, Number(settings.airlinePriceMax))
+      : AGENT_V1_DEFAULTS.airline.maxPrice;
 
     let newPrice = currentPrice * (1 + gamma * Math.tanh(delta / Math.max(1, kappa)));
     newPrice = Math.max(priceMin, Math.min(priceMax, newPrice));
@@ -1149,7 +1196,9 @@ export class GameService {
     const priceHistory = [...(poolingMarket.priceHistory || []), { price: newPrice, timestamp: new Date().toISOString() }];
     if (priceHistory.length > 90) priceHistory.shift();
 
-    const dayStep = Number(settings.simulatedWeeksPerUpdate || 1);
+    const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
+      ? Number(settings.simulatedWeeksPerUpdate)
+      : 1;
     const nextDays = Math.max(0, daysRemaining - dayStep);
 
     const updatedPoolingMarket = {
@@ -1177,9 +1226,14 @@ export class GameService {
 
     await session.update({ settings: updatedSettings });
 
-    console.log(`🏊 Pooling market updated: €${newPrice} (sold pool: ${soldThisTick}, unmet demand: ${totalUnsatisfied})`);
+    const phaseCompleted = nextDays <= 0;
+    console.log(`🏊 Pooling market updated: €${newPrice} (sold pool: ${soldThisTick}, unmet demand: ${totalUnsatisfied}, ticks left: ${nextDays})`);
 
-    return updatedPoolingMarket;
+    return {
+      ...updatedPoolingMarket,
+      phaseCompleted,
+      ticksRemaining: nextDays,
+    };
   }
 
   // Remove team (when user disconnects)

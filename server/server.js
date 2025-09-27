@@ -156,8 +156,12 @@ function startPoolingMarketUpdates() {
     try {
       const session = await GameService.getCurrentGameSession();
       if (session.settings?.currentPhase === 'simulation' && session.isActive) {
-        await GameService.updatePoolingMarket();
+        const update = await GameService.updatePoolingMarket();
         await broadcastGameState();
+        if (update?.phaseCompleted) {
+          await autoEndCurrentPhase();
+          return;
+        }
       } else {
         // Stop updates if simulation is no longer active
         stopPoolingMarketUpdates();
@@ -599,15 +603,6 @@ io.on('connection', async (socket) => {
       const team = await GameService.updateTeamDecision(socket.id, decision);
       if (team) {
         await broadcastGameState();
-
-        // If this is a price change during simulation, trigger immediate market update
-        if (decision.price !== undefined) {
-          const session = await GameService.getCurrentGameSession();
-          if (session.settings?.currentPhase === 'simulation' && session.isActive) {
-            await GameService.updatePoolingMarket();
-            await broadcastGameState();
-          }
-        }
 
         if (typeof ack === 'function') ack({ ok: true });
       } else {
