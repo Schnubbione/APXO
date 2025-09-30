@@ -77,12 +77,13 @@ export const MultiUserApp: React.FC = () => {
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
+  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   const allocationToastRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (lastError) {
-      toast({ variant: 'destructive', title: 'Aktion fehlgeschlagen', description: lastError });
+      toast({ variant: 'destructive', title: 'Action failed', description: lastError });
       clearLastError();
     }
   }, [lastError]);
@@ -129,6 +130,33 @@ export const MultiUserApp: React.FC = () => {
 
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
+
+  const countdownSeconds = React.useMemo(() => {
+    if (gameState.currentPhase !== 'simulation') return null;
+    if (typeof gameState.countdownSeconds === 'number' && Number.isFinite(gameState.countdownSeconds)) {
+      return Math.max(0, gameState.countdownSeconds);
+    }
+    if (typeof gameState.simulatedDaysUntilDeparture === 'number' && Number.isFinite(gameState.simulatedDaysUntilDeparture)) {
+      return Math.max(0, Math.round(gameState.simulatedDaysUntilDeparture * 24 * 60 * 60));
+    }
+    if (gameState.departureDate) {
+      const depTs = new Date(gameState.departureDate).getTime();
+      return Math.max(0, Math.round((depTs - Date.now()) / 1000));
+    }
+    return null;
+  }, [gameState.countdownSeconds, gameState.simulatedDaysUntilDeparture, gameState.departureDate, gameState.currentPhase]);
+
+  const countdownLabel = React.useMemo(() => {
+    if (countdownSeconds === null) return null;
+    const seconds = Math.max(0, countdownSeconds);
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    return `${minutes}m ${secs}s`;
+  }, [countdownSeconds]);
 
   // Play sound effects for game events
   useEffect(() => {
@@ -178,6 +206,12 @@ export const MultiUserApp: React.FC = () => {
       // Note: We don't call the context function here to avoid loops
     }
   }, [tutorialActive, tutorialStep]);
+
+  useEffect(() => {
+    if (gameState.currentPhase !== 'simulation') {
+      setShowAdvancedControls(false);
+    }
+  }, [gameState.currentPhase]);
 
   // 1) Tutorial Modal (nur auf Wunsch)
   if (showTutorial) {
@@ -869,89 +903,113 @@ export const MultiUserApp: React.FC = () => {
                   </div>
                 </div>
               ) : gameState.currentPhase === 'simulation' ? (
-                <div className="space-y-4">
-                  <div className="text-slate-300 mb-4 text-sm font-medium">Simulation Settings</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-5">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
                     <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Retail Price (€)</Label>
+                      <Label className="text-slate-300 text-sm font-medium">Retail price (€)</Label>
                       <Input
                         type="number"
-                        value={currentTeam.decisions.price === 0 ? "" : (currentTeam.decisions.price || "")}
+                        min={0}
+                        value={typeof currentTeam.decisions.price === 'number' ? currentTeam.decisions.price : ''}
                         placeholder="0"
                         onChange={(e) => {
                           const value = e.target.value;
-                          const numValue = value === "" ? 0 : Number(value);
+                          const numValue = value === '' ? 0 : Number(value);
                           updateTeamDecision({ price: numValue });
                         }}
                         disabled={!gameState.isActive}
                         className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Pooling sales</Label>
-                      <div className="h-full min-h-[48px] rounded-xl border border-slate-600 bg-slate-700/30 px-4 py-3 text-sm text-slate-300 flex items-center justify-between">
-                        <span>Automatisch durch Airline</span>
-                        <span className="font-mono text-base text-slate-100">{poolSoldSoFar}</span>
+                    {countdownLabel && (
+                      <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                        <div className="text-xs uppercase tracking-wide text-emerald-200/80">Time to departure</div>
+                        <div className="text-lg font-semibold text-white">{countdownLabel}</div>
                       </div>
-                      <p className="text-xs text-slate-500">Pooling shares are distributed automatically during Phase 2 and cannot be adjusted manually.</p>
-                    </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Push-Level</Label>
-                      <div className="flex gap-2">
-                        {[0,1,2].map((lvl) => (
-                          <Button key={lvl}
-                            variant={currentTeam.decisions.push_level === lvl ? 'default' : 'outline'}
-                            disabled={!gameState.isActive}
-                            onClick={() => updateTeamDecision({ push_level: lvl as 0|1|2 })}
-                            className={currentTeam.decisions.push_level === lvl ? 'bg-indigo-600' : 'border-slate-600 text-slate-200'}
-                          >L{lvl}</Button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Fix-Hold (%)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={typeof currentTeam.decisions.fix_hold_pct === 'number' ? currentTeam.decisions.fix_hold_pct : ''}
-                        placeholder="0"
-                        onChange={(e)=>{
-                          const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(e.target.value))));
-                          updateTeamDecision({ fix_hold_pct: v });
-                        }}
-                        disabled={!gameState.isActive}
-                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Tool</Label>
-                      <select
-                        value={currentTeam.decisions.tool || 'none'}
-                        onChange={(e)=> updateTeamDecision({ tool: e.target.value as any })}
-                        disabled={!gameState.isActive}
-                        className="w-full bg-slate-700/50 border-slate-600 text-white min-h-[48px] rounded-xl px-3"
-                      >
-                        <option value="none">None</option>
-                        <option value="hedge">Hedge</option>
-                        <option value="spotlight">Spotlight</option>
-                        <option value="commit">Commit</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
+                  <p className="text-xs text-slate-400">
+                    Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => updateTeamDecision({ price: currentTeam.decisions.price })}
                       disabled={!gameState.isActive}
                       className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
                     >
-                      Update Price
+                      Apply price
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowAdvancedControls(prev => !prev)}
+                      className="border-slate-600 text-slate-200"
+                    >
+                      {showAdvancedControls ? 'Hide advanced controls' : 'Show advanced controls'}
                     </Button>
                   </div>
+                  {showAdvancedControls && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm font-medium">Push level</Label>
+                        <div className="flex gap-2">
+                          {[0, 1, 2].map((lvl) => (
+                            <Button
+                              key={lvl}
+                              variant={currentTeam.decisions.push_level === lvl ? 'default' : 'outline'}
+                              disabled={!gameState.isActive}
+                              onClick={() => updateTeamDecision({ push_level: lvl as 0 | 1 | 2 })}
+                              className={currentTeam.decisions.push_level === lvl ? 'bg-indigo-600' : 'border-slate-600 text-slate-200'}
+                            >
+                              L{lvl}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm font-medium">Fixed-seat hold (%)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={typeof currentTeam.decisions.fix_hold_pct === 'number' ? currentTeam.decisions.fix_hold_pct : ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(e.target.value))));
+                            updateTeamDecision({ fix_hold_pct: v });
+                          }}
+                          disabled={!gameState.isActive}
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm font-medium">Tool</Label>
+                        <select
+                          value={currentTeam.decisions.tool || 'none'}
+                          onChange={(e) => updateTeamDecision({ tool: e.target.value as any })}
+                          disabled={!gameState.isActive}
+                          className="w-full bg-slate-700/50 border-slate-600 text-white min-h-[48px] rounded-xl px-3"
+                        >
+                          <option value="none">None</option>
+                          <option value="hedge">Hedge</option>
+                          <option value="spotlight">Spotlight</option>
+                          <option value="commit">Commit</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Fixed seats delivered</div>
+                      <div className="text-2xl font-semibold text-white">{fixAllocatedTotal}</div>
+                    </div>
+                    <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/10">
+                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Pooling seats sold</div>
+                      <div className="text-2xl font-semibold text-white">{poolSoldSoFar}</div>
+                    </div>
+                  </div>
                   <div className="text-sm text-slate-400">
-                    Fixed seats provided: {fixAllocatedTotal} | Pooling sold: {poolSoldSoFar} | Push: L{currentTeam.decisions.push_level ?? 0} | Hold: {currentTeam.decisions.fix_hold_pct ?? 0}% | Tool: {currentTeam.decisions.tool || 'none'}
+                    Advanced mix: push L{currentTeam.decisions.push_level ?? 0} | hold {currentTeam.decisions.fix_hold_pct ?? 0}% | tool {currentTeam.decisions.tool || 'none'}
                   </div>
                 </div>
               ) : (

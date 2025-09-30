@@ -180,7 +180,7 @@ export default function AdminPanel({
                 <div className="text-slate-200 text-sm font-semibold mb-2">Agent v1 Simulation Snapshot (Practice Mode)</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Ticks · Seconds per Tick</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Countdown updates · cadence (s)</div>
                     <div className="font-semibold text-white">{agentConfig.ticks_total} · {agentConfig.seconds_per_tick}s</div>
                   </div>
                   <div>
@@ -193,7 +193,7 @@ export default function AdminPanel({
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-wide text-slate-500">Hotel &amp; Tools</div>
-                    <div className="font-semibold text-white">Hotel penalty €{agentConfig.hotel.penalty_empty_bed} · Tool cooldown {agentConfig.rules.tool_cooldown_ticks} ticks</div>
+                    <div className="font-semibold text-white">Hotel penalty €{agentConfig.hotel.penalty_empty_bed} · Tool cooldown {agentConfig.rules.tool_cooldown_ticks} updates</div>
                     <div className="text-xs text-slate-400">Push-level costs: {pushCosts} €</div>
                   </div>
                 </div>

@@ -23,12 +23,12 @@ const aiBid = (teamId: string, basePrice: number): AuctionBid => ({
   bid_quantity: 60,
 });
 
-const aiDecision = (teamId: string, tick: number, runtimePrice: number): Decision => ({
+const aiDecision = (teamId: string, progress: number, runtimePrice: number): Decision => ({
   teamId,
-  price: Math.max(99, Math.round(runtimePrice * (1 - 0.01 * tick))),
-  push_level: (tick % 4 === 0 ? 1 : 0),
-  fix_hold_pct: tick > 3 ? 10 : 0,
-  tool: tick % 5 === 0 ? 'spotlight' : 'none',
+  price: Math.max(99, Math.round(runtimePrice * (1 - 0.12 * progress))),
+  push_level: 0,
+  fix_hold_pct: 0,
+  tool: 'none',
 });
 
 export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
@@ -60,18 +60,20 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
 
     const auction = runAuction(config, bids);
     const runtime = initRuntime(config, auction);
+    const totalSteps = Math.max(1, config.ticks_total);
 
-    for (let tick = config.ticks_total; tick >= 1; tick -= 1) {
+    for (let step = totalSteps; step >= 1; step -= 1) {
+      const progress = (totalSteps - step) / totalSteps;
       const decisions: Decision[] = [
         {
           teamId: config.teams[0].id,
-          price: Math.max(99, initialPrice - (config.ticks_total - tick) * 3),
-          push_level: (tick % 3 === 0 ? 1 : 0),
-          fix_hold_pct: tick > 6 ? 5 : 0,
-          tool: tick === 8 ? 'commit' : 'none',
+          price: Math.max(99, Math.round(initialPrice * (1 - 0.15 * progress))),
+          push_level: 0,
+          fix_hold_pct: 0,
+          tool: 'none',
         },
-        aiDecision(config.teams[1].id, tick, config.teams[1].P_start),
-        aiDecision(config.teams[2].id, tick, config.teams[2].P_start),
+        aiDecision(config.teams[1].id, progress, config.teams[1].P_start),
+        aiDecision(config.teams[2].id, progress, config.teams[2].P_start),
       ];
 
       runTick(config, runtime, decisions);
@@ -92,7 +94,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
           {!summary && (
             <>
               <p className="text-sm text-slate-300">
-                Runs a full Agent v1 simulation with two phases: a pay-as-bid auction followed by 12 live market ticks. Adjust your initial bid and price to explore the new mechanics.
+                Runs a full Agent v1 simulation with two phases: a pay-as-bid auction followed by a continuous countdown to the departure day. Adjust your initial bid and starting price to explore the new mechanics.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>

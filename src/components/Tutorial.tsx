@@ -64,9 +64,9 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                   <div className="text-sm">Submit a sealed bid with a <strong>maximum price per seat</strong> and a <strong>desired quantity</strong>. The airline fills demand from the highest bids downward, subject to each team&apos;s optional budget cap. Competing bids and remaining capacity stay hidden, so forecasting risk matters. Once the auction clears every team receives the same hotel allotment and each empty bed later costs €{bedCost}.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="font-semibold text-blue-400">Phase 2: Live Market ({tickCount} ticks)</div>
-                  <div className="text-sm">Each tick lasts roughly {secondsPerTick} seconds. Set your retail price (large moves are capped at ±{priceGuardPct}%), pick a push level, optionally hold back a share of fixed seats, and trigger tools (<em>hedge</em>, <em>spotlight</em>, <em>commit</em>) to influence attention. Sales always consume fixed inventory first; only when that is gone does the airline provide just-in-time seats at the current pooling price (start €{airlineStart}, bounded by €{airlineMin}–€{airlineMax}).</div>
-                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Dynamic control:</strong> Push levels cost {pushCosts.join(' / ')} € and tools come with cooldowns, so pace your budget. Airline repricing adjusts after every tick based on the gap between forecast and actual sales.</div>
+                  <div className="font-semibold text-blue-400">Phase 2: Live Market (countdown to departure)</div>
+                  <div className="text-sm">A real-time countdown runs to departure (roughly {tickCount} updates at ~{secondsPerTick}s cadence). Adjust your retail price (large moves are capped at ±{priceGuardPct}%), optionally change push level, hold back a share of fixed seats, and trigger tools (<em>hedge</em>, <em>spotlight</em>, <em>commit</em>) to influence attention. Sales always consume fixed inventory first; only when that is gone does the airline provide just-in-time seats at the current pooling price (start €{airlineStart}, bounded by €{airlineMin}–€{airlineMax}).</div>
+                  <div className="text-sm mt-2 text-indigo-300">💡 <strong>Dynamic control:</strong> Push levels cost {pushCosts.join(' / ')} € and tools come with cooldowns, so pace your budget. Airline repricing adjusts continuously based on the gap between forecast and actual sales.</div>
                 </div>
               </div>
             </div>
@@ -83,8 +83,8 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
                 <li><strong>Enter your sealed bid.</strong> Choose quantity and maximum seat price, then wait for the auction to clear.</li>
                 <li><strong>Review the allocation.</strong> Note awarded seats, average cost, and the hotel allotment before picking an opening price.</li>
-                <li><strong>Play the ticks.</strong> For every tick pick price, push level, fixed-seat hold %, and an optional tool; pooling seats are purchased automatically only when a sale occurs.</li>
-                <li><strong>Read the briefings.</strong> Snapshots highlight airline price, remaining capacity, demand hints, and standings; debriefs break down fixed versus pooling sales and margins.</li>
+                <li><strong>Steer the countdown.</strong> As the timer runs, adjust price, optional push level, fixed-seat hold %, and tools; pooling seats are purchased automatically only when a sale occurs.</li>
+                <li><strong>Read the live briefings.</strong> Snapshots highlight airline price, remaining capacity, demand hints, and standings; debriefs break down fixed versus pooling sales and margins.</li>
                 <li><strong>Inspect the final report.</strong> Victory demands the highest profit <em>and</em> an average sell price that meets or beats your average buy price.</li>
               </ol>
               <div className="space-y-3">
@@ -92,13 +92,13 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                   <div className="text-sm text-slate-400">💡 <strong>Pro tip:</strong> Fixed seats only pay off when you can resell them profitably – they cost at least €{fixPrice} up front plus potential hotel penalties.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Push levels boost attention but reduce budget headroom; reserve cash for key ticks and tool activations.</div>
+                  <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Push levels boost attention but reduce budget headroom; reserve cash for the key countdown windows and tool activations.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">🏦 <strong>Budget & solvency:</strong> During live play the legacy backend flags insolvency if cumulative profit drops beyond the team budget – monitor your margin so you stay in the game.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">📈 <strong>Insights:</strong> Tick briefings give airline price and ranking trends; debriefs surface margins instantly for fixed versus pooling sales.</div>
+                  <div className="text-sm text-slate-400">📈 <strong>Insights:</strong> Live briefings share airline price and ranking trends; debriefs surface margins instantly for fixed versus pooling sales.</div>
                 </div>
               </div>
             </div>
@@ -129,7 +129,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <div className="text-sm text-slate-400">
                 <strong>Advanced:</strong> Demand follows a logit curve (α={agentConfig.market.alpha}, β={agentConfig.market.beta}) centred on the reference price €{agentConfig.market.P_ref}. Airline repricing applies forecast feedback (`γ={agentConfig.airline.gamma}`, `κ={agentConfig.airline.kappa}`), so track cumulative sales against the booking curve.
                 Pooling purchases are charged immediately at the current airline price, while empty beds still cost €{bedCost}. Selling beyond the hotel allotment remains profitable because only seat costs are deducted.
-                <span className="text-indigo-300">Plan push levels and tools ahead of time – their costs, cooldowns, and attention boosts determine how visible you are each tick.</span>
+                <span className="text-indigo-300">Plan push levels and tools ahead of time – their costs, cooldowns, and attention boosts determine how visible you are at each update of the countdown.</span>
                 <span className="text-orange-400 font-semibold"> Phase 1 is a blind auction: solid forecasts and risk buffers are the difference between victory and overcommitting.</span>
               </div>
             </div>

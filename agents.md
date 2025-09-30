@@ -33,7 +33,7 @@ This document compresses the current project context and outlines sensible next 
 
 ## Capabilities (Today)
 - Multi-user team registration, admin login (env password), phase control (auction → live market) in the backend.
-- Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 ticks, airline repricing, tools, hotel penalty).
+- Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools, hotel penalty).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.
@@ -48,8 +48,8 @@ This document compresses the current project context and outlines sensible next 
 
 ## Roadmap (Proposal)
 1. **Engine ↔ Backend**
-   - Rewire socket events (`tick:briefing`, `tick:results`, etc.) to the new engine.
-   - Persist fixed-seat allocation and per-tick decisions.
+   - Rewire socket events (currently named `tick:briefing`, `tick:results`, etc.) to the new engine.
+   - Persist fixed-seat allocation and per-update decisions.
    - Add history/replay (optional JSON export).
 2. **Stability & Security**
    - Add env/request validation (e.g. `zod` or `envalid`).

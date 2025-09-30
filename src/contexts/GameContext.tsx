@@ -81,6 +81,7 @@ interface GameState {
   remainingTime?: number;
   // Simulation: remaining days until departure
   simulatedDaysUntilDeparture?: number;
+  countdownSeconds?: number;
   // Live simulation state (server-provided) for per-team accumulations
   simState?: {
     perTeam: Record<string, {
@@ -231,7 +232,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   poolingCost: 90,
   perTeamBudget: 20000,
   // Round timer
-  remainingTime: 0
+  remainingTime: 0,
+  countdownSeconds: 0
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -840,11 +842,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           // Move to simulation phase
           const dep = prev.departureDate ? new Date(prev.departureDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-          const dayMs = 24 * 60 * 60 * 1000;
-          const days = Math.max(0, Math.ceil((dep.getTime() - Date.now()) / dayMs));
+          const secondsToDeparture = Math.max(0, Math.round((dep.getTime() - Date.now()) / 1000));
+          const daysToDeparture = Math.max(0, Math.ceil(secondsToDeparture / (24 * 60 * 60)));
           // start simulation interval
           setTimeout(() => {
-            setGameState(p => ({ ...p, teams, isActive: true, currentPhase: 'simulation', remainingTime: undefined, simulatedDaysUntilDeparture: days }));
+            setGameState(p => ({
+              ...p,
+              teams,
+              isActive: true,
+              currentPhase: 'simulation',
+              remainingTime: undefined,
+              simulatedDaysUntilDeparture: daysToDeparture,
+              countdownSeconds: secondsToDeparture
+            }));
             const meNow = teams.find(t => t.id === myId) || null;
             if (meNow) setCurrentTeam(meNow);
             // Initialize per-tick matching state (remaining capacities & sold tracking)
@@ -867,7 +877,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGameState(prev => {
           // Only check the phase; stopping is handled via stopPracticeMode()
           if (prev.currentPhase !== 'simulation') return prev;
-          const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
+          const previousSeconds = typeof prev.countdownSeconds === 'number'
+            ? prev.countdownSeconds
+            : Math.max(0, Math.round((((prev.departureDate ? new Date(prev.departureDate).getTime() : Date.now()) - Date.now()) / 1000)));
+          const countdownSeconds = Math.max(0, previousSeconds - 1);
+          const daysRemaining = Math.ceil(countdownSeconds / (24 * 60 * 60));
 
           // Per-tick demand (daily baseline)
           const baseD = Math.max(10, prev.baseDemand || 100);
@@ -943,7 +957,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             priceHistory
           };
 
-          if (day <= 0) {
+          if (countdownSeconds <= 0) {
             clearInterval(simTimerRef.current);
             // Evaluate current team including price effects and hotel costs
             const meIndex = teams.findIndex(t => t.id === myId);
@@ -970,10 +984,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const insolvent = (profit < 0 && Math.abs(profit) > budget) ? true : false; // stricter: loss bigger than budget
             const rr = [{ teamId: myId, sold, revenue: Math.round(revenue), cost: Math.round(cost), profit, unsold: Math.max(0, (teams[meIndex] ? 0 : demandToday) ), insolvent }];
             setRoundResults(rr);
-            return { ...prev, isActive: false, simulatedDaysUntilDeparture: 0, poolingMarket: updatedPM } as GameState;
+            return {
+              ...prev,
+              isActive: false,
+              simulatedDaysUntilDeparture: 0,
+              countdownSeconds: 0,
+              poolingMarket: updatedPM
+            } as GameState;
           }
 
-          return { ...prev, simulatedDaysUntilDeparture: day, poolingMarket: updatedPM } as GameState;
+          return {
+            ...prev,
+            simulatedDaysUntilDeparture: daysRemaining,
+            countdownSeconds,
+            poolingMarket: updatedPM
+          } as GameState;
         });
       }, 1000);
     };

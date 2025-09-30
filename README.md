@@ -6,7 +6,7 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 
 ## Highlights
 
-- **Agent v1 Engine** - Type-safe simulation (`src/lib/simulation/engine.ts`) covering the fixed-seat auction, 12-15 monthly ticks, forecast-based airline repricing, attention boosts, and anti-collusion guardrails.
+- **Agent v1 Engine** - Type-safe simulation (`src/lib/simulation/engine.ts`) covering the fixed-seat auction, a 12-15 step countdown, forecast-based airline repricing, attention boosts, and anti-collusion guardrails.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
@@ -79,7 +79,7 @@ Endpoints:
 
 ### Practice Mode (Agent v1)
 
-While the frontend is running, click the "Practice Mode" toggle in the top-right corner to run a full simulation (fixed-seat auction + 12 ticks) without the backend. It uses `apxo.config.yaml` for configuration.
+While the frontend is running, click the "Practice Mode" toggle in the top-right corner to run a full simulation (fixed-seat auction followed by the live countdown) without the backend. It uses `apxo.config.yaml` for configuration.
 
 ---
 
@@ -118,19 +118,19 @@ Covered scenarios:
 - Pay-as-bid: the paid price matches the bid price.
 - Hotel capacity is evenly distributed afterwards (`hotel.capacity_per_team`).
 
-### Phase 2 - Live Market (12-15 ticks)
+### Phase 2 - Live Market (continuous countdown)
 
-- Default tick = 60 seconds (briefing → decision → clearance → debrief).
+- Default update cadence ≈ 60 seconds (briefing → decision → clearance → debrief).
 - Demand: `D(t) = D_base(t) * exp(-alpha * (P_min - P_ref) / P_ref)`.
 - Logit choice with attention (`push_level`, tools) and anti-collusion penalties.
 - Fixed-before-pooling: sell from `fixed_left` first, then draw from the airline remainder (`C_remain`) at `P_airline(t)`.
 - Airline repricing: `P_airline(t-1) = clamp(P_airline(t) * (1 + gamma * tanh(delta/kappa)))`.
-- Tools (`hedge`, `spotlight`, `commit`) cost cash and observe `rules.tool_cooldown_ticks`.
+- Tools (`hedge`, `spotlight`, `commit`) cost cash and observe `rules.tool_cooldown_ticks` update cooldowns.
 - Win condition: highest profit **and** `avg_sell_price >= avg_buy_price` (otherwise next best).
 
 ### Scoreboard & KPIs
 
-Per tick: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, hotel penalty, load factor, average sell/buy prices.
+Per update: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, hotel penalty, load factor, average sell/buy prices.
 
 ---
 
@@ -140,7 +140,7 @@ Per tick: airline price, remaining capacity, team sales (fixed/pooling), margin,
 
 1. Open the browser and register the team.
 2. Phase 1: submit the bid and wait for the auction result.
-3. Phase 2: for every tick choose price, push level, fixed hold %, and optional tool.
+3. Phase 2: throughout the countdown choose price, push level, fixed hold %, and optional tool when needed.
 4. Monitor live snapshots and debriefs, keep an eye on hotel penalties.
 5. Use practice mode to explore strategies without a live session.
 

@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer, all rival bids stay hidden, and hotel capacity is distributed evenly afterwards. Phase 2: Live market – 12–15 ticks of ~60 seconds each; every tick you set price, push level, fixed-seat hold, and optional tools. Sales draw from fixed seats first, then buy from the airline at the current pooling price.',
+    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer while rival bids stay hidden and hotel capacity is shared evenly afterwards. Phase 2: Live market – a continuous countdown to departure where you steer price, optional push level, fixed-seat hold, and tools while sales consume fixed seats first before pulling from the airline at the live pooling price.',
     position: 'center'
   },
   {
@@ -63,14 +63,14 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-decisions',
     title: 'Your Decisions',
-    description: 'Phase 1: Choose quantity and maximum seat price – pay-as-bid with hidden availability. Phase 2: Each tick set retail price (guarded to ±10%), push level, fixed-seat hold %, and optional tools (hedge, spotlight, commit); pooling seats are auto-purchased only when you sell.',
+    description: 'Phase 1: Choose quantity and maximum seat price – pay-as-bid with hidden availability. Phase 2: Throughout the countdown you adjust retail price (guarded to ±10%), optional push level, fixed-seat hold %, and tools (hedge, spotlight, commit); pooling seats are auto-purchased only when you sell.',
     target: '[data-tutorial="team-decisions"]',
     position: 'top'
   },
   {
     id: 'pooling-market',
     title: 'Live Pooling Market',
-    description: 'Tick briefings highlight airline price, remaining capacity, and standings. Pooling seats are bought automatically only when your price wins a sale; the airline price stays within configured bounds and adjusts to forecast gaps.',
+    description: 'Live updates highlight airline price, remaining capacity, and standings while the countdown keeps running. Pooling seats are bought automatically only when your price wins a sale; the airline price stays within configured bounds and reacts to forecast gaps.',
     target: '[data-tutorial="pooling-market"]',
     position: 'top'
   },
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent tick-by-tick execution. Watch the price guard, tool cooldowns, and hotel costs – victory requires profit and positive unit margins.',
+    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, and hotel costs – victory requires profit and positive unit margins.',
     position: 'center'
   }
 ];
