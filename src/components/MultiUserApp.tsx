@@ -78,6 +78,7 @@ export const MultiUserApp: React.FC = () => {
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
+  const [liveCountdownSeconds, setLiveCountdownSeconds] = useState<number | null>(null);
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   const allocationToastRef = React.useRef<string | null>(null);
@@ -133,6 +134,9 @@ export const MultiUserApp: React.FC = () => {
 
   const countdownSeconds = React.useMemo(() => {
     if (gameState.currentPhase !== 'simulation') return null;
+    if (liveCountdownSeconds !== null) {
+      return Math.max(0, liveCountdownSeconds);
+    }
     if (typeof gameState.countdownSeconds === 'number' && Number.isFinite(gameState.countdownSeconds)) {
       return Math.max(0, gameState.countdownSeconds);
     }
@@ -144,7 +148,7 @@ export const MultiUserApp: React.FC = () => {
       return Math.max(0, Math.round((depTs - Date.now()) / 1000));
     }
     return null;
-  }, [gameState.countdownSeconds, gameState.simulatedDaysUntilDeparture, gameState.departureDate, gameState.currentPhase]);
+  }, [gameState.countdownSeconds, gameState.simulatedDaysUntilDeparture, gameState.departureDate, gameState.currentPhase, liveCountdownSeconds]);
 
   const countdownLabel = React.useMemo(() => {
     if (countdownSeconds === null) return null;
@@ -185,6 +189,41 @@ export const MultiUserApp: React.FC = () => {
       getLeaderboard();
     }
   }, [roundResults, getLeaderboard]);
+
+  useEffect(() => {
+    if (gameState.currentPhase !== 'simulation') {
+      setLiveCountdownSeconds(null);
+      return;
+    }
+
+    const computeSeconds = () => {
+      if (typeof gameState.countdownSeconds === 'number' && Number.isFinite(gameState.countdownSeconds)) {
+        return Math.max(0, gameState.countdownSeconds);
+      }
+      if (gameState.departureDate) {
+        const depTs = new Date(gameState.departureDate).getTime();
+        return Math.max(0, Math.round((depTs - Date.now()) / 1000));
+      }
+      if (typeof gameState.simulatedDaysUntilDeparture === 'number' && Number.isFinite(gameState.simulatedDaysUntilDeparture)) {
+        return Math.max(0, Math.round(gameState.simulatedDaysUntilDeparture * 24 * 60 * 60));
+      }
+      return null;
+    };
+
+    const initial = computeSeconds();
+    setLiveCountdownSeconds(initial);
+
+    if (initial === null) {
+      return () => {};
+    }
+
+    const id = window.setInterval(() => {
+      const next = computeSeconds();
+      setLiveCountdownSeconds(next);
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, [gameState.currentPhase, gameState.countdownSeconds, gameState.departureDate, gameState.simulatedDaysUntilDeparture]);
 
   // Warn before leaving page while a game is active
   useEffect(() => {
