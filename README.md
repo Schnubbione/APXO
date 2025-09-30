@@ -1,39 +1,39 @@
-# APXO – Touristic Procurement & Demand Simulation
+# APXO - Touristic Procurement & Demand Simulation
 
-APXO ist eine echtzeitfähige Zwei-Phasen-Simulation für Beschaffung & Nachfrage im Tourismus. Teams konkurrieren zunächst in einer verdeckten Fixplatz-Auktion (Phase 1) und agieren anschließend in einem verdichteten Live-Markt mit Logit-Nachfrage, Airline-Repricing und Hotelkapazitätskosten (Phase 2).
+APXO is a real-time, two-phase simulation for procurement and demand in tourism. Teams first compete in a sealed fixed-seat auction (Phase 1) and then operate in a compressed live market with logit demand, airline repricing, and hotel capacity costs (Phase 2).
 
 ---
 
 ## Highlights
 
-- **Agent v1 Engine** – Typsichere Simulation (`src/lib/simulation/engine.ts`) mit Fixplatz-Auktion, 12–15 Monats-Ticks, Airline-Repricing auf Forecast-Basis, Attention-Boosts und Kollusions-Wächter.
-- **Config-Driven Gameplay** – Standard-Szenario in `apxo.config.yaml`; lässt sich für Workshops oder Tests leicht überschreiben.
-- **Practice Mode** – Frontend-interner Übungsmodus (ohne Backend) nutzt die Engine für schnelle Demorunden.
-- **Multi-User Lobby** – Socket.IO synchronisiert Teamregistrierung, Admin-Steuerung, Snapshots und Leaderboard in Echtzeit.
-- **Hotelkapazität & Penalty** – Gleiches Hotelkontingent pro Team; leere Betten kosten 50 € je Bett.
-- **UI-Toolkit** – Tailwind + shadcn/ui, Storybook, Animations via Framer Motion, responsive Layouts.
-- **CI-ready Tooling** – Jest/Vitest, Playwright, ESLint. Spezifische Engine-Tests sichern die Kerndomäne ab.
+- **Agent v1 Engine** - Type-safe simulation (`src/lib/simulation/engine.ts`) covering the fixed-seat auction, 12-15 monthly ticks, forecast-based airline repricing, attention boosts, and anti-collusion guardrails.
+- **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
+- **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
+- **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
+- **Hotel Capacity & Penalty** - Each team gets the same hotel allotment; empty beds cost 50 EUR per night.
+- **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
+- **CI-Ready Tooling** - Jest/Vitest, Playwright, ESLint. Engine-specific tests safeguard the core domain.
 
 ---
 
-## Architektur (Kurz)
+## Architecture (At a Glance)
 
-| Layer      | Tech & Pfad                                   | Zweck |
-|------------|-----------------------------------------------|-------|
-| Frontend   | React 19 + Vite (`src/`)                      | UI, Echtzeit-Ansichten, Practice Mode |
-| Simulation | TS Engine (`src/lib/simulation/`)             | Zwei-Phasen-Spielregeln, Config-Lader |
-| Backend    | Node/Express + Socket.IO (`server/`)          | Lobby, Admin-Control, Persistenz (SQLite/Sequelize) |
-| Styling    | Tailwind, shadcn/ui, custom Animations        | Komponenten, Layout |
-| Testing    | Jest, Playwright, Storybook, ESLint           | Qualitätssicherung |
+| Layer      | Tech & Path                                    | Purpose |
+|------------|------------------------------------------------|---------|
+| Frontend   | React 19 + Vite (`src/`)                       | UI, real-time views, practice mode |
+| Simulation | TS engine (`src/lib/simulation/`)              | Two-phase game rules, config loader |
+| Backend    | Node/Express + Socket.IO (`server/`)           | Lobby, admin control, persistence (SQLite/Sequelize) |
+| Styling    | Tailwind, shadcn/ui, custom animations         | Components, layout |
+| Testing    | Jest, Playwright, Storybook, ESLint            | Quality assurance |
 
 ---
 
 ## Quickstart
 
-### Voraussetzungen
+### Prerequisites
 
-- Node.js ≥ 18
-- npm oder yarn
+- Node.js >= 18
+- npm or yarn
 - Git
 
 ### Installation
@@ -45,7 +45,7 @@ npm install
 cd server && npm install && cd ..
 ```
 
-### Umgebungsvariablen
+### Environment Variables
 
 Frontend (`.env.local`):
 ```env
@@ -57,120 +57,120 @@ Backend (`server/.env`):
 PORT=3001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
-ADMIN_PASSWORD=admin123   # nur lokal, in Produktion ersetzen
+ADMIN_PASSWORD=admin123   # local only, replace in production
 ```
 
-### Server starten
+### Start Servers
 
-Terminal 1 – Backend:
+Terminal 1 - backend:
 ```bash
 cd server
-npm run dev   # oder npm start
+npm run dev   # or npm start
 ```
 
-Terminal 2 – Frontend:
+Terminal 2 - frontend:
 ```bash
 npm run dev
 ```
 
-Aufrufe:
+Endpoints:
 - Frontend: http://localhost:5173
-- Backend Health: http://localhost:3001
+- Backend health: http://localhost:3001
 
 ### Practice Mode (Agent v1)
 
-Im laufenden Frontend kann über den Button „Practice Mode“ oben rechts eine komplette Simulation (Fixplatz-Auktion + 12 Ticks) ohne Backend durchgeführt werden. Konfiguration basiert auf `apxo.config.yaml`.
+While the frontend is running, click the "Practice Mode" toggle in the top-right corner to run a full simulation (fixed-seat auction + 12 ticks) without the backend. It uses `apxo.config.yaml` for configuration.
 
 ---
 
 ## Simulation Engine
 
-- **Config Loader:** `src/lib/simulation/defaultConfig.ts` lädt `apxo.config.yaml` via `yaml`-Parser.
-- **Interfaces:** `src/lib/simulation/types.ts` definiert sämtliche Datentypen (Bids, Decisions, Snapshots, FinalReport).
+- **Config Loader:** `src/lib/simulation/defaultConfig.ts` loads `apxo.config.yaml` via the `yaml` parser.
+- **Interfaces:** `src/lib/simulation/types.ts` defines every data type (bids, decisions, snapshots, final report).
 - **Engine:** `src/lib/simulation/engine.ts`
-  - `runAuction` – Pay-as-Bid, sortiert nach Gebot, Budget-Kappung optional.
-  - `runTick` – Logit-Nachfrage (α, β), Attention & Tools mit Cooldown, Fix-vor-Pooling, Airline-Repricing.
-  - `finalize` – Hotel-Penalty, Siegerlogik (Gewinn + Preisbedingung), Load-Factor.
-  - Hilfsfunktionen für seeded RNG, Kollusions-Wächter, Preisgrenzen.
-- **Demo:** `src/lib/simulation/demo.ts` baut auf dem Default-Config eine komplette Timeline inklusive Abschlussergebnis.
+  - `runAuction` - Pay-as-bid, sorted by price, optional budget caps.
+  - `runTick` - Logit demand (alpha, beta), attention, tools with cooldown, fixed-before-pooling, airline repricing.
+  - `finalize` - Hotel penalty, win condition (profit + price constraint), load factor.
+  - Utility helpers for seeded RNG, collusion detection, and price bounds.
+- **Demo:** `src/lib/simulation/demo.ts` produces a full timeline and final summary from the default config.
 
-### Engine-Tests
+### Engine Tests
 
 ```bash
 npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts
 ```
 
-Abgedeckte Szenarien:
-1. Auktion vergibt Seats Pay-as-Bid, absteigend sortiert.
-2. Verkäufe ziehen Fix-Inventar vor Pooling.
-3. Airline-Preis steigt bei Übererfüllung des Forecasts.
-4. Hotel-Penalty wirkt bei leeren Betten.
-5. Sieger benötigt `avg_sell_price >= avg_buy_price`.
+Covered scenarios:
+1. Auction allocates seats pay-as-bid in descending order.
+2. Sales drain fixed inventory before pooling.
+3. Airline price increases when forecast volume is exceeded.
+4. Hotel penalty applies to unused beds.
+5. Winner must satisfy `avg_sell_price >= avg_buy_price`.
 
 ---
 
 ## Gameplay
 
-### Phase 1 – Fixplatz-Auktion
+### Phase 1 - Fixed-Seat Auction
 
-- Einmaliges, verdecktes Gebot pro Team (`bid_price_per_seat`, `bid_quantity`, optional `budget_cap`).
-- Sortierung absteigend nach Preis, Vergabe bis Airline-Gesamtkapazität ausgeschöpft.
-- Pay-as-Bid: bezahlter Preis = Gebotspreis.
-- Hotel-Kontingent wird nach Abschluss gleich verteilt (`hotel.capacity_per_team`).
+- Single sealed bid per team (`bid_price_per_seat`, `bid_quantity`, optional `budget_cap`).
+- Sorted in descending price until the airline capacity is exhausted.
+- Pay-as-bid: the paid price matches the bid price.
+- Hotel capacity is evenly distributed afterwards (`hotel.capacity_per_team`).
 
-### Phase 2 – Live-Markt (12–15 Ticks)
+### Phase 2 - Live Market (12-15 ticks)
 
-- Tick dauert default 60 Sek. (Briefing → Entscheidung → Clearance → Debrief).
-- Nachfrage: `D(t) = D_base(t) * exp(-alpha * (P_min - P_ref) / P_ref)`.
-- Logit-Auswahl mit Attention (`push_level`, Tools) und Anti-Kollusions-Malus.
-- Fix vor Pooling: zuerst `fixed_left`, dann Airline-Rest (`C_remain`) zu `P_airline(t)`.
-- Airline-Repricing: `P_airline(t-1) = clamp(P_airline(t) * (1 + γ * tanh(Δ/κ)))`.
-- Tools (`hedge`, `spotlight`, `commit`) haben Kosten und Cooldown (`rules.tool_cooldown_ticks`).
-- Siegbedingung: höchster Profit **und** `avg_sell_price >= avg_buy_price` (sonst nächstbester).
+- Default tick = 60 seconds (briefing → decision → clearance → debrief).
+- Demand: `D(t) = D_base(t) * exp(-alpha * (P_min - P_ref) / P_ref)`.
+- Logit choice with attention (`push_level`, tools) and anti-collusion penalties.
+- Fixed-before-pooling: sell from `fixed_left` first, then draw from the airline remainder (`C_remain`) at `P_airline(t)`.
+- Airline repricing: `P_airline(t-1) = clamp(P_airline(t) * (1 + gamma * tanh(delta/kappa)))`.
+- Tools (`hedge`, `spotlight`, `commit`) cost cash and observe `rules.tool_cooldown_ticks`.
+- Win condition: highest profit **and** `avg_sell_price >= avg_buy_price` (otherwise next best).
 
 ### Scoreboard & KPIs
 
-Pro Tick: Airlinepreis, verbleibende Kapazität, team-spezifische Verkäufe (Fix/Pooling), Marge, Marktanteil. Finale Reports enthalten Revenue, Cost, Profit, Hotel-Penalty, Load Factor, durchschnittliche Verkaufs-/Einkaufspreise.
+Per tick: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, hotel penalty, load factor, average sell/buy prices.
 
 ---
 
-## Bedienung
+## Operation
 
 ### Teams
 
-1. Browser öffnen → Team registrieren.
-2. Phase 1: Gebot abgeben und Auktion abwarten.
-3. Phase 2: Für jeden Tick Preis, Push-Level, Fix-Hold %, optional Tool setzen.
-4. Live-Snapshots & Debriefs verfolgen, Hotelpenalty im Blick behalten.
-5. Practice Mode nutzen, um Strategien ohne Live-Session zu testen.
+1. Open the browser and register the team.
+2. Phase 1: submit the bid and wait for the auction result.
+3. Phase 2: for every tick choose price, push level, fixed hold %, and optional tool.
+4. Monitor live snapshots and debriefs, keep an eye on hotel penalties.
+5. Use practice mode to explore strategies without a live session.
 
 ### Admins
 
-1. Über „Admin Login“ anmelden (Passwort aus Env).
-2. Lobby verwalten, Teams bestätigen, Fixplatz-Auktion starten.
-3. Auktion schließen → Allocation Summary wird angezeigt.
-4. Live-Markt starten: Countdown, Entscheidungen & Debrief erfolgen automatisch, Admin kann jederzeit resetten.
-5. Practice Mode eignet sich zur Einführung neuer Teams.
+1. Sign in via "Admin Login" (password from the environment file).
+2. Manage the lobby, approve teams, start the fixed-seat auction.
+3. Close the auction to display the allocation summary.
+4. Start the live market: countdown, decisions, and debrief run automatically; the admin can reset anytime.
+5. Practice mode is useful for onboarding new teams.
 
 ---
 
 ## Tests & Tooling
 
 ```bash
-# Gesamte Jest-Suite (Frontend + Engine + Backend-Legacy)
+# Full Jest suite (frontend + engine + legacy backend)
 npm test
 
-# Backend-Tests isoliert
+# Backend tests only
 cd server && npm test
 
-# E2E mit Playwright
+# Playwright E2E
 npm run test:e2e
 
-# Storybook für UI-Komponenten
+# Storybook for UI components
 npm run storybook
 ```
 
-ESLint (`npm run lint`) und Vitest (via Vite-Setup) sind verfügbar; Chromatic/CI-Workflows können ergänzt werden.
+ESLint (`npm run lint`) and Vitest (via the Vite setup) are available; add Chromatic/CI workflows as needed.
 
 ---
 
@@ -207,23 +207,23 @@ docker run -p 3001:3001 apxo-backend
 
 ## Troubleshooting
 
-| Problem                            | Lösung |
-|------------------------------------|--------|
-| Socket-Verbindung schlägt fehl     | `VITE_SERVER_URL` und `FRONTEND_URL` prüfen, CORS-Whitelist anpassen |
-| Ports 5173/3001 belegt             | Ports in `.env` ändern |
-| SQLite defekt / veraltet           | `server/database.sqlite` löschen (lokal) und Server neu starten |
-| Storybook lädt nicht               | Prüfen, ob `npm run storybook` in Root ausgeführt wurde |
-| Practice Mode nutzt alte Config    | `apxo.config.yaml` anpassen, Frontend neu starten |
+| Problem                            | Resolution |
+|------------------------------------|------------|
+| Socket connection fails            | Check `VITE_SERVER_URL` and `FRONTEND_URL`, adjust CORS whitelist |
+| Ports 5173/3001 already in use     | Update ports in `.env` |
+| SQLite corrupted/outdated          | Delete `server/database.sqlite` locally and restart the server |
+| Storybook does not load            | Ensure `npm run storybook` runs from the repo root |
+| Practice mode uses old config      | Update `apxo.config.yaml` and restart the frontend |
 
 ---
 
-## Weiterentwicklung
+## Next Steps
 
-- Backend-Logik Schritt für Schritt auf neue Engine heben (aktuell nutzt Practice Mode die neue Logik, Live-Spiel folgt Legacy-Service).
-- CI-Pipeline aufsetzen (Lint/Test/Build/Storybook).
-- Persistenz & Migrationen für Produktionsbetrieb härten (SQLite → Postgres, Backups).
-- Beobachtbarkeit (strukturierte Logs, Metrics) ergänzen.
+- Gradually migrate backend logic to the new engine (practice mode already uses it, live play still relies on the legacy service).
+- Establish CI pipelines (lint/test/build/storybook).
+- Harden persistence and migrations for production (SQLite to Postgres, backups).
+- Expand observability (structured logs, metrics).
 
 ---
 
-Fragen? Issues gerne via GitHub melden oder direkt im Projektboard vermerken. Viel Spaß beim Simulieren!
+Questions? Open an issue on GitHub or file it on the project board. Have fun simulating!

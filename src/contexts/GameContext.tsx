@@ -869,7 +869,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (prev.currentPhase !== 'simulation') return prev;
           const day = Math.max(0, Number(prev.simulatedDaysUntilDeparture || 0) - 1);
 
-          // Nachfrage pro Tick (Tagesnachfrage)
+          // Per-tick demand (daily baseline)
           const baseD = Math.max(10, prev.baseDemand || 100);
           const demandToday = Math.round(baseD * (0.8 + Math.random() * 0.4));
 
@@ -882,7 +882,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }));
           const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 199), 0) / Math.max(1, teams.length);
-          const elasticity = Math.abs(prev.priceElasticity || 1); // typ. 0.9..2.7 aus Practice-Setup
+          const elasticity = Math.abs(prev.priceElasticity || 1); // typically 0.9..2.7 from the practice setup
           const k = Math.min(0.08, Math.max(0.008, elasticity / 50)); // 0.018..0.054
           const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 199) - avgPrice)));
           const sumW = weights.reduce((a, b) => a + b, 0) || 1;
@@ -890,7 +890,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Per-tick matching: manage remaining capacities
           if (!simDataRef.current || (simDataRef.current.remainingFix.length !== teams.length)) {
-            // Fallback-Init, falls nicht gesetzt
+            // Fallback init if values were not provided
             simDataRef.current = {
               remainingFix: teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || 0)),
               remainingPool: teams.map(t => Math.max(0, Math.round((prev.totalAircraftSeats || 1000) * ((t.decisions?.poolingAllocation || 0) / 100)))),
@@ -906,7 +906,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const poolingDemand = demandPerTeam.reduce((s, d, i) => s + Math.max(0, d - remainingFixBefore[i]), 0);
           const poolingOfferedBefore = remainingPoolBefore.reduce((a, b) => a + b, 0);
 
-          // Pooling-Preisdynamik mit Mean-Reversion und leichtem Rauschen
+          // Pool price dynamics with mean reversion and light noise
           const pm = prev.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), offeredPoolingCapacity: 0, currentDemand: 0, lastUpdate: new Date().toISOString(), priceHistory: [] as any[] };
           const ratioSD = poolingOfferedBefore / Math.max(1, poolingDemand);
           let delta = 0;
@@ -920,7 +920,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newPrice = Math.round(bounded);
           const priceHistory = [...(pm.priceHistory || []), { price: newPrice, timestamp: new Date().toISOString() }].slice(-30);
 
-          // Matching: konsumieren Fix zuerst, dann Pooling
+          // Matching: consume fixed seats first, then pooling
           teams.forEach((_, i) => {
             let need = demandPerTeam[i];
             const serveFix = Math.min(need, data.remainingFix[i]);

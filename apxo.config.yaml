@@ -2,24 +2,24 @@
 # Default configuration for the Allotment Procurement & Demand Simulation (Agent v1)
 
 # Phase / timing controls
-ticks_total: 12            # 12 Monats-Ticks ≈ 12 Minuten
+ticks_total: 12            # 12 monthly ticks ~ 12 minutes
 seconds_per_tick: 60
 rng_seed: 42
 
 airline:
-  C_total: 180             # Gesamtsitze auf dem Flug
+  C_total: 180             # Total seats on the flight
   P_airline_start: 120
   P_min: 80
   P_max: 400
-  gamma: 0.15              # Repricing-Geschwindigkeit (Forecast-Feedback)
-  kappa: 50                # Glättung
+  gamma: 0.15              # Repricing speed (forecast feedback)
+  kappa: 50                # Smoothing factor
 
 market:
-  # Booking-Curve: wenig früh, stark ansteigend zum Abflug
+  # Booking curve: low early demand, steep ramp toward departure
   D_base: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79]
-  alpha: 1.1               # Preisempfindlichkeit
-  beta: 6.0                # Preis-Treue im Logit
-  P_ref: 150               # Referenzpreis für Preis-Response
+  alpha: 1.1               # Price sensitivity
+  beta: 6.0                # Price loyalty in the logit model
+  P_ref: 150               # Reference price for price response
 
 hotel:
   capacity_per_team: 60
@@ -41,7 +41,7 @@ teams:
 
 rules:
   need_price_above_cost: true
-  push_cost_per_level: [0, 200, 600]   # Budgetabzug (falls Budget-Modell genutzt)
+  push_cost_per_level: [0, 200, 600]   # Budget deduction (if the budget model is enabled)
   tool_cooldown_ticks: 3
-  price_jump_threshold: 0.10           # “große” Preisänderung >10%/Tick (für Cooldown/Warnings)
-  anti_collusion_band_pct: 0.01        # ±1% Band über 3 Ticks ⇒ kleiner Attention-Malus
+  price_jump_threshold: 0.10           # "large" price change >10% per tick (drives cooldown/warnings)
+  anti_collusion_band_pct: 0.01        # +/-1% band across 3 ticks produces a small attention penalty

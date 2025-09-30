@@ -77,8 +77,8 @@ export class GameService {
             referencePrice: 199,
             marketPriceElasticity: -0.9,
             // Hotel defaults
-            hotelCapacityRatio: 0.6, // 60% der Flugkapazität als Hotelbetten insgesamt
-            hotelBedCost: 50, // Kosten pro leerem Bett
+            hotelCapacityRatio: 0.6, // 60% of the flight capacity as total hotel beds
+            hotelBedCost: 50, // Cost per empty bed
             hotelCapacityAssigned: false,
             // Budget per team (equal for all teams)
             perTeamBudget: 20000

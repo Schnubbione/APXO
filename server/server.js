@@ -966,7 +966,7 @@ io.on('connection', async (socket) => {
       });
     } catch (err) {
       console.error('Error running practice mode:', err);
-      socket.emit('practiceError', 'Übungsmodus fehlgeschlagen.');
+      socket.emit('practiceError', 'Practice mode failed.');
     }
   });
 
