@@ -14,6 +14,8 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
+import { Slider } from './ui/slider';
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
 import { useToast } from './ui/toast';
 
@@ -128,6 +130,49 @@ export const MultiUserApp: React.FC = () => {
 
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
+
+  const [priceSliderValue, setPriceSliderValue] = useState<number>(() => (
+    typeof currentTeam?.decisions?.price === 'number' ? currentTeam.decisions.price : 0
+  ));
+
+  useEffect(() => {
+    if (typeof currentTeam?.decisions?.price === 'number') {
+      setPriceSliderValue(currentTeam.decisions.price);
+    }
+  }, [currentTeam?.decisions?.price]);
+
+  useEffect(() => {
+    if (!currentTeam) return;
+    if (gameState.currentPhase !== 'simulation') return;
+    if (!Number.isFinite(priceSliderValue)) return;
+    if (typeof currentTeam.decisions?.price === 'number' && currentTeam.decisions.price === priceSliderValue) return;
+
+    const timer = window.setTimeout(() => {
+      updateTeamDecision({ price: Math.round(priceSliderValue) });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [priceSliderValue, currentTeam, updateTeamDecision, gameState.currentPhase]);
+
+  const priceMin = 50;
+  const priceMax = 500;
+
+  const priceHistoryData = React.useMemo(() => {
+    const history = gameState.poolingMarket?.priceHistory ?? [];
+    return history.slice(-40).map((entry, index) => {
+      const timestamp = entry.timestamp ? new Date(entry.timestamp) : null;
+      return {
+        index,
+        label: timestamp ? timestamp.toLocaleTimeString('de-DE', { minute: '2-digit', second: '2-digit' }) : `T${index + 1}`,
+        price: entry.price
+      };
+    });
+  }, [gameState.poolingMarket?.priceHistory]);
+
+  const currentRevenue = Math.round(mySimState?.revenue ?? 0);
+  const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
+  const poolingPrice = Math.round(gameState.poolingMarket?.currentPrice ?? 0);
+  const daysToDeparture = Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
 
   // Play sound effects for game events
   useEffect(() => {
@@ -868,47 +913,93 @@ export const MultiUserApp: React.FC = () => {
                   </div>
                 </div>
               ) : gameState.currentPhase === 'simulation' ? (
-                <div className="space-y-5">
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-                    <div className="space-y-2">
-                      <Label className="text-slate-300 text-sm font-medium">Retail price (€)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={typeof currentTeam.decisions.price === 'number' ? currentTeam.decisions.price : ''}
-                        placeholder="0"
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const numValue = value === '' ? 0 : Number(value);
-                          updateTeamDecision({ price: numValue });
-                        }}
-                        disabled={!gameState.isActive}
-                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                      />
+                <div className="space-y-6">
+                  <div className="grid gap-6 lg:grid-cols-12">
+                    <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-white text-lg">Price Control</CardTitle>
+                        <p className="text-xs text-slate-400">Steer demand by adjusting your live retail price.</p>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="flex items-baseline justify-between gap-4">
+                          <span className="text-sm text-slate-400">Current retail price</span>
+                          <span className="text-3xl font-bold text-white tabular-nums">€{priceSliderValue.toLocaleString('de-DE')}</span>
+                        </div>
+                        <Slider
+                          value={[priceSliderValue]}
+                          min={priceMin}
+                          max={priceMax}
+                          step={1}
+                          onValueChange={(values) => {
+                            const value = values[0] ?? priceSliderValue;
+                            const clamped = Math.min(priceMax, Math.max(priceMin, Math.round(value)));
+                            setPriceSliderValue(clamped);
+                          }}
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>€{priceMin}</span>
+                          <span>€{priceMax}</span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Changes apply immediately for new bookings. Keep an eye on the pooling price trend to react ahead of the market.
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-white text-lg">Pooling Price Trend</CardTitle>
+                      </CardHeader>
+                      <CardContent className="h-64">
+                        {priceHistoryData.length > 1 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={priceHistoryData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="poolPriceGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
+                                  <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                              <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
+                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} />
+                              <RechartsTooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
+                                formatter={(value: any) => [`€${Number(value).toFixed(0)}`, 'Pooling price']}
+                              />
+                              <Area type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                            Waiting for price updates…
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Current revenue</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(currentRevenue) ? currentRevenue.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats sold so far</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">{Number.isFinite(seatsSoldSoFar) ? seatsSoldSoFar.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Pooling price</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(poolingPrice) ? poolingPrice.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Days to departure</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">{daysToDeparture.toLocaleString('de-DE')}</div>
                     </div>
                   </div>
+
                   <p className="text-xs text-slate-400">
                     Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => updateTeamDecision({ price: currentTeam.decisions.price })}
-                      disabled={!gameState.isActive}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
-                    >
-                      Apply price
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Fixed seats delivered</div>
-                      <div className="text-2xl font-semibold text-white">{fixAllocatedTotal}</div>
-                    </div>
-                    <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/10">
-                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Pooling seats sold</div>
-                      <div className="text-2xl font-semibold text-white">{poolSoldSoFar}</div>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div className="text-center text-slate-400 py-8">
@@ -985,25 +1076,10 @@ export const MultiUserApp: React.FC = () => {
                     <div className="text-slate-300 text-sm">Market Demand</div>
                   </div>
                 </div>
-                {gameState.poolingMarket.priceHistory && gameState.poolingMarket.priceHistory.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">Price History (Last 10 Updates)</Label>
-                    <div className="flex gap-1 overflow-x-auto pb-2">
-                      {gameState.poolingMarket.priceHistory.slice(-10).map((price, index) => (
-                        <div key={index} className="flex-shrink-0 w-12 h-8 bg-slate-700/50 rounded border border-slate-600 flex items-center justify-center">
-                          <span className="text-xs font-mono text-slate-300">€{price.price.toFixed(0)}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Price Trend: {gameState.poolingMarket.priceHistory.length > 1 ?
-                        (gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 1].price > gameState.poolingMarket.priceHistory[gameState.poolingMarket.priceHistory.length - 2].price ?
-                          '↗️ Rising' : '↘️ Falling') : '➡️ Stable'}
-                    </div>
-                  </div>
-                )}
                 <div className="text-sm text-slate-400">
-                  Pooling market updates every {gameState.poolingMarketUpdateInterval || 1} second{gameState.poolingMarketUpdateInterval !== 1 ? 's' : ''} during simulation phase ({gameState.simulatedWeeksPerUpdate || 1} day{gameState.simulatedWeeksPerUpdate !== 1 ? 's' : ''} simulated per update)
+                  Supply updates every {gameState.poolingMarketUpdateInterval || 1} second{gameState.poolingMarketUpdateInterval !== 1 ? 's' : ''}
+                  {' '}({gameState.simulatedWeeksPerUpdate || 1} simulated day{gameState.simulatedWeeksPerUpdate !== 1 ? 's' : ''} per step),
+                  while the airline reprices pooling seats every 7 simulated days.
                 </div>
               </CardContent>
             </Card>
