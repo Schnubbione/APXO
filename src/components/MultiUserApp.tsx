@@ -141,21 +141,10 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [currentTeam?.decisions?.price]);
 
-  useEffect(() => {
-    if (!currentTeam) return;
-    if (gameState.currentPhase !== 'simulation') return;
-    if (!Number.isFinite(priceSliderValue)) return;
-    if (typeof currentTeam.decisions?.price === 'number' && currentTeam.decisions.price === priceSliderValue) return;
-
-    const timer = window.setTimeout(() => {
-      updateTeamDecision({ price: Math.round(priceSliderValue) });
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [priceSliderValue, currentTeam, updateTeamDecision, gameState.currentPhase]);
-
   const priceMin = 50;
   const priceMax = 500;
+
+  const priceUpdateTimer = useRef<number | null>(null);
 
   const priceHistoryData = React.useMemo(() => {
     const history = gameState.poolingMarket?.priceHistory ?? [];
@@ -168,6 +157,14 @@ export const MultiUserApp: React.FC = () => {
       };
     });
   }, [gameState.poolingMarket?.priceHistory]);
+
+  useEffect(() => {
+    return () => {
+      if (priceUpdateTimer.current) {
+        window.clearTimeout(priceUpdateTimer.current);
+      }
+    };
+  }, []);
 
   const currentRevenue = Math.round(mySimState?.revenue ?? 0);
   const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
@@ -934,6 +931,14 @@ export const MultiUserApp: React.FC = () => {
                             const value = values[0] ?? priceSliderValue;
                             const clamped = Math.min(priceMax, Math.max(priceMin, Math.round(value)));
                             setPriceSliderValue(clamped);
+
+                            if (!currentTeam) return;
+                            if (priceUpdateTimer.current) {
+                              window.clearTimeout(priceUpdateTimer.current);
+                            }
+                            priceUpdateTimer.current = window.setTimeout(() => {
+                              updateTeamDecision({ price: clamped });
+                            }, 200);
                           }}
                         />
                         <div className="flex justify-between text-xs text-slate-500">
