@@ -179,12 +179,6 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [tutorialActive, tutorialStep]);
 
-  useEffect(() => {
-    if (gameState.currentPhase !== 'simulation') {
-      setShowAdvancedControls(false);
-    }
-  }, [gameState.currentPhase]);
-
   // 1) Tutorial Modal (nur auf Wunsch)
   if (showTutorial) {
     return <Tutorial
