@@ -150,6 +150,7 @@ describe('GameService', () => {
         sessionId: 1,
         decisions: {},
         totalProfit: 0,
+        totalRevenue: 0,
         update: jest.fn().mockResolvedValue(undefined)
       };
 
@@ -170,7 +171,8 @@ describe('GameService', () => {
           poolingAllocation: 0,
           hotelCapacity: 600
         }),
-        totalProfit: 0
+        totalProfit: 0,
+        totalRevenue: 0
       }));
       expect(mockSession.update).toHaveBeenCalledWith(expect.objectContaining({
         settings: expect.objectContaining({

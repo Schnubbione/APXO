@@ -369,7 +369,8 @@ async function broadcastGameState() {
                 // Before allocation, also hide any allocated amounts
                 fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
               },
-              totalProfit: team.totalProfit
+              totalProfit: team.totalProfit,
+              totalRevenue: team.totalRevenue
             };
           } else {
             // Show full data for own team
@@ -381,7 +382,8 @@ async function broadcastGameState() {
                 // Before allocation, ensure allocated is not prematurely inferred
                 fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
               },
-              totalProfit: team.totalProfit
+              totalProfit: team.totalProfit,
+              totalRevenue: team.totalRevenue
             };
           }
         }),
@@ -430,32 +432,34 @@ io.on('connection', async (socket) => {
       teams: activeTeams.map(team => {
         if (team.socketId !== socket.id) {
           // Hide fix seat purchases from other teams
-          return {
-            id: team.id,
-            name: team.name,
-            decisions: {
-              ...team.decisions,
-              fixSeatsPurchased: undefined, // Hide from other teams
-              fixSeatsRequested: undefined,
-              fixSeatBidPrice: undefined,
-              fixSeatClearingPrice: undefined,
-              fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-            },
-            totalProfit: team.totalProfit
-          };
-        } else {
-          // Show full data for own team
-          return {
-            id: team.id,
-            name: team.name,
-            decisions: {
-              ...team.decisions,
-              fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-            },
-            totalProfit: team.totalProfit
-          };
-        }
-      }),
+            return {
+              id: team.id,
+              name: team.name,
+              decisions: {
+                ...team.decisions,
+                fixSeatsPurchased: undefined, // Hide from other teams
+                fixSeatsRequested: undefined,
+                fixSeatBidPrice: undefined,
+                fixSeatClearingPrice: undefined,
+                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+              },
+              totalProfit: team.totalProfit,
+              totalRevenue: team.totalRevenue
+            };
+          } else {
+            // Show full data for own team
+            return {
+              id: team.id,
+              name: team.name,
+              decisions: {
+                ...team.decisions,
+                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+              },
+              totalProfit: team.totalProfit,
+              totalRevenue: team.totalRevenue
+            };
+          }
+        }),
       currentRound: gameSession.currentRound,
   isActive: gameSession.isActive,
   remainingTime: remainingTime,
@@ -479,7 +483,8 @@ io.on('connection', async (socket) => {
         id: team.id,
         name: team.name,
         decisions: team.decisions,
-        totalProfit: team.totalProfit
+        totalProfit: team.totalProfit,
+        totalRevenue: team.totalRevenue
       });
 
   // Share resume token privately
@@ -504,7 +509,7 @@ io.on('connection', async (socket) => {
       }
       // On successful resume, send current personalized game state
       await broadcastGameState();
-      if (typeof ack === 'function') ack({ ok: true, team: { id: team.id, name: team.name, decisions: team.decisions, totalProfit: team.totalProfit } });
+      if (typeof ack === 'function') ack({ ok: true, team: { id: team.id, name: team.name, decisions: team.decisions, totalProfit: team.totalProfit, totalRevenue: team.totalRevenue } });
     } catch (e) {
       console.error('Error resuming team:', e);
       if (typeof ack === 'function') ack({ ok: false, error: 'Failed to resume team' });
@@ -684,7 +689,8 @@ io.on('connection', async (socket) => {
           id: humanTeam.id,
           name: humanTeam.name,
           decisions: humanDecisions,
-          totalProfit: 0
+          totalProfit: 0,
+          totalRevenue: 0
         }
       ];
 
@@ -717,7 +723,8 @@ io.on('connection', async (socket) => {
             fixSeatBidPrice: irnd(50, 120),
             fixSeatClearingPrice: null
           },
-          totalProfit: 0
+          totalProfit: 0,
+          totalRevenue: 0
         });
       }
 
@@ -920,13 +927,15 @@ io.on('connection', async (socket) => {
           : Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / teams.length);
         const emptyBeds = Math.max(0, assignedBeds - state.sold);
         const hotelCost = emptyBeds * (settings.hotelBedCost || 50);
+        const revenue = Math.round(state.revenue);
         const profit = Math.round(state.revenue - (state.cost + hotelCost));
         team.totalProfit = profit;
+        team.totalRevenue = revenue;
         return {
           teamId: team.id,
           teamName: team.name,
           sold: Math.round(state.sold),
-          revenue: Math.round(state.revenue),
+          revenue,
           cost: Math.round(state.cost + hotelCost),
           profit,
           demand: Math.round(state.demand),
@@ -938,8 +947,12 @@ io.on('connection', async (socket) => {
       });
 
       const leaderboard = teams
-        .map(team => ({ name: team.name, profit: Math.round(team.totalProfit || 0) }))
-        .sort((a, b) => b.profit - a.profit);
+        .map(team => ({
+          name: team.name,
+          revenue: Math.round(team.totalRevenue || 0),
+          profit: Math.round(team.totalProfit || 0)
+        }))
+        .sort((a, b) => b.revenue - a.revenue);
 
       settings.poolingMarket = {
         currentPrice: poolPrice,
@@ -1275,16 +1288,23 @@ async function runMonthlySimulation() {
       const teamResult = m.teamResults.find(r => r.teamId === team.id);
       return teamResult ? teamResult.profit : 0;
     });
+    const teamMonthlyRevenue = monthlyResults.map(m => {
+      const teamResult = m.teamResults.find(r => r.teamId === team.id);
+      return teamResult ? teamResult.revenue : 0;
+    });
 
     const totalSimulationProfit = teamMonthlyProfits.reduce((sum, profit) => sum + profit, 0);
+    const totalSimulationRevenue = teamMonthlyRevenue.reduce((sum, revenue) => sum + revenue, 0);
     const newTotalProfit = parseFloat(team.totalProfit || 0) + totalSimulationProfit;
+    const newTotalRevenue = parseFloat(team.totalRevenue || 0) + totalSimulationRevenue;
 
-    await team.update({ totalProfit: newTotalProfit });
+    await team.update({ totalProfit: newTotalProfit, totalRevenue: newTotalRevenue });
   }
 
   return {
     monthlyResults,
-    totalSimulationProfit: monthlyResults.reduce((sum, month) => sum + month.teamResults.reduce((teamSum, team) => teamSum + team.profit, 0), 0)
+    totalSimulationProfit: monthlyResults.reduce((sum, month) => sum + month.teamResults.reduce((teamSum, team) => teamSum + team.profit, 0), 0),
+    totalSimulationRevenue: monthlyResults.reduce((sum, month) => sum + month.teamResults.reduce((teamSum, team) => teamSum + team.revenue, 0), 0)
   };
 }
 

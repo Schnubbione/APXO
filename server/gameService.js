@@ -255,7 +255,8 @@ export class GameService {
           resumeToken: token,
           resumeUntil,
           decisions: defaultDecisions,
-          totalProfit: 0
+          totalProfit: 0,
+          totalRevenue: 0
         });
 
         // After reactivation, recompute and distribute hotel capacity evenly
@@ -298,7 +299,8 @@ export class GameService {
           poolingAllocation: 0,
           hotelCapacity: perTeamHotel
         },
-        totalProfit: 0
+        totalProfit: 0,
+        totalRevenue: 0
       });
 
       // After new registration, recompute and distribute hotel capacity evenly
@@ -783,7 +785,8 @@ export class GameService {
       if (team) {
         // Update team's total profit
         const newTotalProfit = parseFloat(team.totalProfit || 0) + parseFloat(result.profit || 0);
-        await team.update({ totalProfit: newTotalProfit });
+        const newTotalRevenue = parseFloat(team.totalRevenue || 0) + parseFloat(result.revenue || 0);
+        await team.update({ totalProfit: newTotalProfit, totalRevenue: newTotalRevenue });
 
         // Save round result
         const roundResult = await RoundResultModel.create({
@@ -804,7 +807,8 @@ export class GameService {
 
         savedResults.push({
           ...result,
-          totalProfit: newTotalProfit
+          totalProfit: newTotalProfit,
+          totalRevenue: newTotalRevenue
         });
       }
     }
@@ -884,13 +888,18 @@ export class GameService {
     const roundHistoryArray = Array.from(roundsMap.values());
 
     // Create leaderboard
-    const leaderboard = teams.map(team => ({
-      name: team.name,
-      profit: parseFloat(team.totalProfit || 0),
-      marketShare: 0, // Will be calculated if needed
-      avgPrice: team.decisions?.price || 199,
-      capacity: (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
-    })).sort((a, b) => b.profit - a.profit);
+    const leaderboard = teams.map(team => {
+      const totalRevenue = parseFloat(team.totalRevenue || 0);
+      const totalProfit = parseFloat(team.totalProfit || 0);
+      return {
+        name: team.name,
+        revenue: totalRevenue,
+        profit: totalProfit,
+        marketShare: 0, // Will be calculated if needed
+        avgPrice: team.decisions?.price || 199,
+        capacity: (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
 
     return {
       roundHistory: roundHistoryArray,
@@ -905,7 +914,7 @@ export class GameService {
   // Get high scores across all sessions
   static async getHighScores(limit = 10) {
     return await HighScoreModel.findAll({
-      order: [['totalProfit', 'DESC']],
+      order: [['totalRevenue', 'DESC']],
       limit,
       include: [{
         model: GameSessionModel,
@@ -915,14 +924,14 @@ export class GameService {
   }
 
   // Save high score
-  static async saveHighScore(teamName, totalProfit, roundsPlayed, gameSessionId) {
-    const avgProfitPerRound = totalProfit / roundsPlayed;
+  static async saveHighScore(teamName, totalRevenue, roundsPlayed, gameSessionId) {
+    const avgRevenuePerRound = roundsPlayed > 0 ? totalRevenue / roundsPlayed : 0;
 
     return await HighScoreModel.create({
       teamName,
-      totalProfit,
+      totalRevenue,
       roundsPlayed,
-      avgProfitPerRound,
+      avgRevenuePerRound,
       gameSessionId
     });
   }
@@ -1000,7 +1009,12 @@ export class GameService {
       ? Math.max(1, Math.floor(Number(settings.simulationHorizon)))
       : AGENT_V1_DEFAULTS.ticksTotal;
     const daysRemaining = Number.isFinite(Number(settings.simulatedDaysUntilDeparture)) ? Math.max(0, Number(settings.simulatedDaysUntilDeparture)) : horizon;
-    const dayElapsed = Math.max(0, Math.min(horizon - 1, horizon - daysRemaining));
+
+    const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
+      ? Number(settings.simulatedWeeksPerUpdate)
+      : 1;
+    const nextDays = Math.max(0, daysRemaining - dayStep);
+    const dayElapsed = Math.max(0, Math.min(horizon - 1, horizon - nextDays));
 
     const demandCurve = Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0
       ? settings.demandCurve
@@ -1026,10 +1040,6 @@ export class GameService {
     const demandNoise = (nextRandom() * 2 - 1) * volatility;
 
     if (aliveTeams.length === 0) {
-      const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
-        ? Number(settings.simulatedWeeksPerUpdate)
-        : 1;
-      const nextDays = Math.max(0, daysRemaining - dayStep);
       const updatedSettings = {
         ...settings,
         simulatedDaysUntilDeparture: nextDays,
@@ -1093,7 +1103,7 @@ export class GameService {
     const airlineRemaining = Math.max(0, Number(settings.airlineCapacityRemaining ?? passThroughInitial));
     let availablePassThrough = airlineRemaining;
 
-    const currentPrice = Number.isFinite(Number(poolingMarket.currentPrice)) && poolingMarket.currentPrice > 0
+    const currentPoolingPrice = Number.isFinite(Number(poolingMarket.currentPrice)) && poolingMarket.currentPrice > 0
       ? poolingMarket.currentPrice
       : Math.max(1, Number(settings.poolingCost ?? 90));
 
@@ -1129,7 +1139,7 @@ export class GameService {
 
       const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 199;
       const revenueAdd = (sellFix + poolSold) * price;
-      const costAdd = poolSold * currentPrice;
+      const costAdd = poolSold * currentPoolingPrice;
 
       const newRevenue = Math.max(0, (state.revenue || 0) + revenueAdd);
       const newCost = Math.max(0, (state.cost || 0) + costAdd);
@@ -1185,33 +1195,39 @@ export class GameService {
     const newCumulative = cumulativeBefore + soldThisTick;
     const delta = newCumulative - forecastTarget;
 
-    const gamma = Number.isFinite(Number(settings.airlinePriceGamma))
-      ? Number(settings.airlinePriceGamma)
-      : AGENT_V1_DEFAULTS.airline.gamma;
-    const kappa = Number.isFinite(Number(settings.airlinePriceKappa))
-      ? Math.max(1, Number(settings.airlinePriceKappa))
-      : AGENT_V1_DEFAULTS.airline.kappa;
-    const priceMin = Number.isFinite(Number(settings.airlinePriceMin))
-      ? Math.max(1, Number(settings.airlinePriceMin))
-      : AGENT_V1_DEFAULTS.airline.minPrice;
-    const priceMax = Number.isFinite(Number(settings.airlinePriceMax))
-      ? Math.max(priceMin + 1, Number(settings.airlinePriceMax))
-      : AGENT_V1_DEFAULTS.airline.maxPrice;
+    const currentAirlinePrice = Number.isFinite(Number(poolingMarket.currentPrice)) && poolingMarket.currentPrice > 0
+      ? Math.round(poolingMarket.currentPrice)
+      : AGENT_V1_DEFAULTS.airline.startPrice;
+    const shouldUpdatePrice = nextDays === 0 || nextDays % 7 === 0;
 
-    let newPrice = currentPrice * (1 + gamma * Math.tanh(delta / Math.max(1, kappa)));
-    newPrice = Math.max(priceMin, Math.min(priceMax, newPrice));
-    newPrice = Math.round(newPrice);
-    if (!Number.isFinite(newPrice) || newPrice <= 0) {
-      newPrice = Math.max(1, currentPrice);
+    let newPrice = currentAirlinePrice;
+    let priceHistory = Array.isArray(poolingMarket.priceHistory) ? [...poolingMarket.priceHistory] : [];
+
+    if (shouldUpdatePrice || priceHistory.length === 0) {
+      const priceMin = Number.isFinite(Number(settings.airlinePriceMin))
+        ? Math.max(1, Number(settings.airlinePriceMin))
+        : AGENT_V1_DEFAULTS.airline.minPrice;
+      const priceMax = Number.isFinite(Number(settings.airlinePriceMax))
+        ? Math.max(priceMin + 1, Number(settings.airlinePriceMax))
+        : AGENT_V1_DEFAULTS.airline.maxPrice;
+      const gamma = Number.isFinite(Number(settings.airlinePriceGamma))
+        ? Number(settings.airlinePriceGamma)
+        : AGENT_V1_DEFAULTS.airline.gamma;
+      const kappa = Number.isFinite(Number(settings.airlinePriceKappa))
+        ? Math.max(1, Number(settings.airlinePriceKappa))
+        : AGENT_V1_DEFAULTS.airline.kappa;
+
+      let candidatePrice = currentAirlinePrice * (1 + gamma * Math.tanh(delta / Math.max(1, kappa)));
+      candidatePrice = Math.max(priceMin, Math.min(priceMax, candidatePrice));
+      candidatePrice = Math.round(candidatePrice);
+      if (!Number.isFinite(candidatePrice) || candidatePrice <= 0) {
+        candidatePrice = Math.max(1, currentAirlinePrice);
+      }
+
+      newPrice = candidatePrice;
+      priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString() }];
+      if (priceHistory.length > 90) priceHistory.shift();
     }
-
-    const priceHistory = [...(poolingMarket.priceHistory || []), { price: newPrice, timestamp: new Date().toISOString() }];
-    if (priceHistory.length > 90) priceHistory.shift();
-
-    const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
-      ? Number(settings.simulatedWeeksPerUpdate)
-      : 1;
-    const nextDays = Math.max(0, daysRemaining - dayStep);
 
     const updatedPoolingMarket = {
       ...poolingMarket,

@@ -162,10 +162,11 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                         <span>Team {team.teamId}</span>
                         {team.winner && <span className="text-emerald-400 font-semibold">Winner</span>}
                       </div>
-                      <div className="mt-2 text-xl font-semibold tabular-nums">€{Math.round(team.profit)}</div>
+                      <div className="mt-2 text-xl font-semibold tabular-nums">€{Math.round(team.revenue)}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         Sold: {team.sold_total} &nbsp;|&nbsp; Load: {(team.load_factor * 100).toFixed(1)}%
                       </div>
+                      <div className="mt-1 text-xs text-slate-500">Profit: €{Math.round(team.profit)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg sell: €{team.avg_sell_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg buy: €{team.avg_buy_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-rose-400">Hotel penalty: €{team.hotel_penalty.toFixed(0)}</div>

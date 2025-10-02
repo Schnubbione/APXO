@@ -140,7 +140,7 @@ interface GameContextType {
     | { running: true; rounds: number; aiCount: number }
     | { running: false; results?: any }
     | null;
-  leaderboard: Array<{ name: string; profit: number }> | null;
+  leaderboard: Array<{ name: string; revenue: number; profit?: number }> | null;
   roundHistory: any[];
   analyticsData: any;
   registrationError: string | null;
@@ -238,7 +238,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roundResults, setRoundResults] = useState<RoundResult[] | null>(null);
-  const [leaderboard, setLeaderboard] = useState<Array<{ name: string; profit: number }> | null>(null);
+  const [leaderboard, setLeaderboard] = useState<Array<{ name: string; revenue: number; profit?: number }> | null>(null);
   const [roundHistory, setRoundHistory] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
@@ -424,7 +424,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Listen for leaderboard
-    newSocket.on('leaderboard', (board: Array<{ name: string; profit: number }>) => {
+    newSocket.on('leaderboard', (board: Array<{ name: string; revenue: number; profit?: number }>) => {
       setLeaderboard(board);
     });
 
@@ -928,13 +928,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let delta = 0;
           if (ratioSD < 0.9) delta = Math.min(20, (0.9 - ratioSD) * 40);
           else if (ratioSD > 1.1) delta = Math.max(-20, (ratioSD - 1.1) * -30);
-          const baseline = (poolingCost || 90) * 1.2; // slight markup above cost
-          const noise = (Math.random() - 0.5) * 2; // -1..1
-          const drift = (baseline - (pm.currentPrice || 150)) * 0.02; // Mean-Reversion
-          const rawPrice = (pm.currentPrice || 150) + delta * 0.35 + drift + noise;
-          const bounded = Math.max(80, Math.min(300, rawPrice));
-          const newPrice = Math.round(bounded);
-          const priceHistory = [...(pm.priceHistory || []), { price: newPrice, timestamp: new Date().toISOString() }].slice(-30);
+
+          const currentPrice = Math.max(1, pm.currentPrice || Math.round((poolingCost || 90) * 1.1));
+          const shouldUpdatePrice = daysRemaining === 0 || daysRemaining % 7 === 0 || !Number.isFinite(currentPrice);
+          let newPrice = currentPrice;
+          let priceHistory = Array.isArray(pm.priceHistory) ? [...pm.priceHistory] : [];
+
+          if (shouldUpdatePrice || priceHistory.length === 0) {
+            const baseline = (poolingCost || 90) * 1.2; // slight markup above cost
+            const noise = (Math.random() - 0.5) * 2; // -1..1
+            const drift = (baseline - currentPrice) * 0.02; // Mean-Reversion
+            const rawPrice = currentPrice + delta * 0.35 + drift + noise;
+            const bounded = Math.max(80, Math.min(300, rawPrice));
+            newPrice = Math.round(bounded);
+            priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString() }].slice(-30);
+          }
 
           // Matching: consume fixed seats first, then pooling
           teams.forEach((_, i) => {

@@ -42,6 +42,10 @@ export const Team = sequelize.define('Team', {
     type: DataTypes.DECIMAL(10, 2),
     defaultValue: 0
   },
+  totalRevenue: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
@@ -185,7 +189,7 @@ export const HighScore = sequelize.define('HighScore', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  totalProfit: {
+  totalRevenue: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
@@ -193,7 +197,7 @@ export const HighScore = sequelize.define('HighScore', {
     type: DataTypes.INTEGER,
     defaultValue: 1
   },
-  avgProfitPerRound: {
+  avgRevenuePerRound: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },

@@ -38,21 +38,21 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
     if (!previousResults.length) return [];
 
     // Simple calculation - in real implementation this would be more sophisticated
-    const teamProfits: { [key: string]: number } = {};
+    const teamRevenue: { [key: string]: number } = {};
 
     previousResults.forEach(result => {
-      if (!teamProfits[result.teamId]) {
-        teamProfits[result.teamId] = 0;
+      if (!teamRevenue[result.teamId]) {
+        teamRevenue[result.teamId] = 0;
       }
-      teamProfits[result.teamId] += result.profit;
+      teamRevenue[result.teamId] += result.revenue;
     });
 
-    return Object.entries(teamProfits)
-      .map(([teamId, profit]) => ({
+    return Object.entries(teamRevenue)
+      .map(([teamId, revenue]) => ({
         name: `Team ${teamId.slice(0, 4)}`, // Simplified team name
-        profit: profit
+        revenue
       }))
-      .sort((a, b) => b.profit - a.profit);
+      .sort((a, b) => b.revenue - a.revenue);
   };
 
   const getRankIcon = (rank: number) => {
@@ -75,7 +75,7 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
   };
 
   const currentRank = leaderboard.findIndex(team => team.name === currentTeam.name) + 1;
-  const currentProfit = leaderboard.find(team => team.name === currentTeam.name)?.profit || 0;
+  const currentRevenue = leaderboard.find(team => team.name === currentTeam.name)?.revenue || 0;
 
   if (!currentTeam || !leaderboard.length) return null;
 
@@ -110,7 +110,7 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
             </div>
           </div>
           <div className="text-lg font-bold text-green-400 tabular-nums">
-            €{currentProfit.toFixed(0)}
+            €{currentRevenue.toFixed(0)}
           </div>
         </div>
 
@@ -128,7 +128,7 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
               </div>
               <div className="text-right">
                 <div className="text-green-400 font-bold tabular-nums">
-                  €{competitor.profit.toFixed(0)}
+                  €{competitor.revenue?.toFixed(0) ?? '0'}
                 </div>
                 <div className="text-xs text-slate-500">
                   {competitor.rank < currentRank ? 'Ahead' :

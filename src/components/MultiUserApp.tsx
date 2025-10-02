@@ -6,7 +6,6 @@ import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
 import Tutorial from './Tutorial';
 import TutorialTour from './TutorialTour';
-import AchievementSystem from './AchievementSystem';
 import StreakCounter from './StreakCounter';
 import MotivationalMessages from './MotivationalMessages';
 import LiveCompetition from './LiveCompetition';
@@ -469,7 +468,7 @@ export const MultiUserApp: React.FC = () => {
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
                     <Award className="w-5 h-5 text-yellow-400" />
                   </div>
-                  Leaderboard
+                  High Scores (Revenue)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -482,7 +481,7 @@ export const MultiUserApp: React.FC = () => {
                         </div>
                         <span className="font-semibold text-white text-lg">{entry.name}</span>
                       </div>
-                      <div className="text-2xl font-bold text-green-400 tabular-nums">€{entry.profit.toFixed(0)}</div>
+                      <div className="text-2xl font-bold text-green-400 tabular-nums">€{(entry.revenue ?? 0).toFixed(0)}</div>
                     </div>
                   ))}
                 </div>
@@ -1064,14 +1063,6 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Sound Effects */}
           <SoundEffects playSound={soundEffect} />
-          <AchievementSystem
-            currentTeam={currentTeam}
-            roundResults={roundResults || []}
-            leaderboard={leaderboard || []}
-            gameState={gameState}
-            onPlaySound={setSoundEffect}
-          />
-
           {/* Practice Mode overlay removed; runs integrated via context */}
 
           {/* Leaderboard */}
@@ -1082,7 +1073,7 @@ export const MultiUserApp: React.FC = () => {
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
                     <Award className="w-5 h-5 text-yellow-400" />
                   </div>
-                  Current Standings
+                  High Scores (Revenue)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1102,7 +1093,7 @@ export const MultiUserApp: React.FC = () => {
                             {entry.name}
                           </span>
                         </div>
-                        <div className="text-xl font-bold text-green-400 tabular-nums">€{entry.profit.toFixed(0)}</div>
+                        <div className="text-xl font-bold text-green-400 tabular-nums">€{(entry.revenue ?? 0).toFixed(0)}</div>
                       </div>
                     );
                   })}

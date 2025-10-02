@@ -129,7 +129,8 @@ export default function AdminPanel({
 
   const teamPerformanceData = leaderboard.map(team => ({
     name: team.name,
-    profit: team.profit,
+    revenue: team.revenue ?? 0,
+    profit: team.profit ?? 0,
     marketShare: team.marketShare || 0,
     capacity: team.capacity || 0
   }));
@@ -672,7 +673,7 @@ export default function AdminPanel({
                             }}
                           />
                           <Legend />
-                          <Bar dataKey="profit" fill="#10b981" name="Profit" />
+                          <Bar dataKey="revenue" fill="#10b981" name="Revenue" />
                           <Bar dataKey="marketShare" fill="#3b82f6" name="Market Share %" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -702,7 +703,7 @@ export default function AdminPanel({
                             <span className="text-white font-medium">{team.name}</span>
                           </div>
                           <div className="text-right">
-                            <div className="text-white font-bold">${team.profit?.toLocaleString() || 0}</div>
+                            <div className="text-white font-bold">€{team.revenue?.toLocaleString() || 0}</div>
                             <div className="text-xs text-slate-400">{(team.marketShare || 0).toFixed(1)}% market share</div>
                           </div>
                         </div>
