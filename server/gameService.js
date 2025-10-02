@@ -485,6 +485,7 @@ export class GameService {
     };
 
     await session.update({ settings: updatedSettings });
+    session.settings = updatedSettings;
 
     console.log(`✅ Fix seats allocated via auction: ${totalAllocated}/${maxFixCapacity} seats`);
     console.log(`🏊 Pooling market initialized with ${totalCapacity - totalAllocated} seats at €${150}`);
@@ -550,6 +551,7 @@ export class GameService {
     }
 
     await session.update({ settings: updatedSettings });
+    session.settings = updatedSettings;
     return session;
   }
 
@@ -581,6 +583,8 @@ export class GameService {
 
     // Set both the top-level session flag and the settings flag for compatibility
     await session.update({ settings: updatedSettings, isActive: true });
+    session.settings = updatedSettings;
+    session.isActive = true;
     return session;
   }
 
@@ -682,6 +686,8 @@ export class GameService {
     };
 
     await session.update({ settings: updatedSettings, isActive: true });
+    session.settings = updatedSettings;
+    session.isActive = true;
     return session;
   }
 
@@ -1030,6 +1036,7 @@ export class GameService {
         simRngState: rngState
       };
       await session.update({ settings: updatedSettings });
+      session.settings = updatedSettings;
       const phaseCompleted = nextDays <= 0;
       return {
         ...poolingMarket,
@@ -1230,6 +1237,7 @@ export class GameService {
     };
 
     await session.update({ settings: updatedSettings });
+    session.settings = updatedSettings;
 
     const phaseCompleted = nextDays <= 0;
     console.log(`🏊 Pooling market updated: €${newPrice} (sold pool: ${soldThisTick}, unmet demand: ${totalUnsatisfied}, ticks left: ${nextDays})`);
