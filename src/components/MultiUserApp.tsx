@@ -77,7 +77,6 @@ export const MultiUserApp: React.FC = () => {
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
-  const [showAdvancedControls, setShowAdvancedControls] = useState(false);
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   const allocationToastRef = React.useRef<string | null>(null);
@@ -906,65 +905,7 @@ export const MultiUserApp: React.FC = () => {
                     >
                       Apply price
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowAdvancedControls(prev => !prev)}
-                      className="border-slate-600 text-slate-200"
-                    >
-                      {showAdvancedControls ? 'Hide advanced controls' : 'Show advanced controls'}
-                    </Button>
                   </div>
-                  {showAdvancedControls && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-slate-300 text-sm font-medium">Push level</Label>
-                        <div className="flex gap-2">
-                          {[0, 1, 2].map((lvl) => (
-                            <Button
-                              key={lvl}
-                              variant={currentTeam.decisions.push_level === lvl ? 'default' : 'outline'}
-                              disabled={!gameState.isActive}
-                              onClick={() => updateTeamDecision({ push_level: lvl as 0 | 1 | 2 })}
-                              className={currentTeam.decisions.push_level === lvl ? 'bg-indigo-600' : 'border-slate-600 text-slate-200'}
-                            >
-                              L{lvl}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-300 text-sm font-medium">Fixed-seat hold (%)</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={typeof currentTeam.decisions.fix_hold_pct === 'number' ? currentTeam.decisions.fix_hold_pct : ''}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const v = e.target.value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(e.target.value))));
-                            updateTeamDecision({ fix_hold_pct: v });
-                          }}
-                          disabled={!gameState.isActive}
-                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-300 text-sm font-medium">Tool</Label>
-                        <select
-                          value={currentTeam.decisions.tool || 'none'}
-                          onChange={(e) => updateTeamDecision({ tool: e.target.value as any })}
-                          disabled={!gameState.isActive}
-                          className="w-full bg-slate-700/50 border-slate-600 text-white min-h-[48px] rounded-xl px-3"
-                        >
-                          <option value="none">None</option>
-                          <option value="hedge">Hedge</option>
-                          <option value="spotlight">Spotlight</option>
-                          <option value="commit">Commit</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
                       <div className="text-xs uppercase tracking-wide text-slate-400/80">Fixed seats delivered</div>
@@ -974,9 +915,6 @@ export const MultiUserApp: React.FC = () => {
                       <div className="text-xs uppercase tracking-wide text-blue-200/80">Pooling seats sold</div>
                       <div className="text-2xl font-semibold text-white">{poolSoldSoFar}</div>
                     </div>
-                  </div>
-                  <div className="text-sm text-slate-400">
-                    Advanced mix: push L{currentTeam.decisions.push_level ?? 0} | hold {currentTeam.decisions.fix_hold_pct ?? 0}% | tool {currentTeam.decisions.tool || 'none'}
                   </div>
                 </div>
               ) : (

@@ -853,7 +853,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               currentPhase: 'simulation',
               remainingTime: undefined,
               simulatedDaysUntilDeparture: daysToDeparture,
-              countdownSeconds: secondsToDeparture
+              countdownSeconds: daysToDeparture
             }));
             const meNow = teams.find(t => t.id === myId) || null;
             if (meNow) setCurrentTeam(meNow);
@@ -877,11 +877,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGameState(prev => {
           // Only check the phase; stopping is handled via stopPracticeMode()
           if (prev.currentPhase !== 'simulation') return prev;
-          const previousSeconds = typeof prev.countdownSeconds === 'number'
-            ? prev.countdownSeconds
-            : Math.max(0, Math.round((((prev.departureDate ? new Date(prev.departureDate).getTime() : Date.now()) - Date.now()) / 1000)));
-          const countdownSeconds = Math.max(0, previousSeconds - 1);
-          const daysRemaining = Math.ceil(countdownSeconds / (24 * 60 * 60));
+          const previousDays = typeof prev.simulatedDaysUntilDeparture === 'number'
+            ? prev.simulatedDaysUntilDeparture
+            : (typeof prev.countdownSeconds === 'number'
+              ? Math.max(0, prev.countdownSeconds)
+              : Math.max(0, Math.ceil(((prev.departureDate ? new Date(prev.departureDate).getTime() : Date.now()) - Date.now()) / (24 * 60 * 60 * 1000))));
+          const daysRemaining = Math.max(0, previousDays - 1);
+          const countdownSeconds = daysRemaining;
 
           // Per-tick demand (daily baseline)
           const baseD = Math.max(10, prev.baseDemand || 100);
