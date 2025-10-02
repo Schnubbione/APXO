@@ -78,7 +78,6 @@ export const MultiUserApp: React.FC = () => {
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
   const [showAdvancedControls, setShowAdvancedControls] = useState(false);
-  const [liveCountdownSeconds, setLiveCountdownSeconds] = useState<number | null>(null);
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   const allocationToastRef = React.useRef<string | null>(null);
@@ -132,36 +131,6 @@ export const MultiUserApp: React.FC = () => {
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
 
-  const countdownSeconds = React.useMemo(() => {
-    if (gameState.currentPhase !== 'simulation') return null;
-    if (liveCountdownSeconds !== null) {
-      return Math.max(0, liveCountdownSeconds);
-    }
-    if (typeof gameState.countdownSeconds === 'number' && Number.isFinite(gameState.countdownSeconds)) {
-      return Math.max(0, gameState.countdownSeconds);
-    }
-    if (typeof gameState.simulatedDaysUntilDeparture === 'number' && Number.isFinite(gameState.simulatedDaysUntilDeparture)) {
-      return Math.max(0, Math.round(gameState.simulatedDaysUntilDeparture * 24 * 60 * 60));
-    }
-    if (gameState.departureDate) {
-      const depTs = new Date(gameState.departureDate).getTime();
-      return Math.max(0, Math.round((depTs - Date.now()) / 1000));
-    }
-    return null;
-  }, [gameState.countdownSeconds, gameState.simulatedDaysUntilDeparture, gameState.departureDate, gameState.currentPhase, liveCountdownSeconds]);
-
-  const countdownLabel = React.useMemo(() => {
-    if (countdownSeconds === null) return null;
-    const seconds = Math.max(0, countdownSeconds);
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
-    return `${minutes}m ${secs}s`;
-  }, [countdownSeconds]);
-
   // Play sound effects for game events
   useEffect(() => {
     if (gameState.isActive && !prevIsActive) {
@@ -189,41 +158,6 @@ export const MultiUserApp: React.FC = () => {
       getLeaderboard();
     }
   }, [roundResults, getLeaderboard]);
-
-  useEffect(() => {
-    if (gameState.currentPhase !== 'simulation') {
-      setLiveCountdownSeconds(null);
-      return;
-    }
-
-    const computeSeconds = () => {
-      if (typeof gameState.countdownSeconds === 'number' && Number.isFinite(gameState.countdownSeconds)) {
-        return Math.max(0, gameState.countdownSeconds);
-      }
-      if (gameState.departureDate) {
-        const depTs = new Date(gameState.departureDate).getTime();
-        return Math.max(0, Math.round((depTs - Date.now()) / 1000));
-      }
-      if (typeof gameState.simulatedDaysUntilDeparture === 'number' && Number.isFinite(gameState.simulatedDaysUntilDeparture)) {
-        return Math.max(0, Math.round(gameState.simulatedDaysUntilDeparture * 24 * 60 * 60));
-      }
-      return null;
-    };
-
-    const initial = computeSeconds();
-    setLiveCountdownSeconds(initial);
-
-    if (initial === null) {
-      return () => {};
-    }
-
-    const id = window.setInterval(() => {
-      const next = computeSeconds();
-      setLiveCountdownSeconds(next);
-    }, 1000);
-
-    return () => window.clearInterval(id);
-  }, [gameState.currentPhase, gameState.countdownSeconds, gameState.departureDate, gameState.simulatedDaysUntilDeparture]);
 
   // Warn before leaving page while a game is active
   useEffect(() => {
@@ -960,12 +894,6 @@ export const MultiUserApp: React.FC = () => {
                         className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                       />
                     </div>
-                    {countdownLabel && (
-                      <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                        <div className="text-xs uppercase tracking-wide text-emerald-200/80">Time to departure</div>
-                        <div className="text-lg font-semibold text-white">{countdownLabel}</div>
-                      </div>
-                    )}
                   </div>
                   <p className="text-xs text-slate-400">
                     Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.

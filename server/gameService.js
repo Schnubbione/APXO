@@ -13,9 +13,12 @@ export const __setModelsForTesting = ({ Team, GameSession, RoundResult, HighScor
   if (HighScore) HighScoreModel = HighScore;
 };
 
+const SIMULATION_DEFAULT_DAYS = 365;
+const SIMULATION_SECONDS_PER_DAY = 1;
+
 const AGENT_V1_DEFAULTS = Object.freeze({
-  ticksTotal: 12,
-  secondsPerTick: 60,
+  ticksTotal: SIMULATION_DEFAULT_DAYS,
+  secondsPerTick: SIMULATION_SECONDS_PER_DAY,
   demandCurve: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79],
   demandAlpha: 1.1,
   logitBeta: 6.0,
@@ -586,16 +589,13 @@ export class GameService {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
 
-    const ticksTotal = Number.isFinite(Number(currentSettings.simulationTicksTotal))
+    const configuredTicks = Number.isFinite(Number(currentSettings.simulationTicksTotal))
       ? Math.max(1, Math.floor(Number(currentSettings.simulationTicksTotal)))
-      : AGENT_V1_DEFAULTS.ticksTotal;
+      : SIMULATION_DEFAULT_DAYS;
 
-    const secondsPerTick = Number.isFinite(Number(currentSettings.secondsPerTick)) && Number(currentSettings.secondsPerTick) > 0
-      ? Number(currentSettings.secondsPerTick)
-      : AGENT_V1_DEFAULTS.secondsPerTick;
-
-    const simulationHorizon = ticksTotal;
-    const secondsPerDay = secondsPerTick;
+    const simulationHorizon = Math.max(SIMULATION_DEFAULT_DAYS, configuredTicks);
+    const secondsPerDay = SIMULATION_SECONDS_PER_DAY;
+    const secondsPerTick = secondsPerDay;
     const dayStep = 1;
 
     const teams = await this.getActiveTeams();
@@ -999,7 +999,12 @@ export class GameService {
     const demandCurve = Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0
       ? settings.demandCurve
       : AGENT_V1_DEFAULTS.demandCurve;
-    const baseDemandCandidate = Number(demandCurve?.[dayElapsed] ?? settings.baseDemand ?? 100);
+    let curveSample = undefined;
+    if (Array.isArray(demandCurve) && demandCurve.length > 0) {
+      const cappedIndex = Math.min(dayElapsed, demandCurve.length - 1);
+      curveSample = demandCurve[cappedIndex];
+    }
+    const baseDemandCandidate = Number(curveSample ?? settings.baseDemand ?? 100);
     const baseDemand = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate) : 0;
     const volatility = Math.abs(settings.demandVolatility ?? 0.1);
 
