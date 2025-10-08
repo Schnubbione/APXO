@@ -793,7 +793,8 @@ export class GameService {
         const unsold = Math.max(0, demand - sold);
         const budget = Number(settings.perTeamBudget || 0);
         const flaggedEarly = !!st.insolvent;
-        const insolvent = flaggedEarly || ((profit < 0 && Math.abs(profit) > budget) && (session.currentRound || 0) > 0);
+        const insolvent = (profit < 0 && Math.abs(profit) > budget && (session.currentRound || 0) > 0)
+          || (flaggedEarly && profit < 0 && Math.abs(profit) > budget);
         return {
           teamId: team.id,
           sold,
@@ -1064,7 +1065,14 @@ export class GameService {
       curveSample = demandCurve[cappedIndex];
     }
     const baseDemandCandidate = Number(curveSample ?? settings.baseDemand ?? 100);
-    const baseDemand = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate) : 0;
+    const baseDemandRaw = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate) : 0;
+    const committedFixForecast = Math.max(0, Number(settings.airlineCapacityFixedCommitted ?? 0));
+    const passThroughForecast = Math.max(0, Number(settings.airlineCapacityInitial ?? settings.totalAircraftSeats ?? 1000) - committedFixForecast);
+    const totalSeatsForecast = committedFixForecast + passThroughForecast;
+    const cumulativeSalesToDate = Math.max(0, Number(settings.airlineSalesCumulative ?? 0));
+    const remainingCapacityTarget = Math.max(0, totalSeatsForecast - cumulativeSalesToDate);
+    const smoothingDemand = Math.max(0, Math.round(remainingCapacityTarget / Math.max(1, daysRemaining + 1)));
+    const baseDemand = Math.max(0, Math.round((baseDemandRaw + smoothingDemand) / 2));
     const volatility = Math.abs(settings.demandVolatility ?? 0.1);
 
     const rngSeedBase = Number.isFinite(Number(settings.simRngState))
