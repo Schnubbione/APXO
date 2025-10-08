@@ -133,6 +133,28 @@ export const MultiUserApp: React.FC = () => {
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
 
+  useEffect(() => {
+    if (!currentTeam) {
+      setBidPriceInput('');
+      setBidQuantityInput('');
+      return;
+    }
+
+    const nextBidPrice = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0
+      ? String(currentTeam.decisions.fixSeatBidPrice)
+      : '';
+    setBidPriceInput(prev => (prev === nextBidPrice ? prev : nextBidPrice));
+
+    const requested = currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased;
+    const nextQuantity = requested && requested > 0 ? String(requested) : '';
+    setBidQuantityInput(prev => (prev === nextQuantity ? prev : nextQuantity));
+  }, [
+    currentTeam?.id,
+    currentTeam?.decisions.fixSeatBidPrice,
+    currentTeam?.decisions.fixSeatsRequested,
+    currentTeam?.decisions.fixSeatsPurchased
+  ]);
+
   const [priceSliderValue, setPriceSliderValue] = useState<number>(() => (
     typeof currentTeam?.decisions?.price === 'number' ? currentTeam.decisions.price : 0
   ));
@@ -1275,30 +1297,3 @@ function TeamLogoutButton() {
     </Button>
   );
 }
-  useEffect(() => {
-    if (!currentTeam) {
-      setBidPriceInput('');
-      setBidQuantityInput('');
-      return;
-    }
-
-    const nextBidPrice = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0
-      ? String(currentTeam.decisions.fixSeatBidPrice)
-      : '';
-    if (bidPriceInput !== nextBidPrice) {
-      setBidPriceInput(nextBidPrice);
-    }
-
-    const requested = currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased;
-    const nextQuantity = requested && requested > 0 ? String(requested) : '';
-    if (bidQuantityInput !== nextQuantity) {
-      setBidQuantityInput(nextQuantity);
-    }
-  }, [
-    currentTeam?.id,
-    currentTeam?.decisions.fixSeatBidPrice,
-    currentTeam?.decisions.fixSeatsRequested,
-    currentTeam?.decisions.fixSeatsPurchased,
-    bidPriceInput,
-    bidQuantityInput
-  ]);
