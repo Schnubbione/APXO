@@ -16,6 +16,8 @@ export const __setModelsForTesting = ({ Team, GameSession, RoundResult, HighScor
 const SIMULATION_DEFAULT_DAYS = 365;
 const SIMULATION_SECONDS_PER_DAY = 1;
 
+const AGENT_BASE_CAPACITY = 180;
+
 const AGENT_V1_DEFAULTS = Object.freeze({
   ticksTotal: SIMULATION_DEFAULT_DAYS,
   secondsPerTick: SIMULATION_SECONDS_PER_DAY,
@@ -23,6 +25,7 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   demandAlpha: 1.1,
   logitBeta: 6.0,
   referencePrice: 150,
+  baselineCapacity: AGENT_BASE_CAPACITY,
   airline: {
     startPrice: 120,
     minPrice: 80,
@@ -507,6 +510,17 @@ export class GameService {
     const currentSettings = session.settings || {};
     let updatedSettings = { ...currentSettings, ...settings };
 
+    if (Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0) {
+      updatedSettings.originalDemandCurve = settings.demandCurve.map(point => Number(point));
+      updatedSettings.demandCurveCapacity = undefined;
+    }
+    if (settings.baseDemand !== undefined && Number.isFinite(Number(settings.baseDemand))) {
+      updatedSettings.originalBaseDemand = Number(settings.baseDemand);
+    }
+    if (settings.totalAircraftSeats !== undefined && updatedSettings.demandCurveBaselineCapacity === undefined) {
+      updatedSettings.demandCurveBaselineCapacity = AGENT_V1_DEFAULTS.baselineCapacity;
+    }
+
     // If totalAircraftSeats is being updated, adjust related parameters dynamically
     if (settings.totalAircraftSeats !== undefined) {
       const newTotalSeats = settings.totalAircraftSeats;
@@ -606,6 +620,22 @@ export class GameService {
 
     const teams = await this.getActiveTeams();
     const totalSeats = currentSettings.totalAircraftSeats || 1000;
+    const baselineCapacity = Number.isFinite(Number(currentSettings.demandCurveBaselineCapacity))
+      ? Math.max(1, Number(currentSettings.demandCurveBaselineCapacity))
+      : AGENT_V1_DEFAULTS.baselineCapacity;
+    const seatScaleRaw = totalSeats > 0 ? totalSeats / Math.max(1, baselineCapacity) : 1;
+    const seatScale = Number.isFinite(seatScaleRaw) && seatScaleRaw > 0 ? seatScaleRaw : 1;
+    const originalDemandCurve = Array.isArray(currentSettings.originalDemandCurve) && currentSettings.originalDemandCurve.length > 0
+      ? currentSettings.originalDemandCurve
+      : (Array.isArray(currentSettings.demandCurve) && currentSettings.demandCurve.length > 0
+        ? currentSettings.demandCurve
+        : AGENT_V1_DEFAULTS.demandCurve);
+    const scaledDemandCurve = originalDemandCurve.map(point => Math.max(0, Math.round(point * seatScale)));
+    const originalBaseDemand = Number.isFinite(Number(currentSettings.originalBaseDemand))
+      ? Math.max(0, Number(currentSettings.originalBaseDemand))
+      : Math.max(0, Number.isFinite(Number(currentSettings.baseDemand)) ? Number(currentSettings.baseDemand) : 100);
+    const scaledBaseDemand = Math.max(0, Math.round(originalBaseDemand * seatScale));
+
     const perTeamState = {};
     let committedFix = 0;
     for (const t of teams) {
@@ -664,9 +694,12 @@ export class GameService {
       poolingMarketUpdateInterval: secondsPerDay,
       simulatedWeeksPerUpdate: dayStep,
       secondsPerTick,
-      demandCurve: Array.isArray(currentSettings.demandCurve) && currentSettings.demandCurve.length > 0
-        ? currentSettings.demandCurve
-        : AGENT_V1_DEFAULTS.demandCurve,
+      demandCurve: scaledDemandCurve,
+      originalDemandCurve,
+      demandCurveCapacity: totalSeats,
+      demandCurveBaselineCapacity: baselineCapacity,
+      baseDemand: scaledBaseDemand,
+      originalBaseDemand,
       priceAlpha: currentSettings.priceAlpha ?? AGENT_V1_DEFAULTS.demandAlpha,
       priceBeta: currentSettings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta,
       referencePrice: currentSettings.referencePrice ?? AGENT_V1_DEFAULTS.referencePrice,

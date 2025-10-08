@@ -929,7 +929,7 @@ export const MultiUserApp: React.FC = () => {
                       type="number"
                       min={1}
                       value={bidPriceInput}
-                      placeholder={`${gameState.fixSeatPrice}`}
+                      placeholder=""
                       onChange={(e) => {
                         const value = e.target.value;
                         setBidPriceInput(value);
