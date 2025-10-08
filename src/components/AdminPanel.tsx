@@ -75,6 +75,7 @@ interface AdminPanelProps {
   gameState: any; // kept for compatibility; may be used by callers
   roundHistory: any[];
   leaderboard: any[];
+  roundResults: any[] | null;
   onGetAnalytics?: () => void;
   onResetAllData?: () => void;
   onResetCurrentGame?: () => void;
@@ -100,7 +101,7 @@ export default function AdminPanel({
   hotelBedCost, setHotelBedCost,
   perTeamBudget, setPerTeamBudget,
   isAdmin, showAdminPanel, setShowAdminPanel,
-  gameState: _gameState, roundHistory, leaderboard, onGetAnalytics,
+  gameState: _gameState, roundHistory, leaderboard, roundResults, onGetAnalytics,
   onResetAllData, onResetCurrentGame
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
@@ -134,6 +135,36 @@ export default function AdminPanel({
     marketShare: team.marketShare || 0,
     capacity: team.capacity || 0
   }));
+
+  const perTeamState: Record<string, any> = _gameState?.simState?.perTeam ?? {};
+  const latestRoundResults = Array.isArray(roundResults) && roundResults.length > 0 ? roundResults : null;
+  const latestResultsMap = new Map<string, any>(latestRoundResults?.map(result => [result.teamId, result]) ?? []);
+  const teamNameMap = new Map<string, string>((_gameState?.teams ?? []).map((team: any) => [team.id, team.name]));
+
+  const numberFormatter = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+  const currencyFormatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const liveTeams = (_gameState?.teams ?? []).map((team: any) => {
+    const sim = perTeamState[team.id] || {};
+    const finalResult = latestResultsMap.get(team.id);
+    const price = typeof team.decisions?.price === 'number' ? team.decisions.price : null;
+    const sold = Math.max(0, Math.round(sim.sold ?? finalResult?.sold ?? 0));
+    const revenue = Math.round(sim.revenue ?? finalResult?.revenue ?? Number(team.totalRevenue ?? 0));
+    const fixAllocated = Math.max(0, Math.round(team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0));
+    const fixRemaining = Math.max(0, Math.round(sim.fixRemaining ?? (fixAllocated - sold)));
+    const poolRemaining = Math.max(0, Math.round(sim.poolRemaining ?? 0));
+    const totalRemaining = Math.max(0, fixRemaining + poolRemaining);
+    return {
+      id: team.id,
+      name: team.name,
+      price,
+      sold,
+      revenue,
+      fixRemaining,
+      poolRemaining,
+      totalRemaining
+    };
+  });
 
   return (
     <div className="fixed inset-0 sm:inset-auto sm:top-4 sm:right-4 z-50 flex items-center justify-center sm:items-start sm:justify-end p-4">
@@ -177,6 +208,46 @@ export default function AdminPanel({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsContent value="settings" className="mt-0">
             <CardContent className="space-y-5 p-6">
+              <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                <div className="text-slate-200 text-sm font-semibold mb-2">Live Team Monitor</div>
+                {liveTeams.length === 0 ? (
+                  <div className="text-xs text-slate-400">
+                    No teams registered yet. As soon as teams join, their price, seat balance, and revenue will appear here.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {liveTeams.map(team => (
+                      <div key={team.id} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
+                        <div className="flex items-center justify-between text-sm text-slate-200">
+                          <span className="font-semibold text-white">{team.name}</span>
+                          <span className="text-xs text-slate-400">
+                            {team.price !== null ? `Price €${currencyFormatter.format(team.price)}` : 'Price —'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
+                          <div>
+                            <span className="block text-slate-500 uppercase tracking-wide">Sold</span>
+                            <span className="font-mono text-sm text-white">{numberFormatter.format(team.sold)}</span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
+                            <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(team.revenue)}</span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-500 uppercase tracking-wide">Fix Remaining</span>
+                            <span className="font-mono text-sm text-white">{numberFormatter.format(team.fixRemaining)}</span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-500 uppercase tracking-wide">Total Remaining</span>
+                            <span className={`font-mono text-sm ${team.totalRemaining > 0 ? 'text-white' : 'text-amber-300'}`}>{numberFormatter.format(team.totalRemaining)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-slate-200 text-sm font-semibold mb-2">Agent v1 Simulation Snapshot (Practice Mode)</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
@@ -708,6 +779,46 @@ export default function AdminPanel({
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {latestRoundResults && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Latest Round Results
+                    </h3>
+                    <div className="space-y-2">
+                      {latestRoundResults.map(result => {
+                        const teamName = teamNameMap.get(result.teamId) || result.teamId;
+                        return (
+                          <div key={result.teamId} className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                            <div className="flex items-center justify-between text-sm text-slate-200">
+                              <span className="font-semibold text-white">{teamName}</span>
+                              <span className="text-xs text-slate-400">Sold {numberFormatter.format(result.sold)}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
+                              <div>
+                                <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
+                                <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Number(result.revenue ?? 0))}</span>
+                              </div>
+                              <div>
+                                <span className="block text-slate-500 uppercase tracking-wide">Profit</span>
+                                <span className={`font-mono text-sm ${Number(result.profit ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>€{currencyFormatter.format(Number(result.profit ?? 0))}</span>
+                              </div>
+                              <div>
+                                <span className="block text-slate-500 uppercase tracking-wide">Unsold Demand</span>
+                                <span className="font-mono text-sm text-white">{numberFormatter.format(Number(result.unsold ?? 0))}</span>
+                              </div>
+                              <div>
+                                <span className="block text-slate-500 uppercase tracking-wide">Market Share</span>
+                                <span className="font-mono text-sm text-white">{(Number(result.marketShare ?? 0) * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

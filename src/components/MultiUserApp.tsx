@@ -405,6 +405,7 @@ export const MultiUserApp: React.FC = () => {
           gameState={gameState}
           roundHistory={roundHistory}
           leaderboard={leaderboard || []}
+          roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
           onResetCurrentGame={resetCurrentGame}
@@ -682,6 +683,7 @@ export const MultiUserApp: React.FC = () => {
           gameState={gameState}
           roundHistory={roundHistory}
           leaderboard={leaderboard || []}
+          roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
           onResetCurrentGame={resetCurrentGame}
