@@ -623,18 +623,23 @@ export class GameService {
     const baselineCapacity = Number.isFinite(Number(currentSettings.demandCurveBaselineCapacity))
       ? Math.max(1, Number(currentSettings.demandCurveBaselineCapacity))
       : AGENT_V1_DEFAULTS.baselineCapacity;
-    const seatScaleRaw = totalSeats > 0 ? totalSeats / Math.max(1, baselineCapacity) : 1;
-    const seatScale = Number.isFinite(seatScaleRaw) && seatScaleRaw > 0 ? seatScaleRaw : 1;
     const originalDemandCurve = Array.isArray(currentSettings.originalDemandCurve) && currentSettings.originalDemandCurve.length > 0
       ? currentSettings.originalDemandCurve
       : (Array.isArray(currentSettings.demandCurve) && currentSettings.demandCurve.length > 0
         ? currentSettings.demandCurve
         : AGENT_V1_DEFAULTS.demandCurve);
-    const scaledDemandCurve = originalDemandCurve.map(point => Math.max(0, Math.round(point * seatScale)));
+    const sanitizedCurve = originalDemandCurve.map(point => Math.max(0, Number(point) || 0));
+    const baselineCurveSum = sanitizedCurve.reduce((sum, value) => sum + value, 0) || 1;
+    const seatScaleRaw = totalSeats > 0 ? totalSeats / baselineCurveSum : 1;
+    const seatScale = Number.isFinite(seatScaleRaw) && seatScaleRaw > 0 ? seatScaleRaw : 1;
+    const scaledDemandCurve = sanitizedCurve.map(point => Math.max(0, Math.round(point * seatScale)));
+    const scaledDemandTotal = scaledDemandCurve.reduce((sum, value) => sum + value, 0);
     const originalBaseDemand = Number.isFinite(Number(currentSettings.originalBaseDemand))
       ? Math.max(0, Number(currentSettings.originalBaseDemand))
       : Math.max(0, Number.isFinite(Number(currentSettings.baseDemand)) ? Number(currentSettings.baseDemand) : 100);
-    const scaledBaseDemand = Math.max(0, Math.round(originalBaseDemand * seatScale));
+    const scaledBaseDemand = scaledDemandCurve.length > 0
+      ? Math.max(1, Math.round(scaledDemandTotal / scaledDemandCurve.length))
+      : Math.max(1, Math.round(originalBaseDemand * seatScale));
 
     const perTeamState = {};
     let committedFix = 0;
