@@ -714,7 +714,7 @@ export class GameService {
       airlineCapacityRemaining: airlinePassThroughCapacity,
       airlineSalesCumulative: Number.isFinite(Number(currentSettings.airlineSalesCumulative))
         ? Number(currentSettings.airlineSalesCumulative)
-        : committedFix,
+        : 0,
       simRngSeed: rngSeed >>> 0,
       simRngState: (rngSeed >>> 0),
       poolingCost: initialAirlinePrice
@@ -1036,7 +1036,7 @@ export class GameService {
     const totalSeatsSetting = settings.totalAircraftSeats || 1000;
 
     const perTeam = simState.perTeam || {};
-    const aliveTeams = teams.filter(t => !(perTeam?.[t.id]?.insolvent));
+    const aliveTeams = teams;
 
     const horizon = Number.isFinite(Number(settings.simulationHorizon))
       ? Math.max(1, Math.floor(Number(settings.simulationHorizon)))
@@ -1048,6 +1048,7 @@ export class GameService {
       : 1;
     const nextDays = Math.max(0, daysRemaining - dayStep);
     const dayElapsed = Math.max(0, Math.min(horizon - 1, horizon - nextDays));
+    const progress = horizon > 0 ? (horizon - nextDays) / horizon : 0;
 
     const demandCurve = Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0
       ? settings.demandCurve
@@ -1132,7 +1133,8 @@ export class GameService {
         return a.team.name.localeCompare(b.team.name);
       });
 
-    const passThroughInitial = Math.max(0, Number(settings.airlineCapacityInitial ?? settings.totalAircraftSeats ?? 1000) - Number(settings.airlineCapacityFixedCommitted ?? 0));
+    const committedFix = Math.max(0, Number(settings.airlineCapacityFixedCommitted ?? 0));
+    const passThroughInitial = Math.max(0, Number(settings.airlineCapacityInitial ?? settings.totalAircraftSeats ?? 1000) - committedFix);
     const airlineRemaining = Math.max(0, Number(settings.airlineCapacityRemaining ?? passThroughInitial));
     let availablePassThrough = airlineRemaining;
 
@@ -1142,6 +1144,7 @@ export class GameService {
 
     const newPerTeam = { ...perTeam };
     let totalPoolSold = 0;
+    let totalFixSold = 0;
     let totalUnsatisfied = 0;
 
     for (const { team, idx } of rankedTeams) {
@@ -1164,6 +1167,8 @@ export class GameService {
       const sellFix = Math.min(demandForTeam, fixRemaining);
       let remainingDemand = demandForTeam - sellFix;
 
+      totalFixSold += sellFix;
+
       const poolSold = Math.min(remainingDemand, Math.max(0, availablePassThrough));
       availablePassThrough -= poolSold;
       totalPoolSold += poolSold;
@@ -1180,6 +1185,7 @@ export class GameService {
       const accumulatedSold = Math.max(0, (state.sold || 0) + sellFix + poolSold);
       const accumulatedPool = Math.max(0, (state.poolUsed || 0) + poolSold);
       const initialPool = Math.max(state.initialPool || 0, accumulatedPool);
+      const accumulatedFixSold = Math.max(0, (state.fixSold || 0) + sellFix);
 
       newPerTeam[id] = {
         ...state,
@@ -1190,6 +1196,7 @@ export class GameService {
         demand: accumulatedDemand,
         initialFix: state.initialFix ?? Math.max(0, team.decisions?.fixSeatsAllocated || 0),
         initialPool,
+        fixSold: accumulatedFixSold,
         revenue: newRevenue,
         cost: newCost,
         insolvent: !!state.insolvent
@@ -1204,27 +1211,25 @@ export class GameService {
         ? team.decisions.hotelCapacity
         : (typeof settings.hotelCapacityPerTeam === 'number' ? settings.hotelCapacityPerTeam : 0);
       const potentialHotelEmpty = Math.max(0, assignedBeds - (st.sold || 0));
-      const hotelEmptyCost = potentialHotelEmpty * (settings.hotelBedCost || 50);
-      const totalCostSoFar = (st.cost || 0) + hotelEmptyCost;
-      const profitSoFar = (st.revenue || 0) - totalCostSoFar;
-      if (profitSoFar < 0 && Math.abs(profitSoFar) > budget) {
+      const hotelPenaltyForecast = potentialHotelEmpty * (settings.hotelBedCost || 50);
+      const profitForecast = (st.revenue || 0) - ((st.cost || 0) + hotelPenaltyForecast);
+      if (profitForecast < 0 && Math.abs(profitForecast) > budget) {
         newPerTeam[team.id].insolvent = true;
       }
     }
 
     const totalPassThroughCapacity = passThroughInitial;
-    const soldThisTick = totalPoolSold;
+    const totalSeatsOverall = committedFix + totalPassThroughCapacity;
+    const soldThisTick = totalPoolSold + totalFixSold;
     const newAirlineRemaining = Math.max(0, availablePassThrough);
 
     const forecastCurve = Array.isArray(settings.airlineForecastCurve) ? settings.airlineForecastCurve : null;
     let forecastTarget = Number(forecastCurve?.[dayElapsed] ?? NaN);
     if (!Number.isFinite(forecastTarget)) {
-      const committedFix = Number(settings.airlineCapacityFixedCommitted ?? 0);
-      const progress = horizon > 0 ? (horizon - daysRemaining) / horizon : 0;
-      forecastTarget = committedFix + totalPassThroughCapacity * progress;
+      forecastTarget = totalSeatsOverall * progress;
     }
 
-    const cumulativeBefore = Number(settings.airlineSalesCumulative ?? Number(settings.airlineCapacityFixedCommitted ?? 0));
+    const cumulativeBefore = Number(settings.airlineSalesCumulative ?? 0);
     const newCumulative = cumulativeBefore + soldThisTick;
     const delta = newCumulative - forecastTarget;
 
