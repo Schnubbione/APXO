@@ -32,9 +32,9 @@ const aiDecision = (teamId: string, progress: number, runtimePrice: number): Dec
 });
 
 export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
-  const [initialPrice, setInitialPrice] = useState(199);
-  const [bidPrice, setBidPrice] = useState(150);
-  const [bidQuantity, setBidQuantity] = useState(60);
+  const [initialPrice, setInitialPrice] = useState('');
+  const [bidPrice, setBidPrice] = useState('');
+  const [bidQuantity, setBidQuantity] = useState('');
   const [summary, setSummary] = useState<PracticeSummary | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -46,13 +46,30 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
     })),
   }), [humanTeamName]);
 
+  const parsePositiveNumber = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
   const startSimulation = () => {
+    const parsedInitialPrice = parsePositiveNumber(initialPrice);
+    const parsedBidPrice = parsePositiveNumber(bidPrice);
+    const parsedBidQuantity = parsePositiveNumber(bidQuantity);
+
+    if (parsedInitialPrice === null || parsedBidPrice === null || parsedBidQuantity === null) {
+      return;
+    }
+
+    const bidQuantityInt = Math.max(1, Math.floor(parsedBidQuantity));
     setRunning(true);
     const bids: AuctionBid[] = [
       {
         teamId: config.teams[0].id,
-        bid_price_per_seat: Math.max(50, bidPrice),
-        bid_quantity: Math.max(1, Math.floor(bidQuantity)),
+        bid_price_per_seat: Math.max(50, parsedBidPrice),
+        bid_quantity: bidQuantityInt,
       },
       aiBid(config.teams[1].id, 148),
       aiBid(config.teams[2].id, 142),
@@ -67,7 +84,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
       const decisions: Decision[] = [
         {
           teamId: config.teams[0].id,
-          price: Math.max(99, Math.round(initialPrice * (1 - 0.15 * progress))),
+          price: Math.max(99, Math.round(parsedInitialPrice * (1 - 0.15 * progress))),
           push_level: 0,
           fix_hold_pct: 0,
           tool: 'none',
@@ -83,6 +100,11 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
     setSummary({ report, auction });
     setRunning(false);
   };
+
+  const canStartSimulation = !running
+    && parsePositiveNumber(initialPrice) !== null
+    && parsePositiveNumber(bidPrice) !== null
+    && parsePositiveNumber(bidQuantity) !== null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -102,7 +124,8 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                   <Input
                     type="number"
                     value={initialPrice}
-                    onChange={(event) => setInitialPrice(Number(event.target.value) || 0)}
+                    placeholder="199"
+                    onChange={(event) => setInitialPrice(event.target.value)}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
                 </div>
@@ -111,7 +134,8 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                   <Input
                     type="number"
                     value={bidPrice}
-                    onChange={(event) => setBidPrice(Number(event.target.value) || 0)}
+                    placeholder="150"
+                    onChange={(event) => setBidPrice(event.target.value)}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
                 </div>
@@ -120,13 +144,14 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                   <Input
                     type="number"
                     value={bidQuantity}
-                    onChange={(event) => setBidQuantity(Number(event.target.value) || 0)}
+                    placeholder="60"
+                    onChange={(event) => setBidQuantity(event.target.value)}
                     className="bg-slate-800 border-slate-700 text-white"
                   />
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button onClick={startSimulation} disabled={running} className="bg-indigo-500 hover:bg-indigo-600">
+                <Button onClick={startSimulation} disabled={!canStartSimulation} className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50">
                   {running ? 'Running…' : 'Start Simulation'}
                 </Button>
                 <Button variant="outline" onClick={onClose} className="border-slate-600 text-slate-200">

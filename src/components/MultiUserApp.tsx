@@ -78,6 +78,8 @@ export const MultiUserApp: React.FC = () => {
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
   const [tempPrice, setTempPrice] = useState(199);
+  const [bidPriceInput, setBidPriceInput] = useState('');
+  const [bidQuantityInput, setBidQuantityInput] = useState('');
   // Practice Overlay removed: practice runs integrated via context
   const { toast } = useToast();
   const allocationToastRef = React.useRef<string | null>(null);
@@ -170,6 +172,22 @@ export const MultiUserApp: React.FC = () => {
   const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
   const poolingPrice = Math.round(gameState.poolingMarket?.currentPrice ?? 0);
   const daysToDeparture = Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
+  const remainingFixSeats = Math.max(
+    0,
+    mySimState?.fixRemaining
+      ?? currentTeam?.decisions?.fixSeatsAllocated
+      ?? currentTeam?.decisions?.fixSeatsPurchased
+      ?? 0
+  );
+  const fixedSeatClearingPrice = (() => {
+    if (myAllocation?.clearingPrice) return myAllocation.clearingPrice;
+    const decisionPrice = currentTeam?.decisions?.fixSeatClearingPrice;
+    if (typeof decisionPrice === 'number' && decisionPrice > 0) return decisionPrice;
+    if (allocationSummary && myAllocation) {
+      return myAllocation.clearingPrice ?? gameState.fixSeatPrice;
+    }
+    return gameState.fixSeatPrice;
+  })();
 
   // Play sound effects for game events
   useEffect(() => {
@@ -774,7 +792,7 @@ export const MultiUserApp: React.FC = () => {
               </CardContent>
             </Card>
           )}
-          {allocationSummary && sortedAllocations.length > 0 && (
+          {allocationSummary && sortedAllocations.length > 0 && gameState.currentPhase === 'prePurchase' && (
             <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="fixseat-allocation">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
@@ -843,6 +861,32 @@ export const MultiUserApp: React.FC = () => {
               </CardContent>
             </Card>
           )}
+          {gameState.currentPhase === 'simulation' && (
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl text-white">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <Award className="w-5 h-5 text-green-400" />
+                  </div>
+                  Fixed Seats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
+                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Remaining fixed seats</div>
+                  <div className="text-2xl font-semibold text-white tabular-nums">{remainingFixSeats}</div>
+                  <div className="text-xs text-slate-500 mt-1">Carry-over from the sealed auction</div>
+                </div>
+                <div className="p-4 rounded-xl border border-green-500/40 bg-green-500/10">
+                  <div className="text-xs uppercase tracking-wide text-green-200/80">Purchased at</div>
+                  <div className="text-2xl font-semibold text-white tabular-nums">
+                    {typeof fixedSeatClearingPrice === 'number' && fixedSeatClearingPrice > 0 ? `€${fixedSeatClearingPrice.toFixed(0)}` : '—'}
+                  </div>
+                  <div className="text-xs text-green-100/80 mt-1">Clearing price from Phase 1</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
@@ -862,11 +906,18 @@ export const MultiUserApp: React.FC = () => {
                     <Input
                       type="number"
                       min={1}
-                      value={currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : ""}
+                      value={bidPriceInput}
                       placeholder={`${gameState.fixSeatPrice}`}
                       onChange={(e) => {
                         const value = e.target.value;
-                        const numValue = value === "" ? 0 : Math.max(1, Math.round(Number(value)));
+                        setBidPriceInput(value);
+                        if (value === '') {
+                          updateTeamDecision({ fixSeatBidPrice: 0 });
+                          return;
+                        }
+                        const parsed = Number(value);
+                        if (!Number.isFinite(parsed)) return;
+                        const numValue = Math.max(1, Math.round(parsed));
                         updateTeamDecision({ fixSeatBidPrice: numValue });
                       }}
                       disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
@@ -886,16 +937,23 @@ export const MultiUserApp: React.FC = () => {
                         const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
                         return Math.max(0, Math.min(capSeats, capByBudget));
                       })()}
-                      value={currentTeam.decisions.fixSeatsRequested === 0 ? "" : (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? "")}
+                      value={bidQuantityInput}
                       placeholder="0"
                       onChange={(e) => {
                         const value = e.target.value;
+                        setBidQuantityInput(value);
+                        if (value === '') {
+                          updateTeamDecision({ fixSeatsPurchased: 0 });
+                          return;
+                        }
+                        const parsed = Number(value);
+                        if (!Number.isFinite(parsed)) return;
                         const capSeats = gameState.totalFixSeats || 500;
                         const budget = (gameState as any).perTeamBudget || 0;
                         const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
                         const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
                         const cap = Math.max(0, Math.min(capSeats, capByBudget));
-                        const numValue = value === "" ? 0 : Math.max(0, Math.min(cap, Number(value)));
+                        const numValue = Math.max(0, Math.min(cap, parsed));
                         updateTeamDecision({ fixSeatsPurchased: numValue });
                       }}
                       disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
@@ -1217,3 +1275,30 @@ function TeamLogoutButton() {
     </Button>
   );
 }
+  useEffect(() => {
+    if (!currentTeam) {
+      setBidPriceInput('');
+      setBidQuantityInput('');
+      return;
+    }
+
+    const nextBidPrice = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0
+      ? String(currentTeam.decisions.fixSeatBidPrice)
+      : '';
+    if (bidPriceInput !== nextBidPrice) {
+      setBidPriceInput(nextBidPrice);
+    }
+
+    const requested = currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased;
+    const nextQuantity = requested && requested > 0 ? String(requested) : '';
+    if (bidQuantityInput !== nextQuantity) {
+      setBidQuantityInput(nextQuantity);
+    }
+  }, [
+    currentTeam?.id,
+    currentTeam?.decisions.fixSeatBidPrice,
+    currentTeam?.decisions.fixSeatsRequested,
+    currentTeam?.decisions.fixSeatsPurchased,
+    bidPriceInput,
+    bidQuantityInput
+  ]);
