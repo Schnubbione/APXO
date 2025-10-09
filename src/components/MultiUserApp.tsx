@@ -171,15 +171,20 @@ export const MultiUserApp: React.FC = () => {
 
   const priceHistoryData = React.useMemo(() => {
     const history = gameState.poolingMarket?.priceHistory ?? [];
+    const horizon = Math.max(0, Number(gameState.simulationHorizon ?? 0));
+    const totalPoints = history.length;
     return history.slice(-40).map((entry, index) => {
-      const timestamp = entry.timestamp ? new Date(entry.timestamp) : null;
+      const remainingDays = horizon > 0
+        ? Math.max(0, Math.round(horizon - ((totalPoints - index - 1))))
+        : Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
+      const label = `${remainingDays} dBD`;
       return {
         index,
-        label: timestamp ? timestamp.toLocaleTimeString('de-DE', { minute: '2-digit', second: '2-digit' }) : `T${index + 1}`,
+        label,
         price: entry.price
       };
     });
-  }, [gameState.poolingMarket?.priceHistory]);
+  }, [gameState.poolingMarket?.priceHistory, gameState.simulationHorizon, gameState.simulatedDaysUntilDeparture]);
 
   useEffect(() => {
     return () => {
