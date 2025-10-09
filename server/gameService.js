@@ -637,9 +637,7 @@ export class GameService {
     const originalBaseDemand = Number.isFinite(Number(currentSettings.originalBaseDemand))
       ? Math.max(0, Number(currentSettings.originalBaseDemand))
       : Math.max(0, Number.isFinite(Number(currentSettings.baseDemand)) ? Number(currentSettings.baseDemand) : 100);
-    const scaledBaseDemand = scaledDemandCurve.length > 0
-      ? Math.max(1, Math.round(scaledDemandTotal / scaledDemandCurve.length))
-      : Math.max(1, Math.round(originalBaseDemand * seatScale));
+    const scaledBaseDemand = Math.max(1, Math.round(scaledDemandTotal / Math.max(1, simulationHorizon)));
 
     const perTeamState = {};
     let committedFix = 0;
@@ -1064,8 +1062,16 @@ export class GameService {
       const cappedIndex = Math.min(dayElapsed, demandCurve.length - 1);
       curveSample = demandCurve[cappedIndex];
     }
-    const baseDemandCandidate = Number(curveSample ?? settings.baseDemand ?? 100);
-    const baseDemandRaw = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate) : 0;
+    const periods = Math.max(1, demandCurve.length || 1);
+    const periodLength = Math.max(1, Math.round(horizon / periods));
+    let baseDemandRaw = 0;
+    if (curveSample !== undefined) {
+      const baseDemandCandidate = Number(curveSample);
+      baseDemandRaw = Number.isFinite(baseDemandCandidate) ? Math.max(0, baseDemandCandidate / periodLength) : 0;
+    } else {
+      const fallback = Number(settings.baseDemand ?? 0);
+      baseDemandRaw = Number.isFinite(fallback) ? Math.max(0, fallback) : 0;
+    }
     const committedFixForecast = Math.max(0, Number(settings.airlineCapacityFixedCommitted ?? 0));
     const passThroughForecast = Math.max(0, Number(settings.airlineCapacityInitial ?? settings.totalAircraftSeats ?? 1000) - committedFixForecast);
     const totalSeatsForecast = committedFixForecast + passThroughForecast;

@@ -6,7 +6,6 @@ import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
 import Tutorial from './Tutorial';
 import TutorialTour from './TutorialTour';
-import StreakCounter from './StreakCounter';
 import MotivationalMessages from './MotivationalMessages';
 import LiveCompetition from './LiveCompetition';
 import SoundEffects from './SoundEffects';
@@ -1216,12 +1215,6 @@ export const MultiUserApp: React.FC = () => {
             currentTeam={currentTeam}
             roundResults={roundResults || []}
             leaderboard={leaderboard || []}
-          />
-
-          {/* Streak Counter */}
-          <StreakCounter
-            currentTeam={currentTeam}
-            roundResults={roundResults || []}
           />
 
           {/* Sound Effects */}
