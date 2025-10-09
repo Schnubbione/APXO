@@ -150,6 +150,7 @@ export default function AdminPanel({
     const price = typeof team.decisions?.price === 'number' ? team.decisions.price : null;
     const sold = Math.max(0, Math.round(sim.sold ?? finalResult?.sold ?? 0));
     const revenue = Math.round(sim.revenue ?? finalResult?.revenue ?? Number(team.totalRevenue ?? 0));
+    const teamProfit = Math.round(sim.profit ?? finalResult?.profit ?? 0);
     const fixAllocated = Math.max(0, Math.round(team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0));
     const fixRemaining = Math.max(0, Math.round(sim.fixRemaining ?? (fixAllocated - sold)));
     const poolRemaining = Math.max(0, Math.round(sim.poolRemaining ?? 0));
@@ -160,10 +161,24 @@ export default function AdminPanel({
       price,
       sold,
       revenue,
+      profit: teamProfit,
       fixRemaining,
       poolRemaining,
       totalRemaining
     };
+  });
+
+  const revenueValues = liveTeams.map(team => team.revenue);
+  const maxRevenue = revenueValues.length > 0 ? Math.max(...revenueValues) : 0;
+  const minRevenue = revenueValues.length > 0 ? Math.min(...revenueValues) : 0;
+  const revenueRange = Math.max(1, maxRevenue - minRevenue);
+
+  const liveTeamsWithScore = liveTeams.map(team => {
+    const normalized = maxRevenue === minRevenue
+      ? (team.revenue > 0 ? 10 : 0)
+      : ((team.revenue - minRevenue) / revenueRange) * 10;
+    const points = Number(normalized.toFixed(2));
+    return { ...team, points };
   });
 
   return (
@@ -210,13 +225,13 @@ export default function AdminPanel({
             <CardContent className="space-y-5 p-6">
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-slate-200 text-sm font-semibold mb-2">Live Team Monitor</div>
-                {liveTeams.length === 0 ? (
+                {liveTeamsWithScore.length === 0 ? (
                   <div className="text-xs text-slate-400">
                     No teams registered yet. As soon as teams join, their price, seat balance, and revenue will appear here.
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {liveTeams.map(team => (
+                    {liveTeamsWithScore.map(team => (
                       <div key={team.id} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
                         <div className="flex items-center justify-between text-sm text-slate-200">
                           <span className="font-semibold text-white">{team.name}</span>
@@ -232,6 +247,10 @@ export default function AdminPanel({
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
                             <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(team.revenue)}</span>
+                          </div>
+                          <div>
+                            <span className="block text-slate-500 uppercase tracking-wide">Points</span>
+                            <span className="font-mono text-sm text-indigo-300">{team.points.toFixed(2)} / 10</span>
                           </div>
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Fix Remaining</span>
