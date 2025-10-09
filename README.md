@@ -1,6 +1,6 @@
 # APXO - Touristic Procurement & Demand Simulation
 
-APXO is a real-time, two-phase simulation for procurement and demand in tourism. Teams first compete in a sealed fixed-seat auction (Phase 1) and then operate in a compressed live market with logit demand, airline repricing, and hotel capacity costs (Phase 2).
+APXO is a real-time, two-phase simulation for procurement and demand in tourism. Teams first compete in a sealed fixed-seat auction (Phase 1) and then operate in a compressed live market with logit demand and dynamic airline repricing (Phase 2).
 
 ---
 
@@ -10,7 +10,6 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
-- **Hotel Capacity & Penalty** - Each team gets the same hotel allotment; empty beds cost 50 EUR per night.
 - **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
 - **CI-Ready Tooling** - Jest/Vitest, Playwright, ESLint. Engine-specific tests safeguard the core domain.
 
@@ -116,7 +115,6 @@ Covered scenarios:
 - Single sealed bid per team (`bid_price_per_seat`, `bid_quantity`, optional `budget_cap`).
 - Sorted in descending price until the airline capacity is exhausted.
 - Pay-as-bid: the paid price matches the bid price.
-- Hotel capacity is evenly distributed afterwards (`hotel.capacity_per_team`).
 
 ### Phase 2 - Live Market (continuous countdown)
 
@@ -130,7 +128,7 @@ Covered scenarios:
 
 ### Scoreboard & KPIs
 
-Per update: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, hotel penalty, load factor, average sell/buy prices.
+Per update: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, load factor, average sell/buy prices.
 
 ---
 
@@ -141,7 +139,7 @@ Per update: airline price, remaining capacity, team sales (fixed/pooling), margi
 1. Open the browser and register the team.
 2. Phase 1: submit the bid and wait for the auction result.
 3. Phase 2: throughout the countdown choose price, push level, fixed hold %, and optional tool when needed.
-4. Monitor live snapshots and debriefs, keep an eye on hotel penalties.
+4. Monitor live snapshots and debriefs to stay ahead of rivals.
 5. Use practice mode to explore strategies without a live session.
 
 ### Admins

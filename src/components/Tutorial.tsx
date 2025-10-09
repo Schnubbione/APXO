@@ -13,7 +13,6 @@ interface TutorialProps {
 export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
   const { gameState } = useGame();
   const fixPrice = typeof gameState.fixSeatPrice === 'number' ? gameState.fixSeatPrice : 60;
-  const bedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
   const agentConfig = defaultConfig;
   const tickCount = agentConfig.ticks_total;
   const secondsPerTick = agentConfig.seconds_per_tick;
@@ -61,7 +60,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <div className="space-y-3 text-slate-300">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-green-400">Phase 1: Fixed-Seat Auction (Pay-as-Bid)</div>
-                  <div className="text-sm">Submit a sealed bid with a <strong>maximum price per seat</strong> and a <strong>desired quantity</strong>. The airline fills demand from the highest bids downward, subject to each team&apos;s optional budget cap. Competing bids and remaining capacity stay hidden, so forecasting risk matters. Once the auction clears every team receives the same hotel allotment and each empty bed later costs €{bedCost}.</div>
+                  <div className="text-sm">Submit a sealed bid with a <strong>maximum price per seat</strong> and a <strong>desired quantity</strong>. The airline fills demand from the highest bids downward, subject to each team&apos;s optional budget cap. Competing bids and remaining capacity stay hidden, so forecasting risk matters.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="font-semibold text-blue-400">Phase 2: Live Market (countdown to departure)</div>
@@ -82,14 +81,14 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ol className="list-decimal list-inside space-y-2 text-slate-300">
                 <li><strong>Enter your sealed bid.</strong> Choose quantity and maximum seat price, then wait for the auction to clear.</li>
-                <li><strong>Review the allocation.</strong> Note awarded seats, average cost, and the hotel allotment before picking an opening price.</li>
+                <li><strong>Review the allocation.</strong> Note awarded seats and average cost before picking an opening price.</li>
                 <li><strong>Steer the countdown.</strong> As the timer runs, adjust price, optional push level, fixed-seat hold %, and tools; pooling seats are purchased automatically only when a sale occurs.</li>
                 <li><strong>Read the live briefings.</strong> Snapshots highlight airline price, remaining capacity, demand hints, and standings; debriefs break down fixed versus pooling sales and margins.</li>
                 <li><strong>Inspect the final report.</strong> Victory demands the highest profit <em>and</em> an average sell price that meets or beats your average buy price.</li>
               </ol>
               <div className="space-y-3">
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-sm text-slate-400">💡 <strong>Pro tip:</strong> Fixed seats only pay off when you can resell them profitably – they cost at least €{fixPrice} up front plus potential hotel penalties.</div>
+                <div className="text-sm text-slate-400">💡 <strong>Pro tip:</strong> Fixed seats only pay off when you can resell them profitably – they cost at least €{fixPrice} up front and tie up capital.</div>
                 </div>
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-sm text-slate-400">📊 <strong>Strategy:</strong> Push levels boost attention but reduce budget headroom; reserve cash for the key countdown windows and tool activations.</div>
@@ -118,7 +117,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-orange-400 font-semibold mb-2">⚠️ Too many fixed seats</div>
-                <div className="text-sm text-slate-300">High fixed costs if demand is low; watch hotel empty-bed costs when capacity goes unused</div>
+                <div className="text-sm text-slate-300">High fixed costs if demand is low; keep an eye on the mix between fixed seats and pooling exposure</div>
               </div>
               <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-green-400 font-semibold mb-2">✅ Optimal balance</div>
@@ -128,7 +127,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             <div className="mt-4 p-3 bg-slate-700/20 rounded-lg border border-slate-600/30">
               <div className="text-sm text-slate-400">
                 <strong>Advanced:</strong> Demand follows a logit curve (α={agentConfig.market.alpha}, β={agentConfig.market.beta}) centred on the reference price €{agentConfig.market.P_ref}. Airline repricing applies forecast feedback (`γ={agentConfig.airline.gamma}`, `κ={agentConfig.airline.kappa}`), so track cumulative sales against the booking curve.
-                Pooling purchases are charged immediately at the current airline price, while empty beds still cost €{bedCost}. Selling beyond the hotel allotment remains profitable because only seat costs are deducted.
+                Pooling purchases are charged immediately at the current airline price. Selling beyond the fixed allotment remains profitable when your retail price stays above pooling costs.
                 <span className="text-indigo-300">Plan push levels and tools ahead of time – their costs, cooldowns, and attention boosts determine how visible you are at each update of the countdown.</span>
                 <span className="text-orange-400 font-semibold"> Phase 1 is a blind auction: solid forecasts and risk buffers are the difference between victory and overcommitting.</span>
               </div>

@@ -14,7 +14,6 @@ interface Team {
     fixSeatBidPrice?: number | null;
     fixSeatsRequested?: number;
     fixSeatClearingPrice?: number | null;
-    hotelCapacity?: number;
     // Agent v1 live controls (preview)
     push_level?: 0 | 1 | 2;
     fix_hold_pct?: number;
@@ -70,11 +69,6 @@ interface GameState {
     lastUpdate: string;
     priceHistory: Array<{ price: number; timestamp: string }>;
   };
-  // Hotel info
-  hotelBedCost?: number;
-  hotelCapacityAssigned?: boolean;
-  hotelCapacityPerTeam?: number;
-  hotelCapacityRatio?: number;
   // Budget
   perTeamBudget?: number; // fixed budget per team for the round (both phases)
   // Round timer
@@ -226,9 +220,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       priceHistory: [{ price: 150, timestamp: new Date().toISOString() }]
   },
   // Hotel defaults in initial state (will be overwritten by server)
-  hotelBedCost: 50,
-  hotelCapacityAssigned: false,
-  hotelCapacityPerTeam: 0,
   poolingCost: 90,
   perTeamBudget: 20000,
   // Round timer
@@ -320,8 +311,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           poolingAllocation: t.decisions?.poolingAllocation ?? 0,
           fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
           fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
-          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null,
-          hotelCapacity: t.decisions?.hotelCapacity
+          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -352,8 +342,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           poolingAllocation: t.decisions?.poolingAllocation ?? 0,
           fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
           fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
-          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null,
-          hotelCapacity: t.decisions?.hotelCapacity
+          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null
         }
       }));
       setGameState({ ...state, teams: normalizedTeams });
@@ -658,9 +647,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const irnd = (min: number, max: number) => Math.floor(rnd(min, max + 1));
 
     const totalAircraftSeats = irnd(600, 1400);
-    const hotelCapacityRatio = Number(rnd(0.4, 1.2).toFixed(2));
     const perTeamCount = aiCount + 1;
-    const perTeamHotel = Math.floor((totalAircraftSeats * hotelCapacityRatio) / perTeamCount);
     const fixSeatPrice = irnd(50, 80);
     const poolingCost = irnd(70, 120);
   const perTeamBudget = irnd(15000, 40000);
@@ -678,8 +665,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fixSeatsRequested: currentTeam?.decisions?.fixSeatsRequested ?? currentTeam?.decisions?.fixSeatsPurchased ?? 0,
         fixSeatBidPrice: currentTeam?.decisions?.fixSeatBidPrice ?? fixSeatPrice,
         fixSeatClearingPrice: currentTeam?.decisions?.fixSeatClearingPrice ?? null,
-        poolingAllocation: currentTeam?.decisions?.poolingAllocation ?? 0,
-        hotelCapacity: perTeamHotel
+        poolingAllocation: currentTeam?.decisions?.poolingAllocation ?? 0
       },
       totalProfit: 0
     };
@@ -693,8 +679,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fixSeatsRequested: irnd(10, 120),
         fixSeatBidPrice: irnd(50, 120),
         fixSeatClearingPrice: null,
-        poolingAllocation: irnd(10, 80),
-        hotelCapacity: perTeamHotel
+        poolingAllocation: irnd(10, 80)
       },
       totalProfit: 0
     }));
@@ -717,10 +702,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   totalFixSeats: Math.floor(totalAircraftSeats * 0.7),
   availableFixSeats: Math.floor(totalAircraftSeats * 0.7),
       fixSeatPrice,
-      hotelBedCost: irnd(30, 70),
-      hotelCapacityRatio,
-      hotelCapacityAssigned: false,
-      hotelCapacityPerTeam: perTeamHotel,
   perTeamBudget,
       poolingMarketUpdateInterval: 1,
       simulatedWeeksPerUpdate: 1,
@@ -866,7 +847,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             startSimInterval();
           }, 0);
-          return { ...prev, isActive: false, remainingTime: 0, hotelCapacityAssigned: true, teams };
+          return { ...prev, isActive: false, remainingTime: 0, teams };
         }
         return { ...prev, remainingTime: rt };
       });
@@ -969,14 +950,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (countdownSeconds <= 0) {
             clearInterval(simTimerRef.current);
-            // Evaluate current team including price effects and hotel costs
+            // Evaluate current team summary
             const meIndex = teams.findIndex(t => t.id === myId);
             const myPrice = teams[meIndex]?.decisions.price || 199;
             const sold = meIndex >= 0 ? data.sold[meIndex] : 0;
             const poolUsed = meIndex >= 0 ? data.poolUsed[meIndex] : 0;
             const myFixAllocated = teams[meIndex]?.decisions?.fixSeatsAllocated || 0;
-            const hotelAssigned = (teams[meIndex]?.decisions?.hotelCapacity ?? prev.hotelCapacityPerTeam ?? 0);
-            const hotelEmptyBeds = Math.max(0, hotelAssigned - sold);
             const avgPoolingUnit = (updatedPM.priceHistory && updatedPM.priceHistory.length > 0)
               ? Math.round(updatedPM.priceHistory.reduce((s, p) => s + (p.price || 0), 0) / updatedPM.priceHistory.length)
               : (poolingCost || 90);
@@ -987,8 +966,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const fixSeatCost = myFixAllocated * clearingUnit;
             const poolingUsageCost = poolUsed * avgPoolingUnit;
             const variableCost = sold * 15;
-            const hotelCost = hotelEmptyBeds * (prev.hotelBedCost ?? 50);
-            const cost = fixSeatCost + poolingUsageCost + variableCost + hotelCost;
+            const cost = fixSeatCost + poolingUsageCost + variableCost;
             const profit = Math.round(revenue - cost);
             const budget = Number(prev.perTeamBudget || 0);
             const insolvent = (profit < 0 && Math.abs(profit) > budget) ? true : false; // stricter: loss bigger than budget

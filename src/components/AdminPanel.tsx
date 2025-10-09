@@ -54,16 +54,11 @@ interface AdminPanelProps {
   setCostVolatility?: (value: number) => void;
   crossElasticity?: number;
   setCrossElasticity?: (value: number) => void;
-  // Hotel beds multiplier
-  hotelCapacityRatio?: number;
-  setHotelCapacityRatio?: (value: number) => void;
   // Prices
   fixSeatPrice?: number;
   setFixSeatPrice?: (value: number) => void;
   poolingCost?: number;
   setPoolingCost?: (value: number) => void;
-  hotelBedCost?: number;
-  setHotelBedCost?: (value: number) => void;
   // Budget per team (same for all)
   perTeamBudget?: number;
   setPerTeamBudget?: (value: number) => void;
@@ -95,10 +90,8 @@ export default function AdminPanel({
   marketConcentration, setMarketConcentration,
   costVolatility, setCostVolatility,
   crossElasticity, setCrossElasticity,
-  hotelCapacityRatio, setHotelCapacityRatio,
   fixSeatPrice, setFixSeatPrice,
   poolingCost, setPoolingCost,
-  hotelBedCost, setHotelBedCost,
   perTeamBudget, setPerTeamBudget,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, roundResults, onGetAnalytics,
@@ -295,8 +288,8 @@ export default function AdminPanel({
                     <div className="font-semibold text-white">{agentConfig.market.alpha} / {agentConfig.market.beta} · €{agentConfig.market.P_ref}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500">Hotel &amp; Tools</div>
-                    <div className="font-semibold text-white">Hotel penalty €{agentConfig.hotel.penalty_empty_bed} · Tool cooldown {agentConfig.rules.tool_cooldown_ticks} updates</div>
+                    <div className="text-xs uppercase tracking-wide text-slate-500">Tools</div>
+                    <div className="font-semibold text-white">Tool cooldown {agentConfig.rules.tool_cooldown_ticks} updates</div>
                     <div className="text-xs text-slate-400">Push-level costs: {pushCosts} €</div>
                   </div>
                 </div>
@@ -336,13 +329,10 @@ export default function AdminPanel({
                         setShock( Number(rr(0.0, 0.3).toFixed(2)) );
                         setSpread(irnd(20, 120));
                         setSeed(irnd(1, 99999));
-                        // hotelCapacityRatio random: allow >1
-                        setHotelCapacityRatio && setHotelCapacityRatio(rr(0.4, 1.2));
                         (setSharedMarket && setSharedMarket(true));
                         // Prices
                         setFixSeatPrice && setFixSeatPrice(irnd(50, 80));
                         setPoolingCost && setPoolingCost(irnd(20, 60));
-                        setHotelBedCost && setHotelBedCost(irnd(30, 70));
                         // Budget
                         setPerTeamBudget && setPerTeamBudget(irnd(15000, 40000));
                       }}
@@ -365,11 +355,9 @@ export default function AdminPanel({
                         setShock(0.1);
                         setSpread(50);
                         setSeed(42);
-                        setHotelCapacityRatio && setHotelCapacityRatio(0.6);
                         // Reset prices to sensible defaults
                         setFixSeatPrice && setFixSeatPrice(60);
                         setPoolingCost && setPoolingCost(90);
-                        setHotelBedCost && setHotelBedCost(50);
                         setPerTeamBudget && setPerTeamBudget(20000);
                       }}
                     >
@@ -430,38 +418,8 @@ export default function AdminPanel({
                   />
                 </div>
 
-                {/* Hotel Capacity Ratio Control */}
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300 text-sm font-medium">Hotel Beds Multiplier</Label>
-                    <div className="text-xs text-slate-500 mt-1">Defines total hotel beds as multiplier × Market Size (default 0.6; can be greater than 1)</div>
-                  </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider
-                      value={[Math.round((((hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6) as number) * 100))]}
-                      onValueChange={([v]) => {
-                        const ratio = Number((v/100).toFixed(2));
-                        setHotelCapacityRatio && setHotelCapacityRatio(ratio);
-                      }}
-                      min={0} max={200} step={1} className="w-full"
-                    />
-                  </div>
-                    <div className="text-sm text-slate-400 text-center">{Number((hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6)).toFixed(2)} × Market Size</div>
-                  {/* Preview: compute total beds and per-team */}
-                  {(() => {
-                    const ratio = Number(hotelCapacityRatio ?? _gameState?.hotelCapacityRatio ?? 0.6);
-                    const totalSeats = Number(totalAircraftSeats || _gameState?.totalAircraftSeats || 1000);
-                    const teamCount = Number(_gameState?.teams?.length || 0);
-                    const totalBeds = Math.floor(totalSeats * ratio);
-                    const perTeam = Number(_gameState?.hotelCapacityPerTeam ?? (teamCount > 0 ? Math.floor(totalBeds / teamCount) : 0));
-                    return (
-                      <div className="text-xs text-slate-500 text-center">Preview: total {totalBeds} beds, per team {perTeam} {teamCount > 0 ? `(for ${teamCount} teams)` : ''}</div>
-                    );
-                  })()}
-                </div>
-
                 {/* Price Controls */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-slate-300 text-sm font-medium">Fix Seat Price (€)</Label>
                     <Input
@@ -477,15 +435,6 @@ export default function AdminPanel({
                       type="number"
                       value={poolingCost === 0 ? '' : (poolingCost ?? _gameState?.poolingCost ?? 30)}
                       onChange={e => setPoolingCost && setPoolingCost(Number(e.target.value || 0))}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">Hotel Bed Cost (€)</Label>
-                    <Input
-                      type="number"
-                      value={hotelBedCost === 0 ? '' : (hotelBedCost ?? _gameState?.hotelBedCost ?? 50)}
-                      onChange={e => setHotelBedCost && setHotelBedCost(Number(e.target.value || 0))}
                       className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
                     />
                   </div>

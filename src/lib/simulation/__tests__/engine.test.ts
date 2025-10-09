@@ -21,10 +21,6 @@ describe('Agent v1 simulation engine', () => {
     beta: 6,
     P_ref: 150,
   },
-  hotel: {
-    capacity_per_team: 60,
-    penalty_empty_bed: 50,
-  },
   teams: [
     { id: 'A', P_start: 199, P_floor: 99, P_ceil: 499 },
     { id: 'B', P_start: 189, P_floor: 99, P_ceil: 499 },
@@ -99,23 +95,6 @@ describe('Agent v1 simulation engine', () => {
 
     const nextPrice = airlineReprice(config, runtime);
     expect(nextPrice).toBeGreaterThan(runtime.P_airline);
-  });
-
-  it('applies hotel penalty for unsold beds on finalize', () => {
-    const config = cloneConfig();
-    const bids: AuctionBid[] = config.teams.map((team) => ({
-      teamId: team.id,
-      bid_price_per_seat: 0,
-      bid_quantity: 0,
-    }));
-    const auction = runAuction(config, bids);
-    const runtime = initRuntime(config, auction);
-
-    // No sales simulated → all beds empty
-    const report = finalize(config, runtime);
-    const penalty = report[0].hotel_penalty;
-    expect(penalty).toBeGreaterThan(0);
-    expect(report[0].profit).toBeLessThanOrEqual(0);
   });
 
   it('only crowns winner when average sell price covers average buy price', () => {

@@ -378,14 +378,10 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
-          hotelCapacityRatio={gameState.hotelCapacityRatio}
-          setHotelCapacityRatio={(v) => updateGameSettings({ hotelCapacityRatio: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}
           setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
-          hotelBedCost={gameState.hotelBedCost}
-          setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
           perTeamBudget={(gameState as any).perTeamBudget}
           setPerTeamBudget={(v) => updateGameSettings({ perTeamBudget: v })}
           demandVolatility={gameState.demandVolatility}
@@ -656,14 +652,10 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
-          hotelCapacityRatio={gameState.hotelCapacityRatio}
-          setHotelCapacityRatio={(v) => updateGameSettings({ hotelCapacityRatio: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}
           setPoolingCost={(v) => updateGameSettings({ poolingCost: v })}
-          hotelBedCost={gameState.hotelBedCost}
-          setHotelBedCost={(v) => updateGameSettings({ hotelBedCost: v })}
           perTeamBudget={(gameState as any).perTeamBudget}
           setPerTeamBudget={(v) => updateGameSettings({ perTeamBudget: v })}
           demandVolatility={gameState.demandVolatility}
@@ -781,22 +773,6 @@ export const MultiUserApp: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Hotel capacity and empty-bed cost awareness for purchase decisions */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
-                    <div className="text-2xl font-bold text-indigo-400 mb-2">
-                      {currentTeam?.decisions?.hotelCapacity ?? (gameState.hotelCapacityPerTeam ?? '—')}
-                    </div>
-                    <div className="text-slate-300 text-sm">Your Hotel Beds (assigned)</div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-600/20 rounded-xl border border-fuchsia-500/30">
-                    <div className="text-2xl font-bold text-fuchsia-400 mb-2">
-                      €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50}
-                    </div>
-                    <div className="text-slate-300 text-sm">Empty Bed Cost (per bed)</div>
-                  </div>
-                </div>
-
                 {/* Team fix seats visibility to support purchase decision */}
                 <div className="grid grid-cols-1 gap-4">
                   <div className="text-center p-4 bg-gradient-to-br from-sky-500/20 to-sky-600/20 rounded-xl border border-sky-500/30">
@@ -811,12 +787,11 @@ export const MultiUserApp: React.FC = () => {
 
                 {/* Team purchase activity is hidden before allocation to ensure anonymity and avoid demand signals */}
 
-                  <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
-                    <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
-                    <div>• Current airline reference price: €{gameState.fixSeatPrice} (auction determines the final price)</div>
-                    <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
-                    <div>• Empty hotel beds cost €{typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50} each at round end</div>
-                  </div>
+                    <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
+                      <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
+                      <div>• Current airline reference price: €{gameState.fixSeatPrice} (auction determines the final price)</div>
+                      <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
+                    </div>
               </CardContent>
             </Card>
           )}
@@ -1120,16 +1095,11 @@ export const MultiUserApp: React.FC = () => {
                     ? currentTeam.decisions.fixSeatClearingPrice
                     : (gameState.fixSeatPrice || 60);
                   const price = currentTeam.decisions.price || 199;
-                  const assignedBeds = typeof currentTeam.decisions?.hotelCapacity === 'number' ? currentTeam.decisions.hotelCapacity : (gameState.hotelCapacityPerTeam || 0);
                   const sold = Math.max(0, Number(st.sold || 0));
                   const revenueAccum = Math.max(0, Number(st.revenue || (sold * price)));
                   // costAccum already includes fixed costs recorded at sim start plus variable pooling costs
                   const costAccum = Math.max(0, Number(st.cost || ((currentTeam.decisions.fixSeatsAllocated || 0) * fixUnit)));
-                  // conservative estimate of potential hotel costs based on current empty beds
-                  const emptyBedsNow = Math.max(0, assignedBeds - sold);
-                  const hotelBedCost = typeof gameState.hotelBedCost === 'number' ? gameState.hotelBedCost : 50;
-                  const hotelCostEstimate = emptyBedsNow * hotelBedCost;
-                  const currentBudget = Math.round(budget - costAccum - hotelCostEstimate + revenueAccum);
+                  const currentBudget = Math.round(budget - costAccum + revenueAccum);
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">

@@ -21,10 +21,6 @@ market:
   beta: 6.0                # Price loyalty in the logit model
   P_ref: 150               # Reference price for price response
 
-hotel:
-  capacity_per_team: 60
-  penalty_empty_bed: 50
-
 teams:
   - id: "A"
     P_start: 199

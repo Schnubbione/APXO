@@ -82,10 +82,6 @@ export class GameService {
             simulatedWeeksPerUpdate: 1, // 1 day per update
             referencePrice: 199,
             marketPriceElasticity: -0.9,
-            // Hotel defaults
-            hotelCapacityRatio: 0.6, // 60% of the flight capacity as total hotel beds
-            hotelBedCost: 50, // Cost per empty bed
-            hotelCapacityAssigned: false,
             // Budget per team (equal for all teams)
             perTeamBudget: 20000
           }
@@ -170,10 +166,6 @@ export class GameService {
       }
     }
 
-    // Preserve hotel capacity and allocated seats fields as they are managed by server phases
-    if (team.decisions && typeof team.decisions.hotelCapacity === 'number') {
-      next.hotelCapacity = team.decisions.hotelCapacity;
-    }
     if (team.decisions && typeof team.decisions.fixSeatsAllocated === 'number') {
       next.fixSeatsAllocated = team.decisions.fixSeatsAllocated;
     }
@@ -262,33 +254,10 @@ export class GameService {
           totalRevenue: 0
         });
 
-        // After reactivation, recompute and distribute hotel capacity evenly
-        try {
-          const sess = await this.getCurrentGameSession();
-          const teams = await this.getActiveTeams();
-          const ratio = (typeof sess.settings?.hotelCapacityRatio === 'number') ? sess.settings.hotelCapacityRatio : 0.6;
-          const totalSeats = sess.settings?.totalAircraftSeats || 1000;
-          const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
-          const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
-          await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
-          await Promise.all(teams.map(t => {
-            const currentDecisions = t.decisions ? { ...t.decisions } : {};
-            if (currentDecisions.hotelCapacity === perTeam) return undefined;
-            return t.update({ decisions: { ...currentDecisions, hotelCapacity: perTeam } });
-          }));
-        } catch (e) {
-          console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
-        }
         return anyTeamWithName;
       }
 
       // No existing team with that name -> create fresh
-      const baseSettings = session.settings || {};
-      const ratio = (typeof baseSettings.hotelCapacityRatio === 'number') ? baseSettings.hotelCapacityRatio : 0.6;
-      const totalSeats = baseSettings.totalAircraftSeats || 1000;
-      const activeTeams = await this.getActiveTeams();
-      const expectedTeamCount = activeTeams.length + 1;
-      const perTeamHotel = expectedTeamCount > 0 ? Math.floor((totalSeats * ratio) / expectedTeamCount) : 0;
       const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
       const team = await TeamModel.create({
@@ -299,30 +268,12 @@ export class GameService {
         decisions: {
           price: 199,
           fixSeatsPurchased: 0,
-          poolingAllocation: 0,
-          hotelCapacity: perTeamHotel
+          poolingAllocation: 0
         },
         totalProfit: 0,
         totalRevenue: 0
       });
 
-      // After new registration, recompute and distribute hotel capacity evenly
-      try {
-        const sess = await this.getCurrentGameSession();
-        const teams = await this.getActiveTeams();
-        const ratio = (typeof sess.settings?.hotelCapacityRatio === 'number') ? sess.settings.hotelCapacityRatio : 0.6;
-        const totalSeats = sess.settings?.totalAircraftSeats || 1000;
-        const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
-        const keepAssigned = !!sess.settings?.hotelCapacityAssigned;
-        await sess.update({ settings: { ...sess.settings, hotelCapacityPerTeam: perTeam, hotelCapacityAssigned: keepAssigned } });
-        await Promise.all(teams.map(t => {
-          const currentDecisions = t.decisions ? { ...t.decisions } : {};
-          if (currentDecisions.hotelCapacity === perTeam) return undefined;
-          return t.update({ decisions: { ...currentDecisions, hotelCapacity: perTeam } });
-        }));
-      } catch (e) {
-        console.warn('registerTeam: failed to recompute hotelCapacityPerTeam:', e?.message || e);
-      }
       return team;
     } catch (error) {
       // Map unique constraint errors to a friendly message
@@ -552,20 +503,6 @@ export class GameService {
       console.log(`📊 Adjusted parameters: totalCapacity=${updatedSettings.totalCapacity}, totalFixSeats=${updatedSettings.totalFixSeats}`);
     }
 
-    // Recompute hotelCapacityPerTeam preview (before assignment) when relevant inputs change
-    try {
-      if (settings.totalAircraftSeats !== undefined || settings.hotelCapacityRatio !== undefined) {
-        const teams = await this.getActiveTeams();
-        const ratio = (typeof updatedSettings.hotelCapacityRatio === 'number') ? updatedSettings.hotelCapacityRatio : (typeof currentSettings.hotelCapacityRatio === 'number' ? currentSettings.hotelCapacityRatio : 0.6);
-        const totalSeats = updatedSettings.totalAircraftSeats || currentSettings.totalAircraftSeats || 1000;
-        const perTeam = teams.length > 0 ? Math.floor((totalSeats * ratio) / teams.length) : 0;
-        // Do not flip assigned flag here; keep whatever it currently is
-        updatedSettings.hotelCapacityPerTeam = perTeam;
-      }
-    } catch (e) {
-      console.warn('updateGameSettings: failed to recompute hotelCapacityPerTeam:', e?.message || e);
-    }
-
     await session.update({ settings: updatedSettings });
     session.settings = updatedSettings;
     return session;
@@ -575,26 +512,10 @@ export class GameService {
   static async startPrePurchasePhase() {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
-    // Assign equal hotel capacity per team based on totalAircraftSeats and ratio
-    const teams = await this.getActiveTeams();
-    const ratio = (typeof currentSettings.hotelCapacityRatio === 'number') ? currentSettings.hotelCapacityRatio : 0.6;
-    const totalAircraftSeats = currentSettings.totalAircraftSeats || 1000;
-    const perTeam = teams.length > 0 ? Math.floor((totalAircraftSeats * ratio) / teams.length) : 0;
-
-    for (const team of teams) {
-      const updatedDecisions = {
-        ...team.decisions,
-        hotelCapacity: perTeam
-      };
-      await team.update({ decisions: updatedDecisions });
-    }
-
     const updatedSettings = {
       ...currentSettings,
       currentPhase: 'prePurchase',
       isActive: true,
-      hotelCapacityAssigned: true,
-      hotelCapacityPerTeam: perTeam
     };
 
     // Set both the top-level session flag and the settings flag for compatibility
@@ -762,7 +683,6 @@ export class GameService {
     const simState = settings.simState && settings.simState.perTeam ? settings.simState.perTeam : null;
     let roundResults;
     if (simState) {
-      const hotelBedCost = settings.hotelBedCost || 50;
       const defaultPoolingCost = settings.poolingCost || 90;
       const pmHist = settings.poolingMarket && Array.isArray(settings.poolingMarket.priceHistory) ? settings.poolingMarket.priceHistory : [];
       const avgPoolingUnit = pmHist.length > 0 ? Math.round(pmHist.reduce((s, p) => s + (p.price || 0), 0) / pmHist.length) : defaultPoolingCost;
@@ -782,10 +702,7 @@ export class GameService {
         const fixSeatCost = initialFix * clearingPrice;
         const poolingUsageCost = poolUsed * avgPoolingUnit;
         const operationalCost = sold * 15;
-        const assignedBeds = typeof team.decisions?.hotelCapacity === 'number' ? team.decisions.hotelCapacity : (typeof settings.hotelCapacityPerTeam === 'number' ? settings.hotelCapacityPerTeam : 0);
-        const hotelEmptyBeds = Math.max(0, assignedBeds - sold);
-        const hotelEmptyBedCost = hotelEmptyBeds * hotelBedCost;
-        const totalCost = (st.cost || (fixSeatCost + poolingUsageCost + operationalCost)) + hotelEmptyBedCost;
+        const totalCost = st.cost || (fixSeatCost + poolingUsageCost + operationalCost);
         const profit = Math.round(passengerRevenue - totalCost);
         const demand = Math.max(0, Math.round(st.demand || 0));
         const unsold = Math.max(0, demand - sold);
@@ -1226,12 +1143,7 @@ export class GameService {
     for (const team of aliveTeams) {
       const st = newPerTeam[team.id];
       if (!st) continue;
-      const assignedBeds = typeof team.decisions?.hotelCapacity === 'number'
-        ? team.decisions.hotelCapacity
-        : (typeof settings.hotelCapacityPerTeam === 'number' ? settings.hotelCapacityPerTeam : 0);
-      const potentialHotelEmpty = Math.max(0, assignedBeds - (st.sold || 0));
-      const hotelPenaltyForecast = potentialHotelEmpty * (settings.hotelBedCost || 50);
-      const profitForecast = (st.revenue || 0) - ((st.cost || 0) + hotelPenaltyForecast);
+      const profitForecast = (st.revenue || 0) - (st.cost || 0);
       if (profitForecast < 0 && Math.abs(profitForecast) > budget) {
         newPerTeam[team.id].insolvent = true;
       }
@@ -1369,10 +1281,6 @@ export class GameService {
           simulatedWeeksPerUpdate: 1 // 1 day per update
           ,
           // Hotel defaults
-          hotelCapacityRatio: 0.6,
-          hotelBedCost: 50,
-          hotelCapacityAssigned: false,
-          hotelCapacityPerTeam: 0,
           // Budget
           perTeamBudget: 20000
         }
@@ -1441,10 +1349,6 @@ export class GameService {
           simulatedWeeksPerUpdate: 1 // 1 day per update
           ,
           // Hotel defaults
-          hotelCapacityRatio: 0.6,
-          hotelBedCost: 50,
-          hotelCapacityAssigned: false,
-          hotelCapacityPerTeam: 0,
           // Budget
           perTeamBudget: 20000
         }

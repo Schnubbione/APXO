@@ -449,17 +449,13 @@ export function finalize(config: Config, runtime: Runtime): FinalReport[] {
     const avgSellPrice = sold > 0 ? sellTotal / sold : 0;
     const avgBuyPrice = sold > 0 ? buyTotal / sold : 0;
 
-    const emptyBeds = Math.max(config.hotel.capacity_per_team - sold, 0);
-    const hotelPenalty = emptyBeds * config.hotel.penalty_empty_bed;
-
-    const totalCost = teamState.cost + hotelPenalty;
+    const totalCost = teamState.cost;
     const profit = teamState.revenue - totalCost;
 
     reports.push({
       teamId: teamState.teamId,
       total_revenue: teamState.revenue,
       total_cost: totalCost,
-      hotel_penalty: hotelPenalty,
       profit,
       avg_sell_price: avgSellPrice,
       avg_buy_price: avgBuyPrice,

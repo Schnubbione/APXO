@@ -12,7 +12,7 @@ This document compresses the current project context and outlines sensible next 
 
 ## Current State
 - **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`).
-- **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit tests cover auction, fixed-before-pooling, airline repricing, hotel penalty, and win condition (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
+- **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit tests cover auction, fixed-before-pooling, airline repricing, and win condition (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
 - **Backend**: Legacy service (`server/gameService.js`) still powers lobby/realtime. Integration with the new engine is pending.
 - **Documentation**: README updated (simulation core, practice mode, setup). Agents Guide provides priorities.
 - **Tests & Quality**: Jest (frontend + engine), separate backend Jest suite (`server/`). Playwright exists, ESLint enforced.
@@ -33,7 +33,7 @@ This document compresses the current project context and outlines sensible next 
 
 ## Capabilities (Today)
 - Multi-user team registration, admin login (env password), phase control (auction → live market) in the backend.
-- Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools, hotel penalty).
+- Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.

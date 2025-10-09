@@ -21,10 +21,6 @@ export interface Config {
     beta: number;
     P_ref: number;
   };
-  hotel: {
-    capacity_per_team: number;
-    penalty_empty_bed: number;
-  };
   teams: {
     id: TeamId;
     P_start: number;
@@ -114,7 +110,6 @@ export interface FinalReport {
   teamId: TeamId;
   total_revenue: number;
   total_cost: number;
-  hotel_penalty: number;
   profit: number;
   avg_sell_price: number;
   avg_buy_price: number;

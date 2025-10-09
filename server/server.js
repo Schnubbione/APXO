@@ -652,9 +652,7 @@ io.on('connection', async (socket) => {
         totalAircraftSeats: irnd(600, 1400),
         fixSeatPrice: irnd(50, 80),
         poolingCost: irnd(70, 120),
-        hotelBedCost: irnd(30, 70),
         costVolatility: rnd(0.03, 0.1),
-        hotelCapacityRatio: rnd(0.4, 1.2),
         poolingMarketUpdateInterval: 1,
         simulatedWeeksPerUpdate: 1,
         poolingMarket: { currentPrice: irnd(100, 220) }
@@ -662,7 +660,6 @@ io.on('connection', async (socket) => {
 
       // Build ephemeral team list: human + randomized AIs
       const totalTeams = aiCount + 1;
-      const perTeamHotel = Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / totalTeams);
 
       const defaultRequest = Math.max(10, Math.floor(((settings.totalAircraftSeats || 1000) * 0.4) / totalTeams));
       const requestedSeats = Number.isFinite(Number(config.overrideFixSeats)) && Number(config.overrideFixSeats) > 0
@@ -679,7 +676,6 @@ io.on('connection', async (socket) => {
         poolingAllocation: Number.isFinite(Number(humanTeam.decisions?.poolingAllocation))
           ? Number(humanTeam.decisions?.poolingAllocation)
           : irnd(20, 40),
-        hotelCapacity: Number(humanTeam.decisions?.hotelCapacity || perTeamHotel),
         fixSeatBidPrice: bidPrice,
         fixSeatClearingPrice: bidPrice
       };
@@ -719,7 +715,6 @@ io.on('connection', async (socket) => {
             fixSeatsRequested: aiFixSeats,
             fixSeatsPurchased: aiFixSeats,
             poolingAllocation: aiPooling,
-            hotelCapacity: perTeamHotel,
             fixSeatBidPrice: irnd(50, 120),
             fixSeatClearingPrice: null
           },
@@ -905,12 +900,7 @@ io.on('connection', async (socket) => {
 
         const budget = Number(settings.perTeamBudget || 0);
         teamState.forEach(state => {
-          const assignedBeds = typeof state.team.decisions?.hotelCapacity === 'number'
-            ? state.team.decisions.hotelCapacity
-            : Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / teams.length);
-          const emptyBeds = Math.max(0, assignedBeds - state.sold);
-          const hotelCost = emptyBeds * (settings.hotelBedCost || 50);
-          const profit = state.revenue - (state.cost + hotelCost);
+          const profit = state.revenue - state.cost;
           if (profit < 0 && Math.abs(profit) > budget) {
             state.insolvent = true;
           }
@@ -922,13 +912,8 @@ io.on('connection', async (socket) => {
       const totalSold = teamState.reduce((sum, state) => sum + state.sold, 0) || 1;
       const practiceResults = teams.map((team, idx) => {
         const state = teamState[idx];
-        const assignedBeds = typeof team.decisions?.hotelCapacity === 'number'
-          ? team.decisions.hotelCapacity
-          : Math.floor(((settings.totalAircraftSeats || 1000) * (settings.hotelCapacityRatio || 0.6)) / teams.length);
-        const emptyBeds = Math.max(0, assignedBeds - state.sold);
-        const hotelCost = emptyBeds * (settings.hotelBedCost || 50);
         const revenue = Math.round(state.revenue);
-        const profit = Math.round(state.revenue - (state.cost + hotelCost));
+        const profit = Math.round(state.revenue - state.cost);
         team.totalProfit = profit;
         team.totalRevenue = revenue;
         return {
@@ -936,7 +921,7 @@ io.on('connection', async (socket) => {
           teamName: team.name,
           sold: Math.round(state.sold),
           revenue,
-          cost: Math.round(state.cost + hotelCost),
+          cost: Math.round(state.cost),
           profit,
           demand: Math.round(state.demand),
           capacity: Math.round(state.initialFix + state.initialPool),

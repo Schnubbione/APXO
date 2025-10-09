@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer while rival bids stay hidden and hotel capacity is shared evenly afterwards. Phase 2: Live market – a continuous countdown to departure where you steer price, optional push level, fixed-seat hold, and tools while sales consume fixed seats first before pulling from the airline at the live pooling price.',
+    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer while rival bids stay hidden. Phase 2: Live market – a continuous countdown to departure where you steer price, optional push level, fixed-seat hold, and tools while sales consume fixed seats first before pulling from the airline at the live pooling price.',
     position: 'center'
   },
   {
@@ -77,7 +77,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'market-insights',
     title: 'Market Intelligence & Strategic Decision-Making',
-  description: 'Use market intelligence under information asymmetry. Exact fix availability is hidden in Phase 1 — watch signals and make risk-aware decisions. Balance guaranteed capacity vs. flexible options while accounting for hotel capacity and empty-bed costs.',
+  description: 'Use market intelligence under information asymmetry. Exact fix availability is hidden in Phase 1 — watch signals and make risk-aware decisions. Balance guaranteed capacity vs. flexible options while staying mindful of your retail margin.',
     position: 'center'
   },
   {
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, and hotel costs – victory requires profit and positive unit margins.',
+    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, and pooling costs – victory requires profit and positive unit margins.',
     position: 'center'
   }
 ];

@@ -48,7 +48,6 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
       ...defaultConfig,
       airline: { ...defaultConfig.airline },
       market: { ...defaultConfig.market, D_base: [...defaultConfig.market.D_base] },
-      hotel: { ...defaultConfig.hotel },
       rules: { ...defaultConfig.rules, push_cost_per_level: [...defaultConfig.rules.push_cost_per_level] as [number, number, number] },
       teams: baseTeams,
     };
@@ -262,7 +261,6 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                       <div className="mt-1 text-xs text-slate-500">Profit: €{Math.round(team.profit)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg sell: €{team.avg_sell_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg buy: €{team.avg_buy_price.toFixed(0)}</div>
-                      <div className="mt-1 text-xs text-rose-400">Hotel penalty: €{team.hotel_penalty.toFixed(0)}</div>
                       <div className="mt-2 text-xs text-indigo-300 font-semibold">Points: {computePoints(team.total_revenue).toFixed(2)} / 10</div>
                     </div>
                   ))}

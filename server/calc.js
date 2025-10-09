@@ -98,17 +98,11 @@ export function calculateCosts(team, sold, settings = {}) {
     : (typeof settings.poolingCost === 'number' ? settings.poolingCost : 30);
   const poolingUsageCost = pooledUsed * poolingUnitCost;
 
-  const hotelCapacity = team.decisions?.hotelCapacity || 0;
-  const hotelBedCost = typeof settings.hotelBedCost === 'number' ? settings.hotelBedCost : 50;
-  const usedBeds = Math.min(sold, hotelCapacity);
-  const emptyBeds = Math.max(0, hotelCapacity - usedBeds);
-  const hotelEmptyBedCost = emptyBeds * hotelBedCost;
-
   const costVolatility = typeof settings.costVolatility === 'number' ? settings.costVolatility : 0.05;
   const costMultiplier = 1 + generateNormalRandom(0, costVolatility);
   const scaleFactor = Math.max(0.85, Math.min(1.0, 1 - ((settings.totalAircraftSeats || 1000) / 200) * 0.1));
 
-  return (totalCost + fixedCosts + variableCosts + poolingUsageCost + hotelEmptyBedCost) * costMultiplier * scaleFactor;
+  return (totalCost + fixedCosts + variableCosts + poolingUsageCost) * costMultiplier * scaleFactor;
 }
 
 export function calculateRoundResults(teams, settings) {

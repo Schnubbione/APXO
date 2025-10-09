@@ -138,7 +138,7 @@ describe('GameService', () => {
   });
 
   describe('registerTeam', () => {
-    test('should create a new team with equal hotel capacity', async () => {
+    test('should create a new team with default decisions', async () => {
       const mockSession = {
         id: 1,
         settings: {},
@@ -155,9 +155,7 @@ describe('GameService', () => {
       };
 
       GameService.currentGameSession = mockSession;
-      Team.findAll
-        .mockResolvedValueOnce([]) // Before new team joins
-        .mockResolvedValueOnce([createdTeam]); // After join for redistribution
+      Team.findAll.mockResolvedValue([]);
       Team.create.mockResolvedValue(createdTeam);
 
       const team = await GameService.registerTeam('socket123', 'Test Team');
@@ -168,19 +166,10 @@ describe('GameService', () => {
         decisions: expect.objectContaining({
           price: 199,
           fixSeatsPurchased: 0,
-          poolingAllocation: 0,
-          hotelCapacity: 600
+          poolingAllocation: 0
         }),
         totalProfit: 0,
         totalRevenue: 0
-      }));
-      expect(mockSession.update).toHaveBeenCalledWith(expect.objectContaining({
-        settings: expect.objectContaining({
-          hotelCapacityPerTeam: 600
-        })
-      }));
-      expect(createdTeam.update).toHaveBeenCalledWith(expect.objectContaining({
-        decisions: expect.objectContaining({ hotelCapacity: 600 })
       }));
       expect(team).toBe(createdTeam);
     });
@@ -202,8 +191,7 @@ describe('GameService', () => {
           fixSeatsRequested: 2,
           poolingAllocation: 25,
           fixSeatBidPrice: 60,
-          fixSeatsAllocated: 2,
-          hotelCapacity: 100
+          fixSeatsAllocated: 2
         },
         update: jest.fn().mockResolvedValue(true)
       };
@@ -253,7 +241,7 @@ describe('GameService', () => {
           required: false
         }]
       });
-      expect(teams).toBe(mockTeams);
+      expect(teams).toEqual(mockTeams);
     });
 
     test('should handle case when no session exists by creating one', async () => {
@@ -275,7 +263,7 @@ describe('GameService', () => {
         order: [['updatedAt', 'DESC']]
       });
       expect(GameSession.create).toHaveBeenCalled();
-      expect(teams).toBe(mockTeams);
+      expect(teams).toEqual(mockTeams);
     });
   });
 
@@ -445,9 +433,7 @@ describe('GameService', () => {
           totalAircraftSeats: 50,
           fixSeatPrice: 60,
           poolingCost: 90,
-          perTeamBudget: 1000,
-          hotelBedCost: 500,
-          hotelCapacityPerTeam: 100,
+          perTeamBudget: 50,
           poolingMarket: { currentPrice: 150, totalPoolingCapacity: 15, availablePoolingCapacity: 15, priceHistory: [{ price: 150, timestamp: new Date().toISOString() }], lastUpdate: new Date().toISOString() },
           simulatedWeeksPerUpdate: 1,
           departureDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
@@ -463,7 +449,7 @@ describe('GameService', () => {
                 initialFix: 2,
                 initialPool: 0,
                 revenue: 0,
-                cost: 2 * 60,
+                cost: 120,
                 insolvent: false
               }
             }
@@ -476,10 +462,10 @@ describe('GameService', () => {
       };
       GameService.currentGameSession = session;
 
-  const team = { id: teamId, name: 'Gamma', decisions: { price: 100, fixSeatsAllocated: 2, poolingAllocation: 0, hotelCapacity: 100 }, update: jest.fn().mockResolvedValue(true) };
+  const team = { id: teamId, name: 'Gamma', decisions: { price: 100, fixSeatsAllocated: 2, poolingAllocation: 0 }, update: jest.fn().mockResolvedValue(true) };
       Team.findAll.mockResolvedValue([team]);
 
-      // Trigger market update: should sell a few seats, then flag insolvency due to huge hotel costs > budget
+      // Trigger market update: should sell a few seats, then flag insolvency because losses exceed the budget
       await GameService.updatePoolingMarket();
 
       const poolState = session.settings.poolingMarket || {};
