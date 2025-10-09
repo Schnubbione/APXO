@@ -106,6 +106,27 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
     && parsePositiveNumber(bidPrice) !== null
     && parsePositiveNumber(bidQuantity) !== null;
 
+  const revenueStats = summary ? (() => {
+    const revenues = summary.report.map(team => team.revenue ?? 0);
+    const maxRevenue = revenues.length > 0 ? Math.max(...revenues) : 0;
+    const minRevenue = revenues.length > 0 ? Math.min(...revenues) : 0;
+    return {
+      maxRevenue,
+      minRevenue,
+      range: Math.max(1, maxRevenue - minRevenue)
+    };
+  })() : null;
+
+  const computePoints = (revenue: number) => {
+    if (!revenueStats) return 0;
+    const { maxRevenue, minRevenue, range } = revenueStats;
+    if (maxRevenue === minRevenue) {
+      return maxRevenue > 0 ? 10 : 0;
+    }
+    const normalized = (revenue - minRevenue) / range;
+    return Math.max(0, Math.min(10, Number((normalized * 10).toFixed(2))));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <Card className="w-full max-w-2xl bg-slate-900 text-white border border-slate-700 shadow-lg">
@@ -195,6 +216,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                       <div className="mt-1 text-xs text-slate-500">Avg sell: €{team.avg_sell_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg buy: €{team.avg_buy_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-rose-400">Hotel penalty: €{team.hotel_penalty.toFixed(0)}</div>
+                      <div className="mt-2 text-xs text-indigo-300 font-semibold">Points: {computePoints(team.revenue).toFixed(2)} / 10</div>
                     </div>
                   ))}
                 </div>

@@ -181,6 +181,18 @@ export default function AdminPanel({
     return { ...team, points };
   });
 
+  const resultRevenueValues = latestRoundResults ? latestRoundResults.map(result => Number(result.revenue ?? 0)) : [];
+  const resultMaxRevenue = resultRevenueValues.length > 0 ? Math.max(...resultRevenueValues) : 0;
+  const resultMinRevenue = resultRevenueValues.length > 0 ? Math.min(...resultRevenueValues) : 0;
+  const resultRange = Math.max(1, resultMaxRevenue - resultMinRevenue);
+
+  const resultsWithPoints = latestRoundResults?.map(result => {
+    const normalized = resultMaxRevenue === resultMinRevenue
+      ? (Number(result.revenue ?? 0) > 0 ? 10 : 0)
+      : ((Number(result.revenue ?? 0) - resultMinRevenue) / resultRange) * 10;
+    return { ...result, points: Number(normalized.toFixed(2)) };
+  }) ?? null;
+
   return (
     <div className="fixed inset-0 sm:inset-auto sm:top-4 sm:right-4 z-50 flex items-center justify-center sm:items-start sm:justify-end p-4">
       {/* Mobile Overlay */}
@@ -802,14 +814,14 @@ export default function AdminPanel({
                   </div>
                 )}
 
-                {latestRoundResults && (
+                {resultsWithPoints && (
                   <div className="space-y-3">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <TrendingUp className="w-5 h-5" />
                       Latest Round Results
                     </h3>
                     <div className="space-y-2">
-                      {latestRoundResults.map(result => {
+                      {resultsWithPoints.map(result => {
                         const teamName = teamNameMap.get(result.teamId) || result.teamId;
                         return (
                           <div key={result.teamId} className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
@@ -833,6 +845,10 @@ export default function AdminPanel({
                               <div>
                                 <span className="block text-slate-500 uppercase tracking-wide">Market Share</span>
                                 <span className="font-mono text-sm text-white">{(Number(result.marketShare ?? 0) * 100).toFixed(1)}%</span>
+                              </div>
+                              <div>
+                                <span className="block text-slate-500 uppercase tracking-wide">Points</span>
+                                <span className="font-mono text-sm text-indigo-300">{result.points.toFixed(2)} / 10</span>
                               </div>
                             </div>
                           </div>
