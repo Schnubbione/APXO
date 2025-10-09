@@ -38,13 +38,60 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
   const [summary, setSummary] = useState<PracticeSummary | null>(null);
   const [running, setRunning] = useState(false);
 
-  const config = useMemo(() => ({
-    ...defaultConfig,
-    teams: defaultConfig.teams.map((team, index) => ({
+  const config = useMemo(() => {
+    const baseTeams = defaultConfig.teams.map((team, index) => ({
       ...team,
       id: index === 0 ? humanTeamName || team.id : team.id,
-    })),
-  }), [humanTeamName]);
+    }));
+
+    const baseConfig = {
+      ...defaultConfig,
+      airline: { ...defaultConfig.airline },
+      market: { ...defaultConfig.market, D_base: [...defaultConfig.market.D_base] },
+      hotel: { ...defaultConfig.hotel },
+      rules: { ...defaultConfig.rules, push_cost_per_level: [...defaultConfig.rules.push_cost_per_level] as [number, number, number] },
+      teams: baseTeams,
+    };
+
+    const totalSeats = Math.max(1, baseConfig.airline.C_total);
+    const horizon = Math.max(1, baseConfig.ticks_total);
+
+    const originalCurve = baseConfig.market.D_base.length === horizon
+      ? baseConfig.market.D_base
+      : Array.from({ length: horizon }, (_, idx) => baseConfig.market.D_base[idx % baseConfig.market.D_base.length]);
+
+    const originalTotal = originalCurve.reduce((sum, value) => sum + Math.max(0, value), 0);
+
+    let scaledCurve: number[];
+    if (originalTotal > 0) {
+      const factor = totalSeats / originalTotal;
+      scaledCurve = originalCurve.map(value => Math.max(0, Math.round(value * factor)));
+    } else {
+      const perTick = Math.max(1, Math.round(totalSeats / horizon));
+      scaledCurve = Array(horizon).fill(perTick);
+    }
+
+    let scaledTotal = scaledCurve.reduce((sum, value) => sum + value, 0);
+    if (scaledTotal === 0) {
+      const perTick = Math.max(1, Math.round(totalSeats / horizon));
+      scaledCurve = Array(horizon).fill(perTick);
+      scaledTotal = scaledCurve.reduce((sum, value) => sum + value, 0);
+    }
+
+    const diff = totalSeats - scaledTotal;
+    if (diff !== 0 && scaledCurve.length > 0) {
+      const lastIndex = scaledCurve.length - 1;
+      scaledCurve[lastIndex] = Math.max(1, scaledCurve[lastIndex] + diff);
+    }
+
+    return {
+      ...baseConfig,
+      market: {
+        ...baseConfig.market,
+        D_base: scaledCurve,
+      },
+    };
+  }, [humanTeamName]);
 
   const parsePositiveNumber = (value: string) => {
     const trimmed = value.trim();
@@ -107,7 +154,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
     && parsePositiveNumber(bidQuantity) !== null;
 
   const revenueStats = summary ? (() => {
-    const revenues = summary.report.map(team => team.revenue ?? 0);
+    const revenues = summary.report.map(team => team.total_revenue ?? 0);
     const maxRevenue = revenues.length > 0 ? Math.max(...revenues) : 0;
     const minRevenue = revenues.length > 0 ? Math.min(...revenues) : 0;
     return {
@@ -208,7 +255,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                         <span>Team {team.teamId}</span>
                         {team.winner && <span className="text-emerald-400 font-semibold">Winner</span>}
                       </div>
-                      <div className="mt-2 text-xl font-semibold tabular-nums">€{Math.round(team.revenue)}</div>
+                      <div className="mt-2 text-xl font-semibold tabular-nums">€{Math.round(team.total_revenue)}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         Sold: {team.sold_total} &nbsp;|&nbsp; Load: {(team.load_factor * 100).toFixed(1)}%
                       </div>
@@ -216,7 +263,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                       <div className="mt-1 text-xs text-slate-500">Avg sell: €{team.avg_sell_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-slate-500">Avg buy: €{team.avg_buy_price.toFixed(0)}</div>
                       <div className="mt-1 text-xs text-rose-400">Hotel penalty: €{team.hotel_penalty.toFixed(0)}</div>
-                      <div className="mt-2 text-xs text-indigo-300 font-semibold">Points: {computePoints(team.revenue).toFixed(2)} / 10</div>
+                      <div className="mt-2 text-xs text-indigo-300 font-semibold">Points: {computePoints(team.total_revenue).toFixed(2)} / 10</div>
                     </div>
                   ))}
                 </div>
