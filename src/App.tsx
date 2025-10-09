@@ -141,7 +141,7 @@ export default function App() {
   const [showRegistration, setShowRegistration] = useState(false);
 
   // Teams state
-  const emptyDecision = useMemo(() => ({ price: 199, buy: Object.fromEntries(fares.map(f => [f.code, 0])) }) as TeamDecision, [fares]);
+  const emptyDecision = useMemo(() => ({ price: 500, buy: Object.fromEntries(fares.map(f => [f.code, 0])) }) as TeamDecision, [fares]);
   const [decisions, setDecisions] = useState<TeamDecision[]>(() => Array.from({ length: 6 }, () => ({...emptyDecision})));
 
   // Scoreboard
@@ -150,7 +150,7 @@ export default function App() {
   // recompute if fares change -> extend buy map keys
   React.useEffect(() => {
     setDecisions(prev => prev.slice(0, numTeams).map(d => ({
-      price: d.price ?? 199,
+      price: d.price ?? 500,
       buy: fares.reduce((acc, f) => ({ ...acc, [f.code]: d.buy?.[f.code] ?? 0 }), {} as Record<string, number>)
     })));
   }, [fares, numTeams]);
@@ -442,7 +442,7 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Retail Price (€)</Label>
-                        <Input type="number" value={decisions[i]?.price ?? 199} onChange={e => handleDecisionChange(i, "price", Number(e.target.value))} />
+                        <Input type="number" value={decisions[i]?.price ?? 500} onChange={e => handleDecisionChange(i, "price", Number(e.target.value))} />
                       </div>
                       <div>
                         <Label>Capacity (Seats)</Label>

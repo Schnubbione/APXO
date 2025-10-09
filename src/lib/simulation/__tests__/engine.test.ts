@@ -22,9 +22,9 @@ describe('Agent v1 simulation engine', () => {
     P_ref: 150,
   },
   teams: [
-    { id: 'A', P_start: 199, P_floor: 99, P_ceil: 499 },
-    { id: 'B', P_start: 189, P_floor: 99, P_ceil: 499 },
-    { id: 'C', P_start: 209, P_floor: 99, P_ceil: 499 },
+    { id: 'A', P_start: 500, P_floor: 99, P_ceil: 500 },
+    { id: 'B', P_start: 500, P_floor: 99, P_ceil: 500 },
+    { id: 'C', P_start: 500, P_floor: 99, P_ceil: 500 },
   ],
   rules: {
     need_price_above_cost: true,

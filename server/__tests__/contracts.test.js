@@ -3,7 +3,7 @@ import { calculateRoundResults } from '../calc.js';
 test('calculateRoundResults returns required fields per team', () => {
   // Minimal team shape required by calculateRoundResults
   const teams = [
-    { id: 'T1', name: 'Team 1', decisions: { price: 199, fixSeatsPurchased: 10, poolingAllocation: 20 } },
+    { id: 'T1', name: 'Team 1', decisions: { price: 500, fixSeatsPurchased: 10, poolingAllocation: 20 } },
     { id: 'T2', name: 'Team 2', decisions: { price: 210, fixSeatsPurchased: 5, poolingAllocation: 30 } },
   ];
   const settings = {

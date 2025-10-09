@@ -670,7 +670,7 @@ io.on('connection', async (socket) => {
         : Number(humanTeam.decisions?.fixSeatBidPrice || settings.fixSeatPrice || 60);
 
       const humanDecisions = {
-        price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 199),
+        price: typeof config.overridePrice === 'number' ? config.overridePrice : (humanTeam.decisions?.price ?? 500),
         fixSeatsRequested: Math.max(1, requestedSeats),
         fixSeatsPurchased: Math.max(1, requestedSeats),
         poolingAllocation: Number.isFinite(Number(humanTeam.decisions?.poolingAllocation))
@@ -836,13 +836,13 @@ io.on('connection', async (socket) => {
         const demandNoise = (Math.random() * 2 - 1) * volatility;
         const totalDemand = Math.max(0, Math.round(baseDemand * (1 + demandNoise)));
 
-        const minPrice = teams.reduce((min, team) => Math.min(min, team.decisions.price || 199), Infinity);
+        const minPrice = teams.reduce((min, team) => Math.min(min, team.decisions.price || 500), Infinity);
         const refPrice = typeof settings.referencePrice === 'number' ? settings.referencePrice : 199;
         const elasticity = Math.abs(settings.priceElasticity || 1.2);
         const marketElasticity = Math.abs(settings.marketPriceElasticity || elasticity * 0.6);
 
         const weights = teams.map(team => {
-          const price = team.decisions.price || 199;
+          const price = team.decisions.price || 500;
           const relToMin = price / Math.max(1, minPrice);
           const relToRef = price / Math.max(1, refPrice);
           const competitiveness = Math.pow(relToMin, -elasticity);
@@ -861,7 +861,7 @@ io.on('connection', async (socket) => {
           remainder -= 1;
         }
 
-        const ranking = teams.map((team, idx) => ({ idx, price: team.decisions.price || 199, name: team.name }))
+        const ranking = teams.map((team, idx) => ({ idx, price: team.decisions.price || 500, name: team.name }))
           .sort((a, b) => {
             if (a.price !== b.price) return a.price - b.price;
             return a.name.localeCompare(b.name);
@@ -884,7 +884,7 @@ io.on('connection', async (socket) => {
           state.demand += demand;
           state.initialPool = Math.max(state.initialPool, state.poolUsed);
 
-          const price = teams[idx].decisions.price || 199;
+          const price = teams[idx].decisions.price || 500;
           state.revenue += (sellFix + sellPool) * price;
           state.cost += sellPool * poolPrice;
         }
@@ -927,7 +927,7 @@ io.on('connection', async (socket) => {
           capacity: Math.round(state.initialFix + state.initialPool),
           insolvent: !!state.insolvent,
           marketShare: state.sold / totalSold,
-          avgPrice: team.decisions.price || 199
+          avgPrice: team.decisions.price || 500
         };
       });
 
@@ -1310,7 +1310,7 @@ function calculateMonthlyResults(teams, settings, monthlyDemand, monthsToDepartu
 
     // Calculate actual sales
     const sold = Math.min(teamDemand, availableCapacity);
-    const price = team.decisions.price || 199;
+    const price = team.decisions.price || 500;
 
     // Revenue from passenger sales
     const passengerRevenue = sold * price;

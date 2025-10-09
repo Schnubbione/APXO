@@ -56,7 +56,7 @@ export function calculateMarketShares(teams, settings) {
 
 // Average retail price used for reporting
 export function getRetailPrice(team) {
-  return team?.decisions?.price || 199;
+  return team?.decisions?.price || 500;
 }
 export function calculateAveragePrice(team) {
   return getRetailPrice(team);
@@ -72,7 +72,7 @@ export function calculateTeamCapacity(team, settings = {}) {
 }
 
 export function calculateRevenue(team, sold) {
-  const price = team.decisions?.price || 199;
+  const price = team.decisions?.price || 500;
   return sold * price;
 }
 

@@ -303,7 +303,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
-          price: t.decisions?.price ?? 199,
+          price: t.decisions?.price ?? 500,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           // Before allocation is confirmed by server, do not infer allocated seats
@@ -335,7 +335,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const normalizedTeams = (state.teams || []).map(t => ({
         ...t,
         decisions: {
-          price: t.decisions?.price ?? 199,
+          price: t.decisions?.price ?? 500,
           buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
           fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
           fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
@@ -659,7 +659,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: myId,
       name: currentTeam?.name || 'You',
       decisions: {
-        price: typeof config?.overridePrice === 'number' ? config.overridePrice : (currentTeam?.decisions?.price ?? 199),
+        price: typeof config?.overridePrice === 'number' ? config.overridePrice : (currentTeam?.decisions?.price ?? 500),
         buy: {},
         fixSeatsPurchased: currentTeam?.decisions?.fixSeatsPurchased ?? 0,
         fixSeatsRequested: currentTeam?.decisions?.fixSeatsRequested ?? currentTeam?.decisions?.fixSeatsPurchased ?? 0,
@@ -875,13 +875,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...t,
             decisions: {
               ...t.decisions,
-              price: typeof t.decisions?.price === 'number' ? t.decisions.price : 199
+              price: typeof t.decisions?.price === 'number' ? t.decisions.price : 500
             }
           }));
-          const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 199), 0) / Math.max(1, teams.length);
+          const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 500), 0) / Math.max(1, teams.length);
           const elasticity = Math.abs(prev.priceElasticity || 1); // typically 0.9..2.7 from the practice setup
           const k = Math.min(0.08, Math.max(0.008, elasticity / 50)); // 0.018..0.054
-          const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 199) - avgPrice)));
+          const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 500) - avgPrice)));
           const sumW = weights.reduce((a, b) => a + b, 0) || 1;
           const demandPerTeam = teams.map((_, i) => Math.max(0, Math.round(demandToday * (weights[i] / sumW))));
 
@@ -952,7 +952,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearInterval(simTimerRef.current);
             // Evaluate current team summary
             const meIndex = teams.findIndex(t => t.id === myId);
-            const myPrice = teams[meIndex]?.decisions.price || 199;
+            const myPrice = teams[meIndex]?.decisions.price || 500;
             const sold = meIndex >= 0 ? data.sold[meIndex] : 0;
             const poolUsed = meIndex >= 0 ? data.poolUsed[meIndex] : 0;
             const myFixAllocated = teams[meIndex]?.decisions?.fixSeatsAllocated || 0;

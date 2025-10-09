@@ -191,7 +191,7 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
                   <Input
                     type="number"
                     value={initialPrice}
-                    placeholder="199"
+                    placeholder="500"
                     onChange={(event) => setInitialPrice(event.target.value)}
                     className="bg-slate-800 border-slate-700 text-white"
                   />

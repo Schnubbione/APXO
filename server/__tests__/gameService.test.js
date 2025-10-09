@@ -164,7 +164,7 @@ describe('GameService', () => {
         socketId: 'socket123',
         name: 'Test Team',
         decisions: expect.objectContaining({
-          price: 199,
+          price: 500,
           fixSeatsPurchased: 0,
           poolingAllocation: 0
         }),
@@ -186,7 +186,7 @@ describe('GameService', () => {
     test('ignores fix seat and pooling changes outside pre-purchase', async () => {
       const mockTeam = {
         decisions: {
-          price: 199,
+          price: 500,
           fixSeatsPurchased: 2,
           fixSeatsRequested: 2,
           poolingAllocation: 25,

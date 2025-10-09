@@ -76,7 +76,7 @@ export const MultiUserApp: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [soundEffect, setSoundEffect] = useState<'achievement' | 'roundStart' | 'roundEnd' | 'warning' | 'success' | 'error' | undefined>();
   const [initialPriceSet, setInitialPriceSet] = useState(false);
-  const [tempPrice, setTempPrice] = useState(199);
+  const [tempPrice, setTempPrice] = useState(500);
   const [bidPriceInput, setBidPriceInput] = useState('');
   const [bidQuantityInput, setBidQuantityInput] = useState('');
   // Practice Overlay removed: practice runs integrated via context
@@ -171,20 +171,19 @@ export const MultiUserApp: React.FC = () => {
 
   const priceHistoryData = React.useMemo(() => {
     const history = gameState.poolingMarket?.priceHistory ?? [];
-    const horizon = Math.max(0, Number(gameState.simulationHorizon ?? 0));
+    const horizon = Math.max(0, Number(gameState.simulationHorizon ?? history.length));
     const totalPoints = history.length;
-    return history.slice(-40).map((entry, index) => {
-      const remainingDays = horizon > 0
-        ? Math.max(0, Math.round(horizon - ((totalPoints - index - 1))))
-        : Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
-      const label = `${remainingDays} dBD`;
+    const startIndex = Math.max(0, totalPoints - 40);
+    return history.slice(-40).map((entry, localIndex) => {
+      const actualIndex = startIndex + localIndex;
+      const remainingDays = Math.max(0, Math.round(horizon - actualIndex));
       return {
-        index,
-        label,
+        index: localIndex,
+        label: `${remainingDays} dBD`,
         price: entry.price
       };
     });
-  }, [gameState.poolingMarket?.priceHistory, gameState.simulationHorizon, gameState.simulatedDaysUntilDeparture]);
+  }, [gameState.poolingMarket?.priceHistory, gameState.simulationHorizon]);
 
   useEffect(() => {
     return () => {
@@ -725,7 +724,7 @@ export const MultiUserApp: React.FC = () => {
                     <Input
                       type="number"
                       value={tempPrice === 0 ? "" : tempPrice}
-                      placeholder="199"
+                      placeholder="500"
                       onChange={(e) => {
                         const value = e.target.value;
                         const numValue = value === "" ? 0 : Number(value);
@@ -735,7 +734,7 @@ export const MultiUserApp: React.FC = () => {
                     />
                   </div>
                   <div className="text-sm text-slate-400 text-center">
-                    Recommended range: €150 - €250
+                    Recommended range: €400 - €500
                   </div>
                   <Button
                     onClick={() => {
@@ -1094,7 +1093,7 @@ export const MultiUserApp: React.FC = () => {
                   const fixUnit = currentTeam.decisions.fixSeatClearingPrice && currentTeam.decisions.fixSeatClearingPrice > 0
                     ? currentTeam.decisions.fixSeatClearingPrice
                     : (gameState.fixSeatPrice || 60);
-                  const price = currentTeam.decisions.price || 199;
+                  const price = currentTeam.decisions.price || 500;
                   const sold = Math.max(0, Number(st.sold || 0));
                   const revenueAccum = Math.max(0, Number(st.revenue || (sold * price)));
                   // costAccum already includes fixed costs recorded at sim start plus variable pooling costs

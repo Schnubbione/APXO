@@ -29,7 +29,7 @@ export const Team = sequelize.define('Team', {
   decisions: {
     type: DataTypes.JSON,
     defaultValue: {
-      price: 199,
+      price: 500,
       fixSeatsRequested: 0,
       fixSeatsPurchased: 0,
       fixSeatsAllocated: 0,

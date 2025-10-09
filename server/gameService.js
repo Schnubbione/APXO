@@ -225,7 +225,7 @@ export class GameService {
 
         // Reactivate existing inactive team: reset to a clean state and reuse the row
         const defaultDecisions = {
-          price: 199,
+          price: 500,
           fixSeatsPurchased: 0,
           fixSeatsAllocated: 0,
           poolingAllocation: 0
@@ -266,7 +266,7 @@ export class GameService {
         resumeToken: token,
         resumeUntil,
         decisions: {
-          price: 199,
+          price: 500,
           fixSeatsPurchased: 0,
           poolingAllocation: 0
         },
@@ -694,7 +694,7 @@ export class GameService {
         const initialFix = Math.max(0, Math.round(st.initialFix || ((team.decisions?.fixSeatsAllocated) || 0)));
         const initialPool = Math.max(0, Math.round(st.initialPool || Math.round((settings.totalAircraftSeats || 1000) * ((team.decisions?.poolingAllocation || 0) / 100))));
         const capacity = initialFix + initialPool;
-        const price = team.decisions?.price || 199;
+        const price = team.decisions?.price || 500;
         const clearingPrice = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
           ? Number(team.decisions?.fixSeatClearingPrice)
           : (settings.fixSeatPrice || 60);
@@ -850,7 +850,7 @@ export class GameService {
         revenue: totalRevenue,
         profit: totalProfit,
         marketShare: 0, // Will be calculated if needed
-        avgPrice: team.decisions?.price || 199,
+        avgPrice: team.decisions?.price || 500,
         capacity: (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
       };
     }).sort((a, b) => b.revenue - a.revenue);
@@ -1026,7 +1026,7 @@ export class GameService {
     }
 
     const minPrice = aliveTeams.reduce((min, team) => {
-      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 199;
+      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 500;
       return Math.min(min, price);
     }, Infinity);
 
@@ -1044,7 +1044,7 @@ export class GameService {
 
     const priceBeta = Math.abs(settings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta);
     const priceWeights = aliveTeams.map(team => {
-      const price = Math.max(1, typeof team.decisions?.price === 'number' ? team.decisions.price : 199);
+      const price = Math.max(1, typeof team.decisions?.price === 'number' ? team.decisions.price : 500);
       const relative = price / Math.max(1, minPrice);
       return Math.max(Math.exp(-priceBeta * (relative - 1)), 0.0001);
     });
@@ -1063,8 +1063,8 @@ export class GameService {
 
     const rankedTeams = aliveTeams.map((team, idx) => ({ team, idx }))
       .sort((a, b) => {
-        const priceA = typeof a.team.decisions?.price === 'number' ? a.team.decisions.price : 199;
-        const priceB = typeof b.team.decisions?.price === 'number' ? b.team.decisions.price : 199;
+        const priceA = typeof a.team.decisions?.price === 'number' ? a.team.decisions.price : 500;
+        const priceB = typeof b.team.decisions?.price === 'number' ? b.team.decisions.price : 500;
         if (priceA !== priceB) return priceA - priceB;
         return a.team.name.localeCompare(b.team.name);
       });
@@ -1111,7 +1111,7 @@ export class GameService {
       remainingDemand -= poolSold;
       totalUnsatisfied += Math.max(0, remainingDemand);
 
-      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 199;
+      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 500;
       const revenueAdd = (sellFix + poolSold) * price;
       const costAdd = poolSold * currentPoolingPrice;
 
