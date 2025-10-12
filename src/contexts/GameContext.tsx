@@ -922,7 +922,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const rawPrice = currentPrice + delta * 0.35 + drift + noise;
             const bounded = Math.max(80, Math.min(300, rawPrice));
             newPrice = Math.round(bounded);
-            priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString() }].slice(-30);
+            priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString(), demand: poolingDemand, remainingDays: daysRemaining }].slice(-30);
           }
 
           // Matching: consume fixed seats first, then pooling

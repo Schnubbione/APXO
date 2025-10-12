@@ -185,6 +185,9 @@ export default function AdminPanel({
       : ((Number(result.revenue ?? 0) - resultMinRevenue) / resultRange) * 10;
     return { ...result, points: Number(normalized.toFixed(2)) };
   }) ?? null;
+  const sortedResultsWithPoints = resultsWithPoints
+    ? [...resultsWithPoints].sort((a, b) => b.points - a.points)
+    : null;
 
   return (
     <div className="fixed inset-0 sm:inset-auto sm:top-4 sm:right-4 z-50 flex items-center justify-center sm:items-start sm:justify-end p-4">
@@ -271,6 +274,43 @@ export default function AdminPanel({
                   </div>
                 )}
               </div>
+
+              {sortedResultsWithPoints && (
+                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                  <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Results</div>
+                  <div className="space-y-2">
+                    {sortedResultsWithPoints.map(result => {
+                      const teamName = teamNameMap.get(result.teamId) || result.teamId;
+                      return (
+                        <div key={result.teamId} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
+                          <div className="flex items-center justify-between text-sm text-slate-200">
+                            <span className="font-semibold text-white">{teamName}</span>
+                            <span className="text-xs text-indigo-300 font-semibold">Points: {result.points.toFixed(2)} / 10</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
+                              <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Number(result.revenue ?? 0))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Profit</span>
+                              <span className={`font-mono text-sm ${Number(result.profit ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>€{currencyFormatter.format(Number(result.profit ?? 0))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Sold</span>
+                              <span className="font-mono text-sm text-white">{numberFormatter.format(Number(result.sold ?? 0))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Market Share</span>
+                              <span className="font-mono text-sm text-white">{(Number(result.marketShare ?? 0) * 100).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-slate-200 text-sm font-semibold mb-2">Agent v1 Simulation Snapshot (Practice Mode)</div>

@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
-import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Line, Tooltip as RechartsTooltip } from 'recharts';
 import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
 import { useToast } from './ui/toast';
 
@@ -176,15 +176,44 @@ export const MultiUserApp: React.FC = () => {
     const startIndex = Math.max(0, totalPoints - 40);
     return history.slice(-40).map((entry, localIndex) => {
       const actualIndex = startIndex + localIndex;
-      const remainingDays = Math.max(0, Math.round(horizon - actualIndex));
+      const remainingDays = typeof entry.remainingDays === 'number'
+        ? Math.max(0, entry.remainingDays)
+        : Math.max(0, Math.round(horizon - actualIndex));
       return {
         index: localIndex,
         label: `${remainingDays} dBD`,
-        price: entry.price
+        price: entry.price,
+        demand: typeof entry.demand === 'number' ? entry.demand : 0
       };
     });
   }, [gameState.poolingMarket?.priceHistory, gameState.simulationHorizon]);
 
+
+  const roundResultsData = roundResults ?? [];
+  const roundRevenueValues = roundResultsData.map(result => Number(result.revenue ?? 0));
+  const roundMaxRevenue = roundRevenueValues.length > 0 ? Math.max(...roundRevenueValues) : 0;
+  const roundMinRevenue = roundRevenueValues.length > 0 ? Math.min(...roundRevenueValues) : 0;
+  const roundRevenueRange = Math.max(1, roundMaxRevenue - roundMinRevenue);
+  const getRoundPoints = (revenue: number) => {
+    if (roundRevenueValues.length === 0) return 0;
+    if (roundMaxRevenue === roundMinRevenue) return revenue > 0 ? 10 : 0;
+    const normalized = (revenue - roundMinRevenue) / roundRevenueRange;
+    return Math.max(0, Math.min(10, Number((normalized * 10).toFixed(2))));
+  };
+
+  const roundResultsWithMeta = React.useMemo(() => {
+  const currentTeamRound = React.useMemo(() => {
+    if (!roundResultsWithMeta || !currentTeam) return null;
+    return roundResultsWithMeta.find(result => result.teamId === currentTeam.id) || null;
+  }, [roundResultsWithMeta, currentTeam]);
+    if (!roundResultsData.length) return null;
+    const teamNameLookup = new Map((gameState.teams || []).map(team => [team.id, team.name]));
+    return [...roundResultsData].map(result => ({
+      ...result,
+      teamName: teamNameLookup.get(result.teamId) || result.teamId,
+      points: getRoundPoints(Number(result.revenue ?? 0))
+    })).sort((a, b) => b.points - a.points);
+  }, [roundResultsData, gameState.teams]);
   useEffect(() => {
     return () => {
       if (priceUpdateTimer.current) {
@@ -753,142 +782,116 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Fix Market - Show during Pre-Purchase Phase */}
           {gameState.currentPhase === 'prePurchase' && (
-            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="fix-market">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl text-white">
-                  <div className="p-2 bg-red-500/20 rounded-lg">
-                    <Award className="w-5 h-5 text-red-400" />
-                  </div>
-                  Fix Market Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-xl border border-red-500/30">
-                    <div className="text-2xl font-bold text-red-400 mb-2">
-                      {gameState.totalAircraftSeats || 1000}
-                    </div>
-                    <div className="text-slate-300 text-sm">Total Aircraft Seats (Market)</div>
-                  </div>
-                </div>
-
-                {/* Team fix seats visibility to support purchase decision */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-sky-500/20 to-sky-600/20 rounded-xl border border-sky-500/30">
-                    <div className="text-2xl font-bold text-sky-400 mb-2">
-                      {currentTeam?.decisions?.fixSeatsRequested ?? currentTeam?.decisions?.fixSeatsPurchased ?? 0}
-                    </div>
-                    <div className="text-slate-300 text-sm">Your Fix Seats (requested)</div>
-                  </div>
-                </div>
-
-                {/* Hide progress bar before allocation to avoid revealing demand */}
-
-                {/* Team purchase activity is hidden before allocation to ensure anonymity and avoid demand signals */}
-
-                    <div className="text-sm text-slate-400 bg-slate-700/20 rounded-lg p-3 border border-slate-600/30">
-                      <div className="font-medium text-indigo-300 mb-2">💡 Strategic Information:</div>
-                      <div>• Current airline reference price: €{gameState.fixSeatPrice} (auction determines the final price)</div>
-                      <div>• Exact remaining availability is hidden; allocation will be announced after Phase 1</div>
-                    </div>
-              </CardContent>
-            </Card>
-          )}
-          {allocationSummary && sortedAllocations.length > 0 && gameState.currentPhase === 'prePurchase' && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="fixseat-allocation">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl text-white">
-                  <div className="p-2 bg-green-500/20 rounded-lg">
-                    <Award className="w-5 h-5 text-green-400" />
-                  </div>
-                  Fixed-Seat Allocation (Phase 1)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="lg:col-span-1 p-4 rounded-xl border border-green-500/40 bg-green-500/10 shadow-inner">
-                    <div className="text-xs uppercase tracking-wide text-green-200/80 mb-1">Your result</div>
-                    <div className="text-3xl font-semibold text-white">
-                      {myAllocation ? myAllocation.allocated : 0}
-                    </div>
-                    <div className="text-sm text-slate-200 mt-2">
-                      {myAllocation
-                        ? myAllocation.allocated > 0
-                          ? `Clearing price: €${(((myAllocation.clearingPrice ?? gameState.fixSeatPrice) || 0)).toFixed(0)}`
-                          : 'No fixed seats awarded'
-                        : currentTeam
-                          ? 'No bid submitted'
-                          : isAdmin
-                            ? 'Admin overview active'
-                            : 'No team registered yet'}
-                    </div>
-                  </div>
-                  <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Available fixed seats</div>
-                      <div className="text-2xl font-semibold text-white">{allocationSummary.maxFixCapacity}</div>
-                      <div className="text-xs text-slate-400 mt-1">Maximum capacity for round 1</div>
-                    </div>
-                    <div className="p-4 rounded-xl border border-blue-500/40 bg-blue-500/10">
-                      <div className="text-xs uppercase tracking-wide text-blue-200/80">Allocated</div>
-                      <div className="text-2xl font-semibold text-white">{allocationSummary.totalAllocated}</div>
-                      <div className="text-xs text-blue-100/80 mt-1">Remaining fixed seats: {Math.max(0, allocationSummary.maxFixCapacity - allocationSummary.totalAllocated)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Allocation by team</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {sortedAllocations.map(entry => {
-                      const isMine = currentTeam ? entry.teamId === currentTeam.id : false;
-                      return (
-                        <div
-                          key={entry.teamId}
-                          className={`p-3 rounded-lg border transition-all duration-200 ${isMine ? 'border-indigo-400/70 bg-indigo-500/20 shadow-lg' : 'border-slate-700/60 bg-slate-700/30'}`}
-                        >
-                          <div className="flex items-center justify-between text-sm text-slate-200">
-                            <span className={`font-semibold ${isMine ? 'text-white' : ''}`}>{entry.teamName}</span>
-                            <span className="font-mono text-lg text-white">{entry.allocated}</span>
-                          </div>
-                          <div className="text-xs text-slate-400 mt-1">
-                            Gebot: €{entry.bidPrice} • Clearing: {entry.clearingPrice ? `€${entry.clearingPrice}` : '—'}
-                          </div>
-                          <div className="text-xs text-slate-500 mt-1">Angefragt: {entry.requested}</div>
+            ) : gameState.currentPhase === 'simulation' ? (
+                <div className="space-y-6">
+                  <div className="grid gap-6 lg:grid-cols-12">
+                    <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-white text-lg">Price Control</CardTitle>
+                        <p className="text-xs text-slate-400">Steer demand by adjusting your live retail price.</p>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="flex items-baseline justify-between gap-4">
+                          <span className="text-sm text-slate-400">Current retail price</span>
+                          <span className="text-3xl font-bold text-white tabular-nums">€{priceSliderValue.toLocaleString('de-DE')}</span>
                         </div>
-                      );
-                    })}
+                        <Slider
+                          value={[priceSliderValue]}
+                          min={priceMin}
+                          max={priceMax}
+                          step={1}
+                          onValueChange={(values) => {
+                            const value = values[0] ?? priceSliderValue;
+                            const clamped = Math.min(priceMax, Math.max(priceMin, Math.round(value)));
+                            setPriceSliderValue(clamped);
+
+                            if (!currentTeam) return;
+                            if (priceUpdateTimer.current) {
+                              window.clearTimeout(priceUpdateTimer.current);
+                            }
+                            priceUpdateTimer.current = window.setTimeout(() => {
+                              updateTeamDecision({ price: clamped });
+                            }, 200);
+                          }}
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>€{priceMin}</span>
+                          <span>€{priceMax}</span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Changes apply immediately for new bookings. Keep an eye on the pooling price trend to react ahead of the market.
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-white text-lg">Pooling Price Trend</CardTitle>
+                      </CardHeader>
+                      <CardContent className="h-64">
+                        {priceHistoryData.length > 1 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={priceHistoryData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="poolPriceGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
+                                  <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
+                              <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
+                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
+                              <YAxis stroke="#f97316" tick={{ fontSize: 12 }} orientation="right" yAxisId="right" width={48} />
+                              <RechartsTooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
+                                formatter={(value: any, name: string) => {
+                                  if (name === 'Pooling price') return [`€${Number(value).toFixed(0)}`, name];
+                                  if (name === 'Market demand') return [`${Number(value).toFixed(0)} pax`, name];
+                                  return [value, name];
+                                }}
+                              />
+                              <Area yAxisId="left" type="monotone" dataKey="price" name="Pooling price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
+                              <Line yAxisId="right" type="monotone" dataKey="demand" name="Market demand" stroke="#f97316" strokeWidth={2} dot={false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                            Waiting for price updates…
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {gameState.currentPhase === 'simulation' && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl text-white">
-                  <div className="p-2 bg-green-500/20 rounded-lg">
-                    <Award className="w-5 h-5 text-green-400" />
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Current revenue</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(currentRevenue) ? currentRevenue.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats sold so far</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">{Number.isFinite(seatsSoldSoFar) ? seatsSoldSoFar.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Pooling price</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(poolingPrice) ? poolingPrice.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Days to departure</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">{daysToDeparture.toLocaleString('de-DE')}</div>
+                    </div>
                   </div>
-                  Fixed Seats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-slate-600/60 bg-slate-700/30">
-                  <div className="text-xs uppercase tracking-wide text-slate-400/80">Remaining fixed seats</div>
-                  <div className="text-2xl font-semibold text-white tabular-nums">{remainingFixSeats}</div>
-                  <div className="text-xs text-slate-500 mt-1">Carry-over from the sealed auction</div>
+
+                  <p className="text-xs text-slate-400">
+                    Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.
+                  </p>
                 </div>
-                <div className="p-4 rounded-xl border border-green-500/40 bg-green-500/10">
-                  <div className="text-xs uppercase tracking-wide text-green-200/80">Purchased at</div>
-                  <div className="text-2xl font-semibold text-white tabular-nums">
-                    {typeof fixedSeatClearingPrice === 'number' && fixedSeatClearingPrice > 0 ? `€${fixedSeatClearingPrice.toFixed(0)}` : '—'}
-                  </div>
-                  <div className="text-xs text-green-100/80 mt-1">Clearing price from Phase 1</div>
+              ) : (
+                <div className="text-center text-slate-400 py-8">
+                  Waiting for phase to start...
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
@@ -1026,12 +1029,18 @@ export const MultiUserApp: React.FC = () => {
                               </defs>
                               <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
                               <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
-                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} />
+                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
+                              <YAxis stroke="#f97316" tick={{ fontSize: 12 }} orientation="right" yAxisId="right" width={48} />
                               <RechartsTooltip
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
-                                formatter={(value: any) => [`€${Number(value).toFixed(0)}`, 'Pooling price']}
+                                formatter={(value: any, name: string) => {
+                                  if (name === 'Pooling price') return [`€${Number(value).toFixed(0)}`, name];
+                                  if (name === 'Market demand') return [`${Number(value).toFixed(0)} pax`, name];
+                                  return [value, name];
+                                }}
                               />
-                              <Area type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
+                              <Area yAxisId="left" type="monotone" dataKey="price" name="Pooling price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
+                              <Line yAxisId="right" type="monotone" dataKey="demand" name="Market demand" stroke="#f97316" strokeWidth={2} dot={false} />
                             </AreaChart>
                           </ResponsiveContainer>
                         ) : (
@@ -1073,77 +1082,6 @@ export const MultiUserApp: React.FC = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Pooling Market */}
-          {gameState.currentPhase === 'simulation' && gameState.poolingMarket && (
-            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="pooling-market">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl text-white">
-                  <div className="p-2 bg-purple-500/20 rounded-lg">
-                    <Waves className="w-5 h-5 text-purple-400" />
-                  </div>
-                  Pooling Market
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Current Budget card */}
-                {(() => {
-                  const st = (gameState as any).simState?.perTeam?.[currentTeam.id] || {};
-                  const budget = (gameState as any).perTeamBudget || 0;
-                  const fixUnit = currentTeam.decisions.fixSeatClearingPrice && currentTeam.decisions.fixSeatClearingPrice > 0
-                    ? currentTeam.decisions.fixSeatClearingPrice
-                    : (gameState.fixSeatPrice || 60);
-                  const price = currentTeam.decisions.price || 500;
-                  const sold = Math.max(0, Number(st.sold || 0));
-                  const revenueAccum = Math.max(0, Number(st.revenue || (sold * price)));
-                  // costAccum already includes fixed costs recorded at sim start plus variable pooling costs
-                  const costAccum = Math.max(0, Number(st.cost || ((currentTeam.decisions.fixSeatsAllocated || 0) * fixUnit)));
-                  const currentBudget = Math.round(budget - costAccum + revenueAccum);
-                  return (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">
-                        <div className="text-2xl font-bold text-emerald-400 mb-2">€{budget}</div>
-                        <div className="text-slate-300 text-sm">Starting Budget</div>
-                      </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
-                        <div className="text-2xl font-bold text-indigo-400 mb-2">€{currentBudget}</div>
-                        <div className="text-slate-300 text-sm">Current Budget (est.)</div>
-                      </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-fuchsia-500/20 to-fuchsia-600/20 rounded-xl border border-fuchsia-500/30">
-                        <div className="text-2xl font-bold text-fuchsia-400 mb-2">{sold}</div>
-                        <div className="text-slate-300 text-sm">Passengers Sold so far</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl border border-purple-500/30">
-                    <div className="text-2xl font-bold text-purple-400 mb-2">
-                      €{gameState.poolingMarket.currentPrice.toFixed(2)}
-                    </div>
-                    <div className="text-slate-300 text-sm">Current Price</div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl border border-blue-500/30">
-                    <div className="text-2xl font-bold text-blue-400 mb-2">
-                      {gameState.poolingMarket.offeredPoolingCapacity}
-                    </div>
-                    <div className="text-slate-300 text-sm">Offered Capacity</div>
-                  </div>
-                  <div className="text-center p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl border border-orange-500/30">
-                    <div className="text-2xl font-bold text-orange-400 mb-2">
-                      {gameState.poolingMarket.currentDemand}
-                    </div>
-                    <div className="text-slate-300 text-sm">Market Demand</div>
-                  </div>
-                </div>
-                <div className="text-sm text-slate-400">
-                  Supply updates every {gameState.poolingMarketUpdateInterval || 1} second{gameState.poolingMarketUpdateInterval !== 1 ? 's' : ''}
-                  {' '}({gameState.simulatedWeeksPerUpdate || 1} simulated day{gameState.simulatedWeeksPerUpdate !== 1 ? 's' : ''} per step),
-                  while the airline reprices pooling seats every 7 simulated days.
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Round Results */}
           {roundResults && (

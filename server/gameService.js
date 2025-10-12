@@ -590,7 +590,7 @@ export class GameService {
       : (currentSettings.poolingCost || AGENT_V1_DEFAULTS.airline.startPrice);
     const initialPriceHistory = existingMarket.priceHistory && Array.isArray(existingMarket.priceHistory) && existingMarket.priceHistory.length > 0
       ? existingMarket.priceHistory
-      : [{ price: initialAirlinePrice, timestamp: new Date().toISOString() }];
+      : [{ price: initialAirlinePrice, timestamp: new Date().toISOString(), demand: 0, remainingDays: simulationHorizon }];
 
     const updatedPM = {
       currentPrice: initialAirlinePrice,
@@ -1194,7 +1194,7 @@ export class GameService {
       }
 
       newPrice = candidatePrice;
-      priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString() }];
+      priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString(), demand: totalDemand, remainingDays: nextDays }].slice(-120);
       if (priceHistory.length > 90) priceHistory.shift();
     }
 
