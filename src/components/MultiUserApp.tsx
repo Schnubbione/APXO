@@ -280,6 +280,20 @@ export const MultiUserApp: React.FC = () => {
   const currentRoundPoints = typeof currentTeamRound?.points === 'number' ? currentTeamRound.points : null;
   const poolingUsageShare = currentRoundSold > 0 ? Math.max(0, Math.min(100, (poolSoldSoFar / currentRoundSold) * 100)) : null;
   const poolRemainingSeats = Math.max(0, mySimState?.poolRemaining ?? 0);
+  const totalAircraftSeats = Math.max(0, Number(gameState.totalAircraftSeats ?? (gameState as any).totalCapacity ?? 0));
+  const perTeamBudget = Number((gameState as any).perTeamBudget ?? 0);
+  const parsedBidInput = Number(bidPriceInput);
+  const currentBidPriceValue = Number.isFinite(parsedBidInput) && bidPriceInput.trim() !== ''
+    ? parsedBidInput
+    : typeof currentTeam?.decisions?.fixSeatBidPrice === 'number'
+      ? currentTeam.decisions.fixSeatBidPrice
+      : typeof gameState.fixSeatPrice === 'number'
+        ? gameState.fixSeatPrice
+        : 0;
+  const rawEstimatedCost = requestedFixSeats * Math.max(0, currentBidPriceValue);
+  const estimatedFixCost = Number.isFinite(rawEstimatedCost) ? Math.max(0, Math.round(rawEstimatedCost)) : 0;
+  const budgetRemaining = perTeamBudget > 0 ? Math.round(perTeamBudget - estimatedFixCost) : null;
+  const showBudgetTile = perTeamBudget > 0;
 
   // Play sound effects for game events
   useEffect(() => {
@@ -1061,17 +1075,11 @@ export const MultiUserApp: React.FC = () => {
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className={`grid gap-4 sm:grid-cols-2 ${showBudgetTile ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
                       <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
-                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Fix seat price</div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Market capacity</div>
                         <div className="mt-1 text-3xl font-semibold text-emerald-300 tabular-nums">
-                          €{Math.round(gameState.fixSeatPrice ?? 0).toLocaleString('de-DE')}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
-                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats remaining</div>
-                        <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
-                          {(gameState.availableFixSeats ?? 0).toLocaleString('de-DE')}
+                          {totalAircraftSeats.toLocaleString('de-DE')} seats
                         </div>
                       </div>
                       <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
@@ -1080,12 +1088,19 @@ export const MultiUserApp: React.FC = () => {
                           {requestedFixSeats.toLocaleString('de-DE')}
                         </div>
                       </div>
-                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
-                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Budget</div>
-                        <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
-                          €{Math.round((gameState as any).perTeamBudget ?? 0).toLocaleString('de-DE')}
+                      {showBudgetTile && (
+                        <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                          <div className="text-xs uppercase tracking-wide text-slate-400/80">Team budget</div>
+                          <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
+                            €{perTeamBudget.toLocaleString('de-DE')}
+                          </div>
+                          {budgetRemaining !== null && (
+                            <div className="mt-1 text-xs text-slate-400">
+                              Remaining if allocated: €{budgetRemaining.toLocaleString('de-DE')}
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
@@ -1148,10 +1163,8 @@ export const MultiUserApp: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-sm text-slate-400">
-                      Estimated Cost: €{
-                        (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? 0)
-                        * (currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60))
-                      } { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
+                      Estimated Cost: €{estimatedFixCost.toLocaleString('de-DE')}
+                      {showBudgetTile && budgetRemaining !== null ? ` | Remaining budget: €${budgetRemaining.toLocaleString('de-DE')}` : ''}
                     </div>
                     <div className="text-xs text-slate-400">
                       Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel below to secure capacity.
