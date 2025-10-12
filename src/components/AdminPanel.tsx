@@ -137,43 +137,6 @@ export default function AdminPanel({
   const numberFormatter = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
   const currencyFormatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const liveTeams = (_gameState?.teams ?? []).map((team: any) => {
-    const sim = perTeamState[team.id] || {};
-    const finalResult = latestResultsMap.get(team.id);
-    const price = typeof team.decisions?.price === 'number' ? team.decisions.price : null;
-    const sold = Math.max(0, Math.round(sim.sold ?? finalResult?.sold ?? 0));
-    const revenue = Math.round(sim.revenue ?? finalResult?.revenue ?? Number(team.totalRevenue ?? 0));
-    const teamProfit = Math.round(sim.profit ?? finalResult?.profit ?? 0);
-    const fixAllocated = Math.max(0, Math.round(team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0));
-    const fixRemaining = Math.max(0, Math.round(sim.fixRemaining ?? (fixAllocated - sold)));
-    const poolRemaining = Math.max(0, Math.round(sim.poolRemaining ?? 0));
-    const totalRemaining = Math.max(0, fixRemaining + poolRemaining);
-    return {
-      id: team.id,
-      name: team.name,
-      price,
-      sold,
-      revenue,
-      profit: teamProfit,
-      fixRemaining,
-      poolRemaining,
-      totalRemaining
-    };
-  });
-
-  const revenueValues = liveTeams.map(team => team.revenue);
-  const maxRevenue = revenueValues.length > 0 ? Math.max(...revenueValues) : 0;
-  const minRevenue = revenueValues.length > 0 ? Math.min(...revenueValues) : 0;
-  const revenueRange = Math.max(1, maxRevenue - minRevenue);
-
-  const liveTeamsWithScore = liveTeams.map(team => {
-    const normalized = maxRevenue === minRevenue
-      ? (team.revenue > 0 ? 10 : 0)
-      : ((team.revenue - minRevenue) / revenueRange) * 10;
-    const points = Number(normalized.toFixed(2));
-    return { ...team, points };
-  });
-
   const resultRevenueValues = latestRoundResults ? latestRoundResults.map(result => Number(result.revenue ?? 0)) : [];
   const resultMaxRevenue = resultRevenueValues.length > 0 ? Math.max(...resultRevenueValues) : 0;
   const resultMinRevenue = resultRevenueValues.length > 0 ? Math.min(...resultRevenueValues) : 0;
@@ -231,50 +194,6 @@ export default function AdminPanel({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsContent value="settings" className="mt-0">
             <CardContent className="space-y-5 p-6">
-              <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                <div className="text-slate-200 text-sm font-semibold mb-2">Live Team Monitor</div>
-                {liveTeamsWithScore.length === 0 ? (
-                  <div className="text-xs text-slate-400">
-                    No teams registered yet. As soon as teams join, their price, seat balance, and revenue will appear here.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {liveTeamsWithScore.map(team => (
-                      <div key={team.id} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
-                        <div className="flex items-center justify-between text-sm text-slate-200">
-                          <span className="font-semibold text-white">{team.name}</span>
-                          <span className="text-xs text-slate-400">
-                            {team.price !== null ? `Price €${currencyFormatter.format(team.price)}` : 'Price —'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Sold</span>
-                            <span className="font-mono text-sm text-white">{numberFormatter.format(team.sold)}</span>
-                          </div>
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
-                            <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(team.revenue)}</span>
-                          </div>
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Points</span>
-                            <span className="font-mono text-sm text-indigo-300">{team.points.toFixed(2)} / 10</span>
-                          </div>
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Fix Remaining</span>
-                            <span className="font-mono text-sm text-white">{numberFormatter.format(team.fixRemaining)}</span>
-                          </div>
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Total Remaining</span>
-                            <span className={`font-mono text-sm ${team.totalRemaining > 0 ? 'text-white' : 'text-amber-300'}`}>{numberFormatter.format(team.totalRemaining)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               {sortedResultsWithPoints && (
                 <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                   <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Results</div>
