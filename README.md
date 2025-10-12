@@ -9,6 +9,7 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Agent v1 Engine** - Type-safe simulation (`src/lib/simulation/engine.ts`) covering the fixed-seat auction, a 12-15 step countdown, forecast-based airline repricing, attention boosts, and anti-collusion guardrails.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
+- **Round Evaluation View** - Post-round recap for teams that distills Phase 1 allocations plus Phase 2 market performance while hiding live controls.
 - **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
 - **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
 - **CI-Ready Tooling** - Jest/Vitest, Playwright, ESLint. Engine-specific tests safeguard the core domain.
@@ -130,6 +131,14 @@ Covered scenarios:
 
 Per update: airline price, remaining capacity, team sales (fixed/pooling), margin, market share. Final reports include revenue, cost, profit, load factor, average sell/buy prices.
 
+### Round Evaluation Recap
+
+When a round ends the UI switches into an evaluation state:
+- **Round Summary Card** — highlights your team’s seats sold, revenue, profit, point score, and round ranking.
+- **Phase 1 Snapshot** — shows your requested vs. allocated fixed seats, clearing price, bid price, and top allocations for context.
+- **Phase 2 Snapshot** — summarises pooling usage, remaining inventory, and the top three profit earners of the round.
+- Live controls (Fix Market, “Your Decisions”) stay hidden until the next round starts so teams can focus on the recap.
+
 ---
 
 ## Operation
@@ -139,7 +148,7 @@ Per update: airline price, remaining capacity, team sales (fixed/pooling), margi
 1. Open the browser and register the team.
 2. Phase 1: submit the bid and wait for the auction result.
 3. Phase 2: throughout the countdown choose price, push level, fixed hold %, and optional tool when needed.
-4. Monitor live snapshots and debriefs to stay ahead of rivals.
+4. Monitor live snapshots and debriefs to stay ahead of rivals; once the round ends, review the evaluation recap before the next phase.
 5. Use practice mode to explore strategies without a live session.
 
 ### Admins

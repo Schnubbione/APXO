@@ -1,6 +1,6 @@
 # APXO - Agents Guide
 
-Updated: March 12, 2026
+Updated: March 18, 2026
 
 This document compresses the current project context and outlines sensible next steps. It is aimed at maintainers, contributors, and automation/AI agents that plan or prioritise work.
 
@@ -11,7 +11,7 @@ This document compresses the current project context and outlines sensible next 
 - Deployment Targets: Frontend via Vercel, backend via Render/Railway (or local network exposure).
 
 ## Current State
-- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`).
+- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`). Fresh evaluation view now replaces the old Fix Market/Your Decisions panels after each round to highlight Phase 1 and Phase 2 outcomes.
 - **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit tests cover auction, fixed-before-pooling, airline repricing, and win condition (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
 - **Backend**: Legacy service (`server/gameService.js`) still powers lobby/realtime. Integration with the new engine is pending.
 - **Documentation**: README updated (simulation core, practice mode, setup). Agents Guide provides priorities.
@@ -35,6 +35,7 @@ This document compresses the current project context and outlines sensible next 
 - Multi-user team registration, admin login (env password), phase control (auction → live market) in the backend.
 - Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
+- Round evaluation screen summarises Phase 1 allocation, Phase 2 performance, and top performers while live controls are hidden.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.
 
