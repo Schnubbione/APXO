@@ -205,12 +205,12 @@ function startRoundTimer() {
   // Get phase time from settings (Pre-Purchase uses roundTime, Simulation has no timer)
   let roundTime;
   if (currentPhase === 'prePurchase') {
-    roundTime = settings.roundTime || 600; // Use roundTime for pre-purchase phase
+    roundTime = settings.roundTime || 180; // Use roundTime for pre-purchase phase
   } else if (currentPhase === 'simulation') {
     // Simulation phase has no timer - controlled by Pooling Market Update Interval and Simulated Days per Update
     roundTime = null;
   } else {
-    roundTime = 300; // Fallback
+    roundTime = 180; // Fallback
   }
 
   remainingTime = roundTime;

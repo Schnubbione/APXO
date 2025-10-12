@@ -86,7 +86,7 @@ describe('GameService', () => {
           shock: 0.1,
           sharedMarket: true,
           seed: 42,
-          roundTime: 300,
+          roundTime: 180,
           priceElasticity: -1.5,
           crossElasticity: 0.3,
           costVolatility: 0.05,
