@@ -249,6 +249,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     remainingPool: number[];
     sold: number[];
     poolUsed: number[];
+    revenue: number[];
+    cost: number[];
+    demand: number[];
+    initialFix: number[];
+    initialPool: number[];
+    insolvent: boolean[];
   } | null>(null);
 
   // Tutorial state
@@ -839,11 +845,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const meNow = teams.find(t => t.id === myId) || null;
             if (meNow) setCurrentTeam(meNow);
             // Initialize per-tick matching state (remaining capacities & sold tracking)
+            const defaultClearingPrice = Number.isFinite(Number(prev.fixSeatPrice))
+              ? Math.max(1, Math.round(Number(prev.fixSeatPrice)))
+              : Math.max(1, Math.round(fixSeatPrice || 60));
+            const initialFixAllocations = teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || t.decisions?.fixSeatsPurchased || 0));
+            const initialPoolAllocations = teams.map(t => Math.max(0, Math.round(totalAircraftSeats * ((t.decisions?.poolingAllocation || 0) / 100))));
+            const initialCostPerTeam = teams.map((team, index) => {
+              const clearing = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
+                ? Math.round(Number(team.decisions?.fixSeatClearingPrice))
+                : defaultClearingPrice;
+              return initialFixAllocations[index] * clearing;
+            });
+
             simDataRef.current = {
-              remainingFix: teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || 0)),
-              remainingPool: teams.map(t => Math.max(0, Math.round((totalAircraftSeats) * ((t.decisions?.poolingAllocation || 0) / 100)))),
+              remainingFix: initialFixAllocations.slice(),
+              remainingPool: initialPoolAllocations.slice(),
               sold: teams.map(() => 0),
-              poolUsed: teams.map(() => 0)
+              poolUsed: teams.map(() => 0),
+              revenue: teams.map(() => 0),
+              cost: initialCostPerTeam.slice(),
+              demand: teams.map(() => 0),
+              initialFix: initialFixAllocations,
+              initialPool: initialPoolAllocations,
+              insolvent: teams.map(() => false)
             };
             startSimInterval();
           }, 0);
@@ -888,11 +912,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Per-tick matching: manage remaining capacities
           if (!simDataRef.current || (simDataRef.current.remainingFix.length !== teams.length)) {
             // Fallback init if values were not provided
+            const seatsForState = Math.max(1, Number(prev.totalAircraftSeats || totalAircraftSeats || 1000));
+            const defaultClearing = Number.isFinite(Number(prev.fixSeatPrice))
+              ? Math.max(1, Math.round(Number(prev.fixSeatPrice)))
+              : Math.max(1, Math.round(fixSeatPrice || 60));
+            const initialFix = teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || t.decisions?.fixSeatsPurchased || 0));
+            const initialPool = teams.map(t => Math.max(0, Math.round(seatsForState * ((t.decisions?.poolingAllocation || 0) / 100))));
+            const initialCost = teams.map((team, index) => {
+              const clearing = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
+                ? Math.round(Number(team.decisions?.fixSeatClearingPrice))
+                : defaultClearing;
+              return initialFix[index] * clearing;
+            });
             simDataRef.current = {
-              remainingFix: teams.map(t => Math.max(0, t.decisions?.fixSeatsAllocated || 0)),
-              remainingPool: teams.map(t => Math.max(0, Math.round((prev.totalAircraftSeats || 1000) * ((t.decisions?.poolingAllocation || 0) / 100)))),
+              remainingFix: initialFix.slice(),
+              remainingPool: initialPool.slice(),
               sold: teams.map(() => 0),
-              poolUsed: teams.map(() => 0)
+              poolUsed: teams.map(() => 0),
+              revenue: teams.map(() => 0),
+              cost: initialCost.slice(),
+              demand: teams.map(() => 0),
+              initialFix,
+              initialPool,
+              insolvent: teams.map(() => false)
             };
           }
           const data = simDataRef.current!;
@@ -925,17 +967,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             priceHistory = [...priceHistory, { price: newPrice, timestamp: new Date().toISOString(), demand: poolingDemand, remainingDays: daysRemaining }].slice(-30);
           }
 
+          const budget = Number(prev.perTeamBudget || 0);
+
           // Matching: consume fixed seats first, then pooling
-          teams.forEach((_, i) => {
+          teams.forEach((team, i) => {
             let need = demandPerTeam[i];
             const serveFix = Math.min(need, data.remainingFix[i]);
-            data.remainingFix[i] -= serveFix;
+            data.remainingFix[i] = Math.max(0, data.remainingFix[i] - serveFix);
             need -= serveFix;
+
             const servePool = Math.min(need, data.remainingPool[i]);
-            data.remainingPool[i] -= servePool;
+            data.remainingPool[i] = Math.max(0, data.remainingPool[i] - servePool);
             need -= servePool;
-            data.sold[i] += (serveFix + servePool);
-            data.poolUsed[i] += servePool;
+
+            const seatsSold = serveFix + servePool;
+            data.sold[i] = Math.max(0, (data.sold[i] ?? 0) + seatsSold);
+            data.poolUsed[i] = Math.max(0, (data.poolUsed[i] ?? 0) + servePool);
+            data.demand[i] = Math.max(0, (data.demand[i] ?? 0) + demandPerTeam[i]);
+
+            const price = Math.max(1, Number(team.decisions?.price ?? 500));
+            data.revenue[i] = Math.max(0, (data.revenue[i] ?? 0) + seatsSold * price);
+            data.cost[i] = Math.max(0, (data.cost[i] ?? 0) + servePool * newPrice);
+
+            if (budget > 0) {
+              const profitForecast = (data.revenue[i] ?? 0) - (data.cost[i] ?? 0);
+              if (profitForecast < 0 && Math.abs(profitForecast) > budget) {
+                data.insolvent[i] = true;
+              }
+            }
           });
 
           const poolingOfferedAfter = data.remainingPool.reduce((a, b) => a + b, 0);
@@ -948,36 +1007,80 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             priceHistory
           };
 
+          const perTeamSimState = teams.reduce<Record<string, any>>((acc, team, index) => {
+            acc[team.id] = {
+              fixRemaining: Math.max(0, data.remainingFix[index] ?? 0),
+              poolRemaining: Math.max(0, data.remainingPool[index] ?? 0),
+              sold: Math.max(0, data.sold[index] ?? 0),
+              poolUsed: Math.max(0, data.poolUsed[index] ?? 0),
+              demand: Math.max(0, data.demand[index] ?? 0),
+              initialFix: Math.max(0, data.initialFix?.[index] ?? 0),
+              initialPool: Math.max(0, data.initialPool?.[index] ?? 0),
+              revenue: Math.max(0, data.revenue[index] ?? 0),
+              cost: Math.max(0, data.cost[index] ?? 0),
+              insolvent: !!data.insolvent?.[index]
+            };
+            return acc;
+          }, {});
+
           if (countdownSeconds <= 0) {
             clearInterval(simTimerRef.current);
-            // Evaluate current team summary
-            const meIndex = teams.findIndex(t => t.id === myId);
-            const myPrice = teams[meIndex]?.decisions.price || 500;
-            const sold = meIndex >= 0 ? data.sold[meIndex] : 0;
-            const poolUsed = meIndex >= 0 ? data.poolUsed[meIndex] : 0;
-            const myFixAllocated = teams[meIndex]?.decisions?.fixSeatsAllocated || 0;
-            const avgPoolingUnit = (updatedPM.priceHistory && updatedPM.priceHistory.length > 0)
-              ? Math.round(updatedPM.priceHistory.reduce((s, p) => s + (p.price || 0), 0) / updatedPM.priceHistory.length)
-              : (poolingCost || 90);
-            const revenue = sold * myPrice;
-            const clearingUnit = Number.isFinite(Number(teams[meIndex]?.decisions?.fixSeatClearingPrice)) && Number(teams[meIndex]?.decisions?.fixSeatClearingPrice) > 0
-              ? Number(teams[meIndex]?.decisions?.fixSeatClearingPrice)
-              : (prev.fixSeatPrice || 60);
-            const fixSeatCost = myFixAllocated * clearingUnit;
-            const poolingUsageCost = poolUsed * avgPoolingUnit;
-            const variableCost = sold * 15;
-            const cost = fixSeatCost + poolingUsageCost + variableCost;
-            const profit = Math.round(revenue - cost);
-            const budget = Number(prev.perTeamBudget || 0);
-            const insolvent = (profit < 0 && Math.abs(profit) > budget) ? true : false; // stricter: loss bigger than budget
-            const rr = [{ teamId: myId, sold, revenue: Math.round(revenue), cost: Math.round(cost), profit, unsold: Math.max(0, (teams[meIndex] ? 0 : demandToday) ), insolvent }];
-            setRoundResults(rr);
+            const priceHistoryForAvg = Array.isArray(updatedPM.priceHistory) ? updatedPM.priceHistory : [];
+            const avgPoolingUnit = priceHistoryForAvg.length > 0
+              ? Math.round(priceHistoryForAvg.reduce((sum, entry) => sum + (entry.price || 0), 0) / priceHistoryForAvg.length)
+              : Math.round(newPrice);
+            const defaultClearing = Number.isFinite(Number(prev.fixSeatPrice))
+              ? Math.max(1, Math.round(Number(prev.fixSeatPrice)))
+              : Math.max(1, Math.round(fixSeatPrice || 60));
+
+            const finalResults = teams.map((team, index) => {
+              const sim = perTeamSimState[team.id] || {};
+              const price = Math.max(1, Number(team.decisions?.price ?? 500));
+              const sold = Math.max(0, Math.round(sim.sold ?? data.sold[index] ?? 0));
+              const poolUsed = Math.max(0, Math.round(sim.poolUsed ?? data.poolUsed[index] ?? 0));
+              const demandTotal = Math.max(0, Math.round(sim.demand ?? data.demand[index] ?? 0));
+              const initialFix = Math.max(0, Math.round(sim.initialFix ?? data.initialFix?.[index] ?? (team.decisions?.fixSeatsAllocated || team.decisions?.fixSeatsPurchased || 0)));
+              const initialPool = Math.max(0, Math.round(sim.initialPool ?? data.initialPool?.[index] ?? Math.round((prev.totalAircraftSeats || totalAircraftSeats || 1000) * ((team.decisions?.poolingAllocation || 0) / 100))));
+              const clearing = Number.isFinite(Number(team.decisions?.fixSeatClearingPrice)) && Number(team.decisions?.fixSeatClearingPrice) > 0
+                ? Math.round(Number(team.decisions?.fixSeatClearingPrice))
+                : defaultClearing;
+              const revenue = Math.round(sim.revenue ?? data.revenue[index] ?? sold * price);
+              const trackedCost = sim.cost ?? data.cost[index];
+              const fallbackCost = (initialFix * clearing) + (poolUsed * avgPoolingUnit);
+              const cost = Math.round(Number.isFinite(Number(trackedCost)) ? Number(trackedCost) : fallbackCost);
+              const profit = Math.round(revenue - cost);
+              const unsold = Math.max(0, demandTotal - sold);
+              const insolventFlag = sim.insolvent ?? (budget > 0 && profit < 0 && Math.abs(profit) > budget);
+              return {
+                teamId: team.id,
+                sold,
+                revenue,
+                cost,
+                profit,
+                unsold,
+                demand: demandTotal,
+                avgPrice: price,
+                capacity: initialFix + initialPool,
+                poolUsed,
+                insolvent: !!insolventFlag
+              };
+            });
+
+            const totalSold = finalResults.reduce((sum, entry) => sum + entry.sold, 0) || 1;
+            const resultsWithShare = finalResults.map(entry => ({
+              ...entry,
+              marketShare: Math.round((entry.sold / totalSold) * 100) / 100
+            }));
+
+            setRoundResults(resultsWithShare);
+
             return {
               ...prev,
               isActive: false,
               simulatedDaysUntilDeparture: 0,
               countdownSeconds: 0,
-              poolingMarket: updatedPM
+              poolingMarket: updatedPM,
+              simState: { perTeam: perTeamSimState, returnedDemandRemaining: 0 }
             } as GameState;
           }
 
@@ -985,7 +1088,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev,
             simulatedDaysUntilDeparture: daysRemaining,
             countdownSeconds,
-            poolingMarket: updatedPM
+            poolingMarket: updatedPM,
+            simState: { perTeam: perTeamSimState, returnedDemandRemaining: 0 }
           } as GameState;
         });
       }, 1000);

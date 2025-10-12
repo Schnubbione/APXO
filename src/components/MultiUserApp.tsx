@@ -253,7 +253,7 @@ export const MultiUserApp: React.FC = () => {
     };
   }, []);
 
-  const currentRevenue = Math.round(mySimState?.revenue ?? 0);
+  const currentProfit = Math.round((mySimState?.revenue ?? 0) - (mySimState?.cost ?? 0));
   const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
   const poolingPrice = Math.round(gameState.poolingMarket?.currentPrice ?? 0);
   const daysToDeparture = Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
@@ -285,7 +285,10 @@ export const MultiUserApp: React.FC = () => {
     ? Math.max(0, Math.min(100, (allocatedFixSeats / Math.max(1, allocationSummary.totalAllocated)) * 100))
     : null;
   const currentRoundRevenue = Math.round(currentTeamRound?.revenue ?? mySimState?.revenue ?? 0);
-  const currentRoundProfit = Math.round(currentTeamRound?.profit ?? 0);
+  const currentRoundProfit = Math.round(
+    currentTeamRound?.profit
+      ?? ((mySimState?.revenue ?? 0) - (mySimState?.cost ?? 0))
+  );
   const currentRoundSold = Math.max(0, currentTeamRound?.sold ?? Math.round(mySimState?.sold ?? 0));
   const currentRoundPoints = typeof currentTeamRound?.points === 'number' ? currentTeamRound.points : null;
   const poolingUsageShare = currentRoundSold > 0 ? Math.max(0, Math.min(100, (poolSoldSoFar / currentRoundSold) * 100)) : null;
@@ -317,7 +320,14 @@ export const MultiUserApp: React.FC = () => {
       const price = typeof team.decisions?.price === 'number' ? team.decisions.price : null;
       const sold = Math.max(0, Math.round(sim.sold ?? finalResult?.sold ?? 0));
       const revenue = Math.round(sim.revenue ?? finalResult?.revenue ?? Number(team.totalRevenue ?? 0));
-      const profit = Math.round(sim.profit ?? finalResult?.profit ?? 0);
+      const profit = Math.round(
+        sim.profit
+          ?? finalResult?.profit
+          ?? (
+            (sim.revenue ?? finalResult?.revenue ?? Number(team.totalRevenue ?? 0))
+            - (sim.cost ?? finalResult?.cost ?? Number((team as any).totalCost ?? 0))
+          )
+      );
       const fixAllocated = Math.max(0, Math.round(team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0));
       const fixRemaining = Math.max(0, Math.round(sim.fixRemaining ?? (fixAllocated - sold)));
       const poolRemaining = Math.max(0, Math.round(sim.poolRemaining ?? 0));
@@ -1325,7 +1335,14 @@ export const MultiUserApp: React.FC = () => {
                               <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
                               <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
                               <YAxis stroke="#38bdf8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
-                              <YAxis stroke="#f97316" tick={{ fontSize: 12 }} orientation="right" yAxisId="right" width={48} />
+                              <YAxis
+                                stroke="#f97316"
+                                tick={{ fontSize: 12 }}
+                                orientation="right"
+                                yAxisId="right"
+                                width={48}
+                                allowDecimals={false}
+                              />
                               <RechartsTooltip
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
                                 formatter={(value: any, name: string) => {
@@ -1349,8 +1366,10 @@ export const MultiUserApp: React.FC = () => {
 
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Current revenue</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(currentRevenue) ? currentRevenue.toLocaleString('de-DE') : '0'}</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Current profit</div>
+                      <div className={`text-2xl font-semibold ${currentProfit >= 0 ? 'text-white' : 'text-red-300'} tabular-nums`}>
+                        €{Number.isFinite(currentProfit) ? currentProfit.toLocaleString('de-DE') : '0'}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
                       <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats sold so far</div>

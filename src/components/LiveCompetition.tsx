@@ -38,21 +38,22 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
     if (!previousResults.length) return [];
 
     // Simple calculation - in real implementation this would be more sophisticated
-    const teamRevenue: { [key: string]: number } = {};
+    const teamProfit: { [key: string]: number } = {};
 
     previousResults.forEach(result => {
-      if (!teamRevenue[result.teamId]) {
-        teamRevenue[result.teamId] = 0;
-      }
-      teamRevenue[result.teamId] += result.revenue;
+      const profitValue = typeof result.profit === 'number'
+        ? result.profit
+        : (Number(result.revenue ?? 0) - Number(result.cost ?? 0));
+
+      teamProfit[result.teamId] = (teamProfit[result.teamId] || 0) + profitValue;
     });
 
-    return Object.entries(teamRevenue)
-      .map(([teamId, revenue]) => ({
+    return Object.entries(teamProfit)
+      .map(([teamId, profit]) => ({
         name: `Team ${teamId.slice(0, 4)}`, // Simplified team name
-        revenue
+        profit
       }))
-      .sort((a, b) => b.revenue - a.revenue);
+      .sort((a, b) => b.profit - a.profit);
   };
 
   const getRankIcon = (rank: number) => {
@@ -74,8 +75,19 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
     return <Minus className="w-4 h-4 text-slate-400" />;
   };
 
+  const getProfitFromEntry = (entry: any) => {
+    if (!entry) return 0;
+    if (typeof entry.profit === 'number') return entry.profit;
+    const revenue = typeof entry.revenue === 'number' ? entry.revenue : 0;
+    const purchaseCost = typeof entry.cost === 'number' ? entry.cost : 0;
+    return revenue - purchaseCost;
+  };
+
   const currentRank = leaderboard.findIndex(team => team.name === currentTeam.name) + 1;
-  const currentRevenue = leaderboard.find(team => team.name === currentTeam.name)?.revenue || 0;
+  const currentTeamEntry = leaderboard.find(team => team.name === currentTeam.name);
+  const currentProfit = getProfitFromEntry(currentTeamEntry);
+
+  const moneyClass = (value: number) => (value >= 0 ? 'text-green-400' : 'text-red-400');
 
   if (!currentTeam || !leaderboard.length) return null;
 
@@ -109,8 +121,8 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
               </span>
             </div>
           </div>
-          <div className="text-lg font-bold text-green-400 tabular-nums">
-            €{currentRevenue.toFixed(0)}
+          <div className={`text-lg font-bold tabular-nums ${moneyClass(currentProfit)}`}>
+            €{currentProfit.toFixed(0)}
           </div>
         </div>
 
@@ -127,8 +139,8 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
                 <span className="text-white font-medium">{competitor.name}</span>
               </div>
               <div className="text-right">
-                <div className="text-green-400 font-bold tabular-nums">
-                  €{competitor.revenue?.toFixed(0) ?? '0'}
+                <div className={`font-bold tabular-nums ${moneyClass(getProfitFromEntry(competitor))}`}>
+                  €{getProfitFromEntry(competitor).toFixed(0)}
                 </div>
                 <div className="text-xs text-slate-500">
                   {competitor.rank < currentRank ? 'Ahead' :
