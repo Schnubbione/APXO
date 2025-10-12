@@ -202,10 +202,6 @@ export const MultiUserApp: React.FC = () => {
   };
 
   const roundResultsWithMeta = React.useMemo(() => {
-  const currentTeamRound = React.useMemo(() => {
-    if (!roundResultsWithMeta || !currentTeam) return null;
-    return roundResultsWithMeta.find(result => result.teamId === currentTeam.id) || null;
-  }, [roundResultsWithMeta, currentTeam]);
     if (!roundResultsData.length) return null;
     const teamNameLookup = new Map((gameState.teams || []).map(team => [team.id, team.name]));
     return [...roundResultsData].map(result => ({
@@ -214,6 +210,31 @@ export const MultiUserApp: React.FC = () => {
       points: getRoundPoints(Number(result.revenue ?? 0))
     })).sort((a, b) => b.points - a.points);
   }, [roundResultsData, gameState.teams]);
+
+  const currentTeamRound = React.useMemo(() => {
+    if (!roundResultsWithMeta || !currentTeam) return null;
+    return roundResultsWithMeta.find(result => result.teamId === currentTeam.id) || null;
+  }, [roundResultsWithMeta, currentTeam]);
+
+  const currentTeamRank = React.useMemo(() => {
+    if (!roundResultsWithMeta || !currentTeam) return null;
+    const index = roundResultsWithMeta.findIndex(result => result.teamId === currentTeam.id);
+    return index >= 0 ? index + 1 : null;
+  }, [roundResultsWithMeta, currentTeam]);
+
+  const totalTeams = roundResultsWithMeta?.length ?? (gameState.teams?.length ?? 0);
+  const isEvaluationView = !gameState.isActive && roundResultsData.length > 0;
+
+  const topAllocations = React.useMemo(() => {
+    if (!sortedAllocations.length) return [];
+    return sortedAllocations.slice(0, 3);
+  }, [sortedAllocations]);
+
+  const topRoundResults = React.useMemo(() => {
+    if (!roundResultsWithMeta) return [];
+    return roundResultsWithMeta.slice(0, 3);
+  }, [roundResultsWithMeta]);
+
   useEffect(() => {
     return () => {
       if (priceUpdateTimer.current) {
@@ -242,6 +263,23 @@ export const MultiUserApp: React.FC = () => {
     }
     return gameState.fixSeatPrice;
   })();
+  const requestedFixSeats = Math.max(
+    0,
+    myAllocation?.requested
+      ?? currentTeam?.decisions?.fixSeatsRequested
+      ?? currentTeam?.decisions?.fixSeatsPurchased
+      ?? 0
+  );
+  const allocatedFixSeats = Math.max(0, myAllocation?.allocated ?? fixAllocatedTotal);
+  const allocationShare = allocationSummary?.totalAllocated
+    ? Math.max(0, Math.min(100, (allocatedFixSeats / Math.max(1, allocationSummary.totalAllocated)) * 100))
+    : null;
+  const currentRoundRevenue = Math.round(currentTeamRound?.revenue ?? mySimState?.revenue ?? 0);
+  const currentRoundProfit = Math.round(currentTeamRound?.profit ?? 0);
+  const currentRoundSold = Math.max(0, currentTeamRound?.sold ?? Math.round(mySimState?.sold ?? 0));
+  const currentRoundPoints = typeof currentTeamRound?.points === 'number' ? currentTeamRound.points : null;
+  const poolingUsageShare = currentRoundSold > 0 ? Math.max(0, Math.min(100, (poolSoldSoFar / currentRoundSold) * 100)) : null;
+  const poolRemainingSeats = Math.max(0, mySimState?.poolRemaining ?? 0);
 
   // Play sound effects for game events
   useEffect(() => {
@@ -780,6 +818,228 @@ export const MultiUserApp: React.FC = () => {
             </div>
           )}
 
+          {isEvaluationView && (
+            <section className="space-y-6" aria-label="round-evaluation">
+              <div className="grid gap-6 lg:grid-cols-12">
+                <Card className="lg:col-span-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center justify-between text-xl text-white">
+                      <span>Round {gameState.currentRound} Results</span>
+                      {currentTeamRank && (
+                        <span className="text-sm font-semibold text-indigo-300">
+                          #{currentTeamRank}{totalTeams ? `/${totalTeams}` : ''}
+                        </span>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {currentTeamRound ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-4 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl border border-blue-500/30">
+                            <div className="text-3xl font-bold text-blue-300 tabular-nums">
+                              {currentRoundSold.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-300 uppercase tracking-wide">Seats sold</div>
+                          </div>
+                          <div className="text-center p-4 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl border border-emerald-500/30">
+                            <div className="text-3xl font-bold text-emerald-300 tabular-nums">
+                              €{currentRoundProfit.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-300 uppercase tracking-wide">Profit</div>
+                          </div>
+                          <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
+                            <div className="text-3xl font-bold text-indigo-300 tabular-nums">
+                              €{currentRoundRevenue.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-300 uppercase tracking-wide">Revenue</div>
+                          </div>
+                          {currentRoundPoints !== null && (
+                            <div className="text-center p-4 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl border border-purple-500/30">
+                              <div className="text-3xl font-bold text-purple-300 tabular-nums">
+                                {currentRoundPoints.toFixed(2)}
+                              </div>
+                              <div className="text-xs text-slate-300 uppercase tracking-wide">Points</div>
+                            </div>
+                          )}
+                        </div>
+                        {currentTeamRank && (
+                          <div className="mt-4 text-sm text-slate-300 text-center">
+                            You placed #{currentTeamRank}{totalTeams ? ` of ${totalTeams}` : ''} this round.
+                          </div>
+                        )}
+                        {currentTeamRound.insolvent && (
+                          <div className="mt-4 text-center text-red-400 text-sm">
+                            ⚠️ Insolvent this round (budget exceeded).
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-400 text-center py-6">
+                        Results will appear once the round is evaluated.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl text-white">Phase 1 · Auction Summary</CardTitle>
+                    <p className="text-xs text-slate-400">Fixed-seat allocation recap</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {allocationSummary ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              {requestedFixSeats.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Seats requested</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              {allocatedFixSeats.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Seats allocated</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              €{Math.round((fixedSeatClearingPrice ?? 0)).toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Clearing price</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              €{Math.round(currentTeam?.decisions?.fixSeatBidPrice ?? 0).toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Your bid price</div>
+                          </div>
+                        </div>
+                        <div className="grid gap-2 text-xs text-slate-400">
+                          <div>Total requested: {allocationSummary.totalRequested.toLocaleString('de-DE')} seats</div>
+                          <div>Total allocated: {allocationSummary.totalAllocated.toLocaleString('de-DE')} seats</div>
+                          {allocationShare !== null && (
+                            <div>Your share: {allocationShare.toFixed(1)}%</div>
+                          )}
+                        </div>
+                        {topAllocations.length > 0 && (
+                          <div className="pt-2">
+                            <div className="text-xs text-slate-400 uppercase tracking-wide mb-2">Top allocations</div>
+                            <div className="space-y-2">
+                              {topAllocations.map((allocation) => (
+                                <div
+                                  key={allocation.teamId}
+                                  className={`rounded-lg border px-3 py-2 text-sm flex flex-col gap-1 ${
+                                    currentTeam && allocation.teamId === currentTeam.id
+                                      ? 'border-indigo-400/60 bg-indigo-500/10 text-white'
+                                      : 'border-slate-600/70 bg-slate-800/60 text-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{allocation.teamName}</span>
+                                    <span className="tabular-nums">{allocation.allocated.toLocaleString('de-DE')} seats</span>
+                                  </div>
+                                  <div className="text-xs text-slate-400 flex items-center justify-between">
+                                    <span>Bid €{Math.round(allocation.bidPrice).toLocaleString('de-DE')}</span>
+                                    <span>
+                                      Clear {allocation.clearingPrice !== null
+                                        ? `€${Math.round(allocation.clearingPrice).toLocaleString('de-DE')}`
+                                        : '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-400 text-center py-6">
+                        Auction summary will appear when allocation data is available.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl text-white">Phase 2 · Live Market</CardTitle>
+                    <p className="text-xs text-slate-400">Countdown performance snapshot</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {currentTeamRound ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              {poolSoldSoFar.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Pooling seats used</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              {poolRemainingSeats.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Pooling seats remaining</div>
+                          </div>
+                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                            <div className="text-2xl font-semibold text-white tabular-nums">
+                              {remainingFixSeats.toLocaleString('de-DE')}
+                            </div>
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Fixed seats left</div>
+                          </div>
+                          {poolingUsageShare !== null && (
+                            <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                              <div className="text-2xl font-semibold text-white tabular-nums">
+                                {poolingUsageShare.toFixed(1)}%
+                              </div>
+                              <div className="text-xs text-slate-400 uppercase tracking-wide">Sales from pooling</div>
+                            </div>
+                          )}
+                        </div>
+                        {topRoundResults.length > 0 && (
+                          <div className="pt-2">
+                            <div className="text-xs text-slate-400 uppercase tracking-wide mb-2">Round profit leaders</div>
+                            <div className="space-y-2">
+                              {topRoundResults.map((result, index) => (
+                                <div
+                                  key={result.teamId}
+                                  className={`rounded-lg border px-3 py-2 text-sm flex items-center justify-between ${
+                                    currentTeam && result.teamId === currentTeam.id
+                                      ? 'border-indigo-400/60 bg-indigo-500/10 text-white'
+                                      : 'border-slate-600/70 bg-slate-800/60 text-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-400">#{index + 1}</span>
+                                    <span className="font-medium">{result.teamName}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold tabular-nums">€{Math.round(result.profit ?? 0).toLocaleString('de-DE')}</div>
+                                    <div className="text-xs text-slate-400">
+                                      {result.sold ?? 0} seats · {(result.points ?? 0).toFixed(2)} pts
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-400 text-center py-6">
+                        Live-market summary will appear after the countdown completes.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          )}
+
+          {!isEvaluationView && (
+            <>
           {/* Fix Market - Show during Pre-Purchase Phase */}
           {gameState.currentPhase === 'prePurchase' && (
             ) : gameState.currentPhase === 'simulation' ? (
@@ -1082,37 +1342,7 @@ export const MultiUserApp: React.FC = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Round Results */}
-          {roundResults && (
-            <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl text-white">Round {gameState.currentRound} Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="text-center p-6 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl border border-blue-500/30">
-                    <div className="text-4xl font-bold text-blue-400 mb-2">
-                      {roundResults.find(r => r.teamId === currentTeam.id)?.sold || 0}
-                    </div>
-                    <div className="text-slate-300 text-sm">Seats Sold</div>
-                  </div>
-                  <div className="text-center p-6 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-xl border border-green-500/30">
-                    <div className="text-4xl font-bold text-green-400 mb-2">
-                      €{(roundResults.find(r => r.teamId === currentTeam.id)?.profit || 0).toFixed(0)}
-                    </div>
-                    <div className="text-slate-300 text-sm">Profit</div>
-                  </div>
-                </div>
-                {(() => {
-                  const rr = roundResults.find(r => r.teamId === currentTeam.id);
-                  if (rr && (rr as any).insolvent) {
-                    return <div className="mt-4 text-center text-red-400 text-sm">⚠️ Insolvent this round (over budget)</div>;
-                  }
-                  return null;
-                })()}
-              </CardContent>
-            </Card>
+          </>
           )}
 
           {/* Live Competition */}
