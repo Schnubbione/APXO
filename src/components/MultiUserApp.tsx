@@ -509,7 +509,10 @@ export const MultiUserApp: React.FC = () => {
           </header>
 
           {/* Phase Control */}
-          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <Card
+            className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
+            data-tutorial="phase-status"
+          >
             <CardContent className="pt-6 sm:pt-8">
               <div className="text-center space-y-4">
                 <div className="text-2xl font-bold text-white mb-4">
@@ -1042,7 +1045,10 @@ export const MultiUserApp: React.FC = () => {
             <>
               {/* Fix Market - Show during Pre-Purchase Phase */}
               {gameState.currentPhase === 'prePurchase' && (
-                <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+                <Card
+                  className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
+                  data-tutorial="fix-market"
+                >
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-3 text-xl text-white">
                       <div className="p-2 bg-orange-500/20 rounded-lg">
@@ -1054,7 +1060,7 @@ export const MultiUserApp: React.FC = () => {
                       Submit your sealed bid before the auction closes.
                     </p>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
                         <div className="text-xs uppercase tracking-wide text-slate-400/80">Fix seat price</div>
@@ -1081,6 +1087,72 @@ export const MultiUserApp: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm font-medium">Bid per Fixed Seat (€)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={bidPriceInput}
+                          placeholder=""
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setBidPriceInput(value);
+                            if (value === '') {
+                              updateTeamDecision({ fixSeatBidPrice: 0 });
+                              return;
+                            }
+                            const parsed = Number(value);
+                            if (!Number.isFinite(parsed)) return;
+                            const numValue = Math.max(1, Math.round(parsed));
+                            updateTeamDecision({ fixSeatBidPrice: numValue });
+                          }}
+                          disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-slate-300 text-sm font-medium">Purchase Quantity</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={(() => {
+                            const capSeats = gameState.totalFixSeats || 500;
+                            const budget = (gameState as any).perTeamBudget || 0;
+                            const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
+                            const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
+                            return Math.max(0, Math.min(capSeats, capByBudget));
+                          })()}
+                          value={bidQuantityInput}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setBidQuantityInput(value);
+                            if (value === '') {
+                              updateTeamDecision({ fixSeatsPurchased: 0 });
+                              return;
+                            }
+                            const parsed = Number(value);
+                            if (!Number.isFinite(parsed)) return;
+                            const capSeats = gameState.totalFixSeats || 500;
+                            const budget = (gameState as any).perTeamBudget || 0;
+                            const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
+                            const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
+                            const cap = Math.max(0, Math.min(capSeats, capByBudget));
+                            const numValue = Math.max(0, Math.min(cap, parsed));
+                            updateTeamDecision({ fixSeatsPurchased: numValue });
+                          }}
+                          disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Estimated Cost: €{
+                        (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? 0)
+                        * (currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60))
+                      } { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
+                    </div>
                     <div className="text-xs text-slate-400">
                       Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel below to secure capacity.
                     </div>
@@ -1091,7 +1163,7 @@ export const MultiUserApp: React.FC = () => {
               {gameState.currentPhase === 'simulation' ? (
                 <div className="space-y-6">
                   <div className="grid gap-6 lg:grid-cols-12">
-                    <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600">
+                    <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600" data-tutorial="live-controls">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-white text-lg">Price Control</CardTitle>
                         <p className="text-xs text-slate-400">Steer demand by adjusting your live retail price.</p>
@@ -1199,195 +1271,6 @@ export const MultiUserApp: React.FC = () => {
                 </Card>
               ) : null}
 
-          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-xl text-white">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Settings className="w-5 h-5 text-blue-400" />
-                </div>
-                Your Decisions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {gameState.currentPhase === 'prePurchase' ? (
-                <div className="space-y-4">
-                  <div className="text-slate-300 mb-4 text-sm font-medium">Pre-Purchase Fix Seats</div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">Bid per Fixed Seat (€)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={bidPriceInput}
-                      placeholder=""
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setBidPriceInput(value);
-                        if (value === '') {
-                          updateTeamDecision({ fixSeatBidPrice: 0 });
-                          return;
-                        }
-                        const parsed = Number(value);
-                        if (!Number.isFinite(parsed)) return;
-                        const numValue = Math.max(1, Math.round(parsed));
-                        updateTeamDecision({ fixSeatBidPrice: numValue });
-                      }}
-                      disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">Purchase Quantity</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      // Cap by total fix seats to avoid leaking remaining availability; also cap by budget in round 1
-                      max={(() => {
-                        const capSeats = gameState.totalFixSeats || 500;
-                        const budget = (gameState as any).perTeamBudget || 0;
-                        const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
-                        const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                        return Math.max(0, Math.min(capSeats, capByBudget));
-                      })()}
-                      value={bidQuantityInput}
-                      placeholder="0"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setBidQuantityInput(value);
-                        if (value === '') {
-                          updateTeamDecision({ fixSeatsPurchased: 0 });
-                          return;
-                        }
-                        const parsed = Number(value);
-                        if (!Number.isFinite(parsed)) return;
-                        const capSeats = gameState.totalFixSeats || 500;
-                        const budget = (gameState as any).perTeamBudget || 0;
-                        const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
-                        const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                        const cap = Math.max(0, Math.min(capSeats, capByBudget));
-                        const numValue = Math.max(0, Math.min(cap, parsed));
-                        updateTeamDecision({ fixSeatsPurchased: numValue });
-                      }}
-                      disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
-                    />
-                  </div>
-                  <div className="text-sm text-slate-400">
-                    Estimated Cost: €{
-                      (currentTeam.decisions.fixSeatsRequested ?? currentTeam.decisions.fixSeatsPurchased ?? 0)
-                      * (currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60))
-                    } { (gameState as any).perTeamBudget ? `| Budget: €${(gameState as any).perTeamBudget}` : ''}
-                  </div>
-                </div>
-              ) : gameState.currentPhase === 'simulation' ? (
-                <div className="space-y-6">
-                  <div className="grid gap-6 lg:grid-cols-12">
-                    <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-white text-lg">Price Control</CardTitle>
-                        <p className="text-xs text-slate-400">Steer demand by adjusting your live retail price.</p>
-                      </CardHeader>
-                      <CardContent className="space-y-5">
-                        <div className="flex items-baseline justify-between gap-4">
-                          <span className="text-sm text-slate-400">Current retail price</span>
-                          <span className="text-3xl font-bold text-white tabular-nums">€{priceSliderValue.toLocaleString('de-DE')}</span>
-                        </div>
-                        <Slider
-                          value={[priceSliderValue]}
-                          min={priceMin}
-                          max={priceMax}
-                          step={1}
-                          onValueChange={(values) => {
-                            const value = values[0] ?? priceSliderValue;
-                            const clamped = Math.min(priceMax, Math.max(priceMin, Math.round(value)));
-                            setPriceSliderValue(clamped);
-
-                            if (!currentTeam) return;
-                            if (priceUpdateTimer.current) {
-                              window.clearTimeout(priceUpdateTimer.current);
-                            }
-                            priceUpdateTimer.current = window.setTimeout(() => {
-                              updateTeamDecision({ price: clamped });
-                            }, 200);
-                          }}
-                        />
-                        <div className="flex justify-between text-xs text-slate-500">
-                          <span>€{priceMin}</span>
-                          <span>€{priceMax}</span>
-                        </div>
-                        <p className="text-xs text-slate-400">
-                          Changes apply immediately for new bookings. Keep an eye on the pooling price trend to react ahead of the market.
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-white text-lg">Pooling Price Trend</CardTitle>
-                      </CardHeader>
-                      <CardContent className="h-64">
-                        {priceHistoryData.length > 1 ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={priceHistoryData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                              <defs>
-                                <linearGradient id="poolPriceGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
-                                  <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
-                              <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
-                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
-                              <YAxis stroke="#f97316" tick={{ fontSize: 12 }} orientation="right" yAxisId="right" width={48} />
-                              <RechartsTooltip
-                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
-                                formatter={(value: any, name: string) => {
-                                  if (name === 'Pooling price') return [`€${Number(value).toFixed(0)}`, name];
-                                  if (name === 'Market demand') return [`${Number(value).toFixed(0)} pax`, name];
-                                  return [value, name];
-                                }}
-                              />
-                              <Area yAxisId="left" type="monotone" dataKey="price" name="Pooling price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
-                              <Line yAxisId="right" type="monotone" dataKey="demand" name="Market demand" stroke="#f97316" strokeWidth={2} dot={false} />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                            Waiting for price updates…
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Current revenue</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(currentRevenue) ? currentRevenue.toLocaleString('de-DE') : '0'}</div>
-                    </div>
-                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats sold so far</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">{Number.isFinite(seatsSoldSoFar) ? seatsSoldSoFar.toLocaleString('de-DE') : '0'}</div>
-                    </div>
-                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Pooling price</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(poolingPrice) ? poolingPrice.toLocaleString('de-DE') : '0'}</div>
-                    </div>
-                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Days to departure</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">{daysToDeparture.toLocaleString('de-DE')}</div>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-400">
-                    Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center text-slate-400 py-8">
-                  Waiting for phase to start...
-                </div>
-              )}
-            </CardContent>
-          </Card>
           </>
           )}
 

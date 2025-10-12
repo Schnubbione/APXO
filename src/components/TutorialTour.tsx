@@ -36,7 +36,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'two-phases',
     title: 'Two-Phase System',
-    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer while rival bids stay hidden. Phase 2: Live market – a continuous countdown to departure where you steer price, optional push level, fixed-seat hold, and tools while sales consume fixed seats first before pulling from the airline at the live pooling price.',
+    description: 'Phase 1: Fixed-seat auction – submit one pay-as-bid offer while rival bids stay hidden. Phase 2: Live market – a continuous countdown to departure where you steer price, optional push level, fixed-seat hold, and tools while sales consume fixed seats first before pulling from the airline at the live pooling price. After the countdown ends, a recap highlights Phase 1 allocations and Phase 2 performance before the next round.',
     position: 'center'
   },
   {
@@ -56,22 +56,22 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'phase-status',
     title: 'Phase Status',
-    description: 'Monitor the current game phase and time remaining. The timer shows how much time is left in each phase.',
+    description: 'Monitor the current phase and remaining time. This status bar reacts as the auction closes, the live countdown runs, and when the evaluation view is active.',
     target: '[data-tutorial="phase-status"]',
     position: 'top'
   },
   {
     id: 'team-decisions',
-    title: 'Your Decisions',
-    description: 'Phase 1: Choose quantity and maximum seat price – pay-as-bid with hidden availability. Phase 2: Throughout the countdown you adjust retail price (guarded to ±10%), optional push level, fixed-seat hold %, and tools (hedge, spotlight, commit); pooling seats are auto-purchased only when you sell.',
-    target: '[data-tutorial="team-decisions"]',
+    title: 'Phase 1 Auction Inputs',
+    description: 'Submit your sealed bid here: set the maximum price per seat, choose a quantity that fits your budget, and watch the live summary of remaining seats. Allocation results are revealed in the post-round recap.',
+    target: '[data-tutorial="fix-market"]',
     position: 'top'
   },
   {
     id: 'pooling-market',
-    title: 'Live Pooling Market',
-    description: 'Live updates highlight airline price, remaining capacity, and standings while the countdown keeps running. Pooling seats are bought automatically only when your price wins a sale; the airline price stays within configured bounds and reacts to forecast gaps.',
-    target: '[data-tutorial="pooling-market"]',
+    title: 'Live Market Controls',
+    description: 'During Phase 2 you manage price, watch the pooling chart, and track real-time metrics. Every decision updates the countdown immediately, and once the timer expires the evaluation cards surface your results.',
+    target: '[data-tutorial="live-controls"]',
     position: 'top'
   },
   {
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, and pooling costs – victory requires profit and positive unit margins.',
+    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, pooling costs, and use the post-round recap to adapt before the next phase. Victory requires profit and positive unit margins.',
     position: 'center'
   }
 ];
