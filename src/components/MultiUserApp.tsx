@@ -1040,9 +1040,55 @@ export const MultiUserApp: React.FC = () => {
 
           {!isEvaluationView && (
             <>
-          {/* Fix Market - Show during Pre-Purchase Phase */}
-          {gameState.currentPhase === 'prePurchase' && (
-            ) : gameState.currentPhase === 'simulation' ? (
+              {/* Fix Market - Show during Pre-Purchase Phase */}
+              {gameState.currentPhase === 'prePurchase' && (
+                <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-3 text-xl text-white">
+                      <div className="p-2 bg-orange-500/20 rounded-lg">
+                        <Waves className="w-5 h-5 text-orange-300" />
+                      </div>
+                      Fix Market Overview
+                    </CardTitle>
+                    <p className="text-xs text-slate-400">
+                      Submit your sealed bid before the auction closes.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Fix seat price</div>
+                        <div className="mt-1 text-3xl font-semibold text-emerald-300 tabular-nums">
+                          €{Math.round(gameState.fixSeatPrice ?? 0).toLocaleString('de-DE')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats remaining</div>
+                        <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
+                          {(gameState.availableFixSeats ?? 0).toLocaleString('de-DE')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Your request</div>
+                        <div className="mt-1 text-3xl font-semibold text-indigo-300 tabular-nums">
+                          {requestedFixSeats.toLocaleString('de-DE')}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                        <div className="text-xs uppercase tracking-wide text-slate-400/80">Budget</div>
+                        <div className="mt-1 text-3xl font-semibold text-white tabular-nums">
+                          €{Math.round((gameState as any).perTeamBudget ?? 0).toLocaleString('de-DE')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel below to secure capacity.
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {gameState.currentPhase === 'simulation' ? (
                 <div className="space-y-6">
                   <div className="grid gap-6 lg:grid-cols-12">
                     <Card className="lg:col-span-5 bg-slate-800/70 border-slate-600">
@@ -1145,13 +1191,13 @@ export const MultiUserApp: React.FC = () => {
                     Pooling seats are purchased automatically whenever demand exceeds your remaining fixed inventory.
                   </p>
                 </div>
-              ) : (
-                <div className="text-center text-slate-400 py-8">
-                  Waiting for phase to start...
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              ) : gameState.currentPhase !== 'prePurchase' ? (
+                <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-600 shadow-2xl">
+                  <CardContent className="py-10 text-center text-slate-400">
+                    Waiting for phase to start...
+                  </CardContent>
+                </Card>
+              ) : null}
 
           <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="team-decisions">
             <CardHeader className="pb-4">
