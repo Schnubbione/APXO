@@ -193,7 +193,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     shock: 0.1,
     sharedMarket: true,
     seed: 42,
-    roundTime: 300,
+    roundTime: 180,
     fares: [], // No longer used - simplified to Fix Seats + Pooling only
     currentPhase: 'prePurchase',
     phaseTime: 600, // 10 minutes for pre-purchase phase

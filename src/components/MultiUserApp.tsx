@@ -15,12 +15,12 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Line, Tooltip as RechartsTooltip } from 'recharts';
-import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
+import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map as MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
 import { useToast } from './ui/toast';
 
 const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
-const TOURIST_ICONS = [Sun, Camera, Compass, Anchor, MapPin, Mountain, Tent, Binoculars, Map, Navigation, Waves, Snowflake, Eye, Star, Coffee];
+const TOURIST_ICONS = [Sun, Camera, Compass, Anchor, MapPin, Mountain, Tent, Binoculars, MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee];
 
 type AllocationEntry = {
   teamId: string;
@@ -800,7 +800,7 @@ export const MultiUserApp: React.FC = () => {
               <Card className="w-full max-w-md bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl">
                 <CardHeader className="text-center pb-4">
                   <CardTitle className="text-xl text-white">Set Your Initial Price</CardTitle>
-                  <p className="text-slate-400 text-sm">Choose your starting price for the simulation. You can adjust it later with the "Update Price" button.</p>
+                  <p className="text-slate-400 text-sm">Choose your starting price for the simulation.</p>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -816,9 +816,6 @@ export const MultiUserApp: React.FC = () => {
                       }}
                       className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                     />
-                  </div>
-                  <div className="text-sm text-slate-400 text-center">
-                    Recommended range: €400 - €500
                   </div>
                   <Button
                     onClick={() => {
@@ -1216,7 +1213,7 @@ export const MultiUserApp: React.FC = () => {
                     </Card>
                     <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-white text-lg">Pooling Price Trend</CardTitle>
+                        <CardTitle className="text-white text-lg">Pooling Price and Demand Trend</CardTitle>
                       </CardHeader>
                       <CardContent className="h-64">
                         {priceHistoryData.length > 1 ? (
@@ -1230,7 +1227,7 @@ export const MultiUserApp: React.FC = () => {
                               </defs>
                               <CartesianGrid stroke="#334155" strokeDasharray="3 3" />
                               <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 12 }} minTickGap={20} />
-                              <YAxis stroke="#94a3b8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
+                              <YAxis stroke="#38bdf8" tick={{ fontSize: 12 }} width={48} yAxisId="left" />
                               <YAxis stroke="#f97316" tick={{ fontSize: 12 }} orientation="right" yAxisId="right" width={48} />
                               <RechartsTooltip
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
