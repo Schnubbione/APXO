@@ -47,6 +47,7 @@ interface GameState {
   totalFixSeats: number;
   availableFixSeats: number;
   fixSeatPrice: number;
+  fixSeatShare?: number;
   fixSeatMinBid?: number;
   poolingCost?: number;
   simulationMonths: number;
@@ -1023,7 +1024,16 @@ const perTeamBudget = irnd(15000, 40000);
           const poolingOfferedBefore = remainingPoolBefore.reduce((a, b) => a + b, 0);
 
           // Pool price dynamics with mean reversion and light noise
-          const pm = prev.poolingMarket || { currentPrice: 150, totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * 0.3), offeredPoolingCapacity: 0, currentDemand: 0, lastUpdate: new Date().toISOString(), priceHistory: [] as any[] };
+          const share = Math.max(0.05, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
+          const pm = prev.poolingMarket || {
+            currentPrice: 150,
+            totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * (1 - share)),
+            availablePoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * (1 - share)),
+            offeredPoolingCapacity: 0,
+            currentDemand: 0,
+            lastUpdate: new Date().toISOString(),
+            priceHistory: [] as any[]
+          };
           const ratioSD = poolingOfferedBefore / Math.max(1, poolingDemand);
           let delta = 0;
           if (ratioSD < 0.9) delta = Math.min(20, (0.9 - ratioSD) * 40);
@@ -1053,7 +1063,23 @@ const perTeamBudget = irnd(15000, 40000);
             data.remainingFix[i] = Math.max(0, data.remainingFix[i] - serveFix);
             need -= serveFix;
 
-            const servePool = Math.min(need, data.remainingPool[i]);
+            const price = Math.max(1, Number(team.decisions?.price ?? 500));
+            let servePool = Math.min(need, data.remainingPool[i]);
+            if (servePool > 0 && price < newPrice && budget > 0 && !(data.insolvent?.[i])) {
+              const currentProfit = (data.revenue[i] ?? 0) - (data.cost[i] ?? 0);
+              const profitAfterFix = currentProfit + (serveFix * price);
+              const margin = price - newPrice;
+              if (margin < 0) {
+                const maxAdditionalLoss = budget + profitAfterFix;
+                if (maxAdditionalLoss <= 0) {
+                  servePool = 0;
+                } else {
+                  const maxSeatsByBudget = Math.floor(maxAdditionalLoss / (-margin));
+                  servePool = Math.min(servePool, Math.max(0, maxSeatsByBudget));
+                }
+              }
+            }
+
             data.remainingPool[i] = Math.max(0, data.remainingPool[i] - servePool);
             need -= servePool;
 
@@ -1062,7 +1088,6 @@ const perTeamBudget = irnd(15000, 40000);
             data.poolUsed[i] = Math.max(0, (data.poolUsed[i] ?? 0) + servePool);
             data.demand[i] = Math.max(0, (data.demand[i] ?? 0) + demandPerTeam[i]);
 
-            const price = Math.max(1, Number(team.decisions?.price ?? 500));
             data.revenue[i] = Math.max(0, (data.revenue[i] ?? 0) + seatsSold * price);
             data.cost[i] = Math.max(0, (data.cost[i] ?? 0) + servePool * newPrice);
 
@@ -1075,10 +1100,14 @@ const perTeamBudget = irnd(15000, 40000);
           });
 
           const poolingOfferedAfter = data.remainingPool.reduce((a, b) => a + b, 0);
+          const totalPoolingCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - share));
+          const availablePoolingCapacity = Math.max(0, Math.min(totalPoolingCapacity, poolingOfferedAfter));
           const updatedPM = {
             ...pm,
             currentPrice: newPrice,
             offeredPoolingCapacity: poolingOfferedAfter,
+            totalPoolingCapacity,
+            availablePoolingCapacity,
             currentDemand: poolingDemand,
             lastUpdate: new Date().toISOString(),
             priceHistory

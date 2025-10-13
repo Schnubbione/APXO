@@ -105,7 +105,7 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
   if (currentPhase === 'simulation') {
     const days = Math.max(0, Math.floor(Number(simulatedDaysUntilDeparture ?? 0)));
     return (
-      <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+      <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
         <CardContent className="p-4 sm:p-6">
           <div className="text-center space-y-3">
             <div className="flex items-center justify-center gap-2">
@@ -128,7 +128,7 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
   }
 
   return (
-    <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+    <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
       <CardContent className="p-4 sm:p-6">
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">

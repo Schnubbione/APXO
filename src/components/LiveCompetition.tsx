@@ -92,18 +92,18 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
   if (!currentTeam || !leaderboard.length) return null;
 
   return (
-    <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+    <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-3 text-xl text-white">
-          <div className="p-2 bg-purple-500/20 rounded-lg">
-            <Users className="w-5 h-5 text-purple-400" />
+          <div className="p-2 bg-slate-600/25 rounded-lg">
+            <Users className="w-5 h-5 text-slate-200" />
           </div>
           Live Competition
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Current Team Status */}
-        <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-lg p-4 border border-indigo-500/30">
+        <div className="bg-gradient-to-r from-slate-600/20 to-slate-700/20 rounded-lg p-4 border border-slate-600/40">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-white">#{currentRank}</span>

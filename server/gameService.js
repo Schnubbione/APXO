@@ -1144,6 +1144,7 @@ export class GameService {
         cost: Math.max(0, (team.decisions?.fixSeatsAllocated || 0) * (team.decisions?.fixSeatClearingPrice || settings.fixSeatPrice || 60)),
         insolvent: false
       };
+      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 500;
 
       const fixRemaining = Math.max(0, state.fixRemaining || 0);
       const sellFix = Math.min(demandForTeam, fixRemaining);
@@ -1151,13 +1152,30 @@ export class GameService {
 
       totalFixSold += sellFix;
 
-      const poolSold = Math.min(remainingDemand, Math.max(0, availablePassThrough));
+      let poolSold = Math.min(remainingDemand, Math.max(0, availablePassThrough));
+      if (poolSold > 0) {
+        const budget = Number(settings.perTeamBudget || 0);
+        if (price < currentPoolingPrice && budget > 0 && !(state.insolvent)) {
+          const currentProfit = (state.revenue || 0) - (state.cost || 0);
+          const profitAfterFix = currentProfit + (sellFix * price);
+          const margin = price - currentPoolingPrice; // negative when at risk
+          if (margin < 0) {
+            const maxAdditionalLoss = budget + profitAfterFix;
+            if (maxAdditionalLoss <= 0) {
+              poolSold = 0;
+            } else {
+              const maxSeatsByBudget = Math.floor(maxAdditionalLoss / (-margin));
+              poolSold = Math.min(poolSold, Math.max(0, maxSeatsByBudget));
+            }
+          }
+        }
+      }
+      poolSold = Math.max(0, Math.min(poolSold, Math.max(0, availablePassThrough)));
       availablePassThrough -= poolSold;
       totalPoolSold += poolSold;
       remainingDemand -= poolSold;
       totalUnsatisfied += Math.max(0, remainingDemand);
 
-      const price = typeof team.decisions?.price === 'number' ? team.decisions.price : 500;
       const revenueAdd = (sellFix + poolSold) * price;
       const costAdd = poolSold * currentPoolingPrice;
 

@@ -43,7 +43,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
       <Card className="w-full max-w-md bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
+            <div className="p-4 bg-gradient-to-r from-slate-600 to-slate-800 rounded-2xl shadow-lg">
               <Users className="w-8 h-8 text-white" />
             </div>
           </div>
@@ -72,7 +72,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 onChange={(e) => setTeamName(e.target.value)}
                 required
                 disabled={isRoundActive}
-                className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg min-h-[52px] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[52px] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {registrationError && (
                 <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
@@ -83,7 +83,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed"
               disabled={!canJoin}
               data-tutorial="join-button"
             >

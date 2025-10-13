@@ -170,7 +170,7 @@ export default function TutorialTour({
           className="fixed z-45 pointer-events-none"
           style={{
             ...getTargetPosition(currentTutorialStep.target),
-            boxShadow: '0 0 0 4px rgba(99, 102, 241, 0.5), 0 0 0 8px rgba(99, 102, 241, 0.2)',
+            boxShadow: '0 0 0 4px rgba(148, 163, 184, 0.45), 0 0 0 8px rgba(30, 41, 59, 0.25)',
             borderRadius: '8px'
           }}
         />
@@ -182,7 +182,7 @@ export default function TutorialTour({
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-slate-600 to-slate-800 rounded-full flex items-center justify-center">
                   <Play className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -235,7 +235,7 @@ export default function TutorialTour({
                 </Button>
                 <Button
                   onClick={handleNext}
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                  className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white"
                 >
                   {isLastStep ? 'Start Playing!' : 'Next'}
                   {!isLastStep && <ChevronRight className="w-4 h-4 ml-1" />}
@@ -246,7 +246,7 @@ export default function TutorialTour({
             {/* Progress Bar */}
             <div className="mt-4 w-full bg-slate-700 rounded-full h-1">
               <div
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-slate-600 to-slate-800 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${tutorialSteps.length > 0 ? ((stableStep + 1) / tutorialSteps.length) * 100 : 0}%` }}
               />
             </div>

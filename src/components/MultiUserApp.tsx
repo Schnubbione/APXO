@@ -610,7 +610,7 @@ export const MultiUserApp: React.FC = () => {
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+              <div className="p-3 bg-gradient-to-r from-slate-600 to-slate-800 rounded-xl shadow-lg">
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
@@ -621,7 +621,7 @@ export const MultiUserApp: React.FC = () => {
               <span className="text-lg">Admin Control Panel</span>
               <Button
                 onClick={() => setShowAdminPanel(true)}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
@@ -631,7 +631,7 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Phase Control */}
           <Card
-            className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
+            className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300"
             data-tutorial="phase-status"
           >
             <CardContent className="pt-6 sm:pt-8">
@@ -695,11 +695,11 @@ export const MultiUserApp: React.FC = () => {
           </Card>
 
           {/* Teams Overview */}
-          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+          <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-3 text-xl text-white">
                 <div className="p-2 bg-indigo-500/20 rounded-lg">
-                  <Users className="w-5 h-5 text-indigo-400" />
+                  <Users className="w-5 h-5 text-slate-300" />
                 </div>
                 Registered Teams ({liveTeamsWithScore.length})
               </CardTitle>
@@ -752,7 +752,7 @@ export const MultiUserApp: React.FC = () => {
                           </div>
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Points</span>
-                            <span className="font-mono text-sm text-indigo-300">{team.points.toFixed(2)} / 10</span>
+                            <span className="font-mono text-sm text-slate-200">{team.points.toFixed(2)} / 10</span>
                           </div>
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Fix Remaining</span>
@@ -791,7 +791,7 @@ export const MultiUserApp: React.FC = () => {
                   {leaderboard.map((entry, index) => (
                     <div key={entry.name} className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-slate-700/30 to-slate-600/20 border border-slate-600/50 hover:from-slate-700/50 hover:to-slate-600/30 transition-all duration-200">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-slate-600 to-slate-800 text-white font-bold text-sm">
                           #{index + 1}
                         </div>
                         <span className="font-semibold text-white text-lg">{entry.name}</span>
@@ -823,7 +823,7 @@ export const MultiUserApp: React.FC = () => {
           {isAdmin && (
             <Button
               onClick={() => setShowAdminPanel(true)}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
+              className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
             >
               <Settings className="w-4 h-4 mr-2" />
               Admin
@@ -842,7 +842,7 @@ export const MultiUserApp: React.FC = () => {
           {/* Team logout button */}
           {/* Practice Mode toggle */}
           {practice?.running && (
-            <div className="px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <div className="px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-slate-200 border border-slate-600/40">
               Practice running
             </div>
           )}
@@ -924,7 +924,7 @@ export const MultiUserApp: React.FC = () => {
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+              <div className="p-3 bg-gradient-to-r from-slate-600 to-slate-800 rounded-xl shadow-lg">
                 <Waves className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
@@ -967,7 +967,7 @@ export const MultiUserApp: React.FC = () => {
                         const numValue = value === "" ? 0 : Number(value);
                         setTempPrice(numValue);
                       }}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg font-mono min-h-[48px] rounded-xl"
                     />
                   </div>
 
@@ -1030,7 +1030,7 @@ export const MultiUserApp: React.FC = () => {
                       setInitialPriceSet(true);
                     }}
                     disabled={tempPrice <= 0}
-                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
+                    className="w-full bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
                   >
                     Confirm Initial Price (€{tempPrice})
                   </Button>
@@ -1047,7 +1047,7 @@ export const MultiUserApp: React.FC = () => {
                     <CardTitle className="flex items-center justify-between text-xl text-white">
                       <span>Round {gameState.currentRound} Results</span>
                       {currentTeamRank && (
-                        <span className="text-sm font-semibold text-indigo-300">
+                        <span className="text-sm font-semibold text-slate-200">
                           #{currentTeamRank}{totalTeams ? `/${totalTeams}` : ''}
                         </span>
                       )}
@@ -1069,14 +1069,14 @@ export const MultiUserApp: React.FC = () => {
                             </div>
                             <div className="text-xs text-slate-300 uppercase tracking-wide">Profit</div>
                           </div>
-                          <div className="text-center p-4 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 rounded-xl border border-indigo-500/30">
-                            <div className="text-3xl font-bold text-indigo-300 tabular-nums">
+                          <div className="text-center p-4 bg-gradient-to-br from-slate-600/25 to-slate-700/20 rounded-xl border border-slate-600/40">
+                            <div className="text-3xl font-bold text-slate-200 tabular-nums">
                               €{currentRoundRevenue.toLocaleString('de-DE')}
                             </div>
                             <div className="text-xs text-slate-300 uppercase tracking-wide">Revenue</div>
                           </div>
                           {currentRoundPoints !== null && (
-                            <div className="text-center p-4 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl border border-purple-500/30">
+                            <div className="text-center p-4 bg-gradient-to-br from-slate-600/20 to-slate-700/20 rounded-xl border border-slate-600/40">
                               <div className="text-3xl font-bold text-purple-300 tabular-nums">
                                 {currentRoundPoints.toFixed(2)}
                               </div>
@@ -1291,7 +1291,7 @@ export const MultiUserApp: React.FC = () => {
               {/* Fix Market - Show during Pre-Purchase Phase */}
               {gameState.currentPhase === 'prePurchase' && (
                 <Card
-                  className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
+                  className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300"
                   data-tutorial="fix-market"
                 >
                   <CardHeader className="pb-4">
@@ -1315,7 +1315,7 @@ export const MultiUserApp: React.FC = () => {
                       </div>
                       <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
                         <div className="text-xs uppercase tracking-wide text-slate-400/80">Your request</div>
-                        <div className="mt-1 text-3xl font-semibold text-indigo-300 tabular-nums">
+                        <div className="mt-1 text-3xl font-semibold text-slate-200 tabular-nums">
                           {requestedFixSeats.toLocaleString('de-DE')}
                         </div>
                       </div>
@@ -1354,7 +1354,7 @@ export const MultiUserApp: React.FC = () => {
                             updateTeamDecision({ fixSeatBidPrice: numValue });
                           }}
                           disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
-                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg font-mono min-h-[48px] rounded-xl"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1389,7 +1389,7 @@ export const MultiUserApp: React.FC = () => {
                             updateTeamDecision({ fixSeatsPurchased: numValue });
                           }}
                           disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
-                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg font-mono min-h-[48px] rounded-xl"
                         />
                       </div>
                     </div>
@@ -1547,7 +1547,7 @@ export const MultiUserApp: React.FC = () => {
 
           {/* Leaderboard */}
           {leaderboard && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300" data-tutorial="leaderboard">
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300" data-tutorial="leaderboard">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
@@ -1563,13 +1563,13 @@ export const MultiUserApp: React.FC = () => {
                     return (
                       <div key={entry.name} className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-slate-700/30 to-slate-600/20 border border-slate-600/50 hover:from-slate-700/50 hover:to-slate-600/30 transition-all duration-200">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-slate-600 to-slate-800 text-white font-bold text-sm">
                             #{index + 1}
                           </div>
                           <div className="p-1 bg-slate-600/50 rounded-lg">
                             <TeamIcon className="w-4 h-4 text-slate-300" />
                           </div>
-                          <span className={`font-semibold text-lg ${entry.name === currentTeam.name ? 'text-indigo-400' : 'text-white'}`}>
+                          <span className={`font-semibold text-lg ${entry.name === currentTeam.name ? 'text-slate-300' : 'text-white'}`}>
                             {entry.name}
                           </span>
                         </div>

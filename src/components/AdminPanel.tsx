@@ -160,7 +160,7 @@ export default function AdminPanel({
       {/* Mobile Overlay */}
       <div className="absolute inset-0 bg-black/60 sm:hidden backdrop-blur-sm" onClick={() => setShowAdminPanel(false)} />
 
-      <Card className="w-full max-w-sm sm:w-96 max-h-[95vh] sm:max-h-[600px] overflow-hidden relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300">
+      <Card className="w-full max-w-sm sm:w-96 max-h-[95vh] sm:max-h-[600px] overflow-hidden relative bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
         {/* Sticky Header */}
         <CardHeader className="sticky top-0 z-10 pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
           <CardTitle className="text-lg sm:text-xl text-white font-bold">Admin Panel</CardTitle>
@@ -207,7 +207,7 @@ export default function AdminPanel({
                         <div key={result.teamId} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
                           <div className="flex items-center justify-between text-sm text-slate-200">
                             <span className="font-semibold text-white">{teamName}</span>
-                            <span className="text-xs text-indigo-300 font-semibold">Points: {result.points.toFixed(2)} / 10</span>
+                            <span className="text-xs text-slate-200 font-semibold">Points: {result.points.toFixed(2)} / 10</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
                             <div>
@@ -376,7 +376,7 @@ export default function AdminPanel({
                       const n = v === '' ? 0 : parseInt(v || '0');
                       setTotalAircraftSeats(n);
                     }}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
                 </div>
 
@@ -406,7 +406,7 @@ export default function AdminPanel({
                       type="number"
                       value={fixSeatPrice === 0 ? '' : (fixSeatPrice ?? _gameState?.fixSeatPrice ?? 60)}
                       onChange={e => setFixSeatPrice && setFixSeatPrice(Number(e.target.value || 0))}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                     />
                   </div>
                   <div className="space-y-2">
@@ -415,7 +415,7 @@ export default function AdminPanel({
                       type="number"
                       value={poolingCost === 0 ? '' : (poolingCost ?? _gameState?.poolingCost ?? 30)}
                       onChange={e => setPoolingCost && setPoolingCost(Number(e.target.value || 0))}
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                     />
                   </div>
                 </div>
@@ -430,7 +430,7 @@ export default function AdminPanel({
                     type="number"
                     value={perTeamBudget === 0 ? '' : (perTeamBudget ?? _gameState?.perTeamBudget ?? 20000)}
                     onChange={e => setPerTeamBudget && setPerTeamBudget(Number(e.target.value || 0))}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
                 </div>
 
@@ -447,7 +447,7 @@ export default function AdminPanel({
                       const v = e.target.value; const n = v === '' ? 0 : parseInt(v || '0');
                       setBaseDemand(n);
                     }}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
                 </div>
 
@@ -504,7 +504,7 @@ export default function AdminPanel({
                     type="number"
                     value={referencePrice === undefined ? '' : referencePrice}
                     onChange={e => setReferencePrice && setReferencePrice(Number(e.target.value || 0))}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
                 </div>
 
@@ -587,7 +587,7 @@ export default function AdminPanel({
                       const numValue = value === "" ? 0 : parseInt(value || "0");
                       setSeed(numValue);
                     }}
-                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 min-h-[44px] rounded-lg"
+                    className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
                 </div>
 
@@ -777,7 +777,7 @@ export default function AdminPanel({
                               </div>
                               <div>
                                 <span className="block text-slate-500 uppercase tracking-wide">Points</span>
-                                <span className="font-mono text-sm text-indigo-300">{result.points.toFixed(2)} / 10</span>
+                                <span className="font-mono text-sm text-slate-200">{result.points.toFixed(2)} / 10</span>
                               </div>
                             </div>
                           </div>

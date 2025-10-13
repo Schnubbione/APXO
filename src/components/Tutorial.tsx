@@ -23,7 +23,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
       <Card className="max-w-3xl w-full bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
+            <div className="p-4 bg-gradient-to-r from-slate-600 to-slate-800 rounded-2xl shadow-lg">
               <MapPin className="w-10 h-10 text-white" />
             </div>
           </div>
@@ -48,10 +48,10 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 bg-gradient-to-br from-indigo-500/15 to-indigo-600/15 rounded-xl border border-indigo-500/30">
+            <div className="p-5 bg-gradient-to-br from-slate-600/20 to-slate-700/15 rounded-xl border border-slate-600/40">
               <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-indigo-500/20 rounded-lg">
-                  <Gavel className="w-6 h-6 text-indigo-300" />
+                <div className="p-2 bg-slate-600/25 rounded-lg">
+                  <Gavel className="w-6 h-6 text-slate-200" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">Phase 1 – Bidding</h3>
               </div>
@@ -104,7 +104,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Button
                 onClick={onStart}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transition-all duration-200 min-h-[52px] w-full sm:w-auto"
+                className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transition-all duration-200 min-h-[52px] w-full sm:w-auto"
               >
                 <span className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />

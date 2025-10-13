@@ -83,7 +83,7 @@ export default function AnalyticsPanel({
       <Card className="w-full max-w-7xl max-h-[95vh] overflow-y-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl">
         <CardHeader className="pb-4 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600">
           <CardTitle className="text-xl sm:text-2xl text-white font-bold flex items-center gap-3">
-            <BarChart3 className="w-6 h-6 text-indigo-400" />
+            <BarChart3 className="w-6 h-6 text-slate-300" />
             Analytics Dashboard
           </CardTitle>
           <Button
@@ -149,15 +149,15 @@ export default function AnalyticsPanel({
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30">
+                <Card className="bg-gradient-to-br from-slate-600/20 to-slate-700/20 border-slate-600/40">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-purple-500/20 rounded-lg">
-                        <Target className="w-6 h-6 text-purple-400" />
+                      <div className="p-2 bg-slate-600/25 rounded-lg">
+                        <Target className="w-6 h-6 text-slate-200" />
                       </div>
                       <h3 className="text-xl font-semibold text-white">Total Rounds</h3>
                     </div>
-                    <div className="text-3xl font-bold text-purple-400">{roundHistory.length}</div>
+                    <div className="text-3xl font-bold text-slate-200">{roundHistory.length}</div>
                     <p className="text-slate-400 text-sm mt-2">Rounds completed</p>
                   </CardContent>
                 </Card>
@@ -327,7 +327,7 @@ export default function AnalyticsPanel({
                         {decisionHeatmapData.map((team: any, _: number) => (
                           <tr key={team.team} className="border-b border-slate-700">
                             <td className="text-white py-3 font-medium">{team.team}</td>
-                            <td className="text-center text-indigo-400 py-3 font-mono">{team.price}</td>
+                            <td className="text-center text-slate-300 py-3 font-mono">{team.price}</td>
                             <td className="text-center py-3">
                               <div
                                 className="w-8 h-8 mx-auto rounded flex items-center justify-center text-xs font-bold text-white"
@@ -383,7 +383,7 @@ export default function AnalyticsPanel({
                         className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-slate-700/30 to-slate-600/20 border border-slate-600/50 hover:from-slate-700/50 hover:to-slate-600/30 transition-all duration-200"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-slate-600 to-slate-800 text-white font-bold text-lg">
                             #{index + 1}
                           </div>
                           <span className="font-semibold text-white text-lg">{entry.name}</span>

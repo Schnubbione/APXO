@@ -143,7 +143,7 @@ export default function MotivationalMessages({ currentTeam, roundResults, leader
   if (!currentMessage) return null;
 
   return (
-    <Card className={`backdrop-blur-sm shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 border ${getMessageColor()}`}>
+    <Card className={`backdrop-blur-sm shadow-2xl hover:shadow-slate-900/20 transition-all duration-300 border ${getMessageColor()}`}>
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
           {getMessageIcon()}
