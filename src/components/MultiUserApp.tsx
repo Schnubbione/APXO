@@ -199,25 +199,18 @@ export const MultiUserApp: React.FC = () => {
     const horizon = Math.max(0, Number(gameState.simulationHorizon ?? history.length));
     const totalPoints = history.length;
     const startIndex = Math.max(0, totalPoints - 40);
-    const smoothingAlpha = 0.35; // simple exponential smoothing factor for demand line
-    let previousSmoothedDemand: number | null = null;
-
     return history.slice(-40).map((entry, localIndex) => {
       const actualIndex = startIndex + localIndex;
       const remainingDays = typeof entry.remainingDays === 'number'
         ? Math.max(0, entry.remainingDays)
         : Math.max(0, Math.round(horizon - actualIndex));
       const rawDemand = typeof entry.demand === 'number' ? entry.demand : 0;
-      const smoothedDemand = previousSmoothedDemand === null
-        ? rawDemand
-        : previousSmoothedDemand + (rawDemand - previousSmoothedDemand) * smoothingAlpha;
-      previousSmoothedDemand = smoothedDemand;
 
       return {
         index: localIndex,
         label: `${remainingDays} dBD`,
         price: entry.price,
-        demand: smoothedDemand,
+        demand: rawDemand,
         rawDemand
       };
     });
