@@ -4,6 +4,62 @@ import { resolveServerUrl } from '@/lib/env';
 import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
 const MIN_PROFIT_LIMIT = -20000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function buildPracticeDemandSchedule(options: {
+  horizonDays: number;
+  totalCapacity: number;
+  baselineCapacity: number;
+  demandCurve: number[];
+}) {
+  const { horizonDays, totalCapacity, baselineCapacity, demandCurve } = options;
+  const safeHorizon = Math.max(1, Math.floor(horizonDays));
+  const baseCurve = Array.isArray(demandCurve) && demandCurve.length > 0 ? demandCurve : [1];
+  const scale = totalCapacity / Math.max(1, baselineCapacity);
+  const scaledCurve = baseCurve.map(entry => Math.max(0, entry * scale));
+  const periods = scaledCurve.length;
+  const basePeriodDays = Math.floor(safeHorizon / periods);
+  const extraDays = safeHorizon - basePeriodDays * periods;
+  const schedule: number[] = [];
+
+  for (let i = 0; i < periods; i += 1) {
+    const periodDays = basePeriodDays + (i < extraDays ? 1 : 0);
+    const totalPeriodDemand = Math.max(0, Math.round(scaledCurve[i]));
+    if (periodDays <= 0) continue;
+
+    const basePerDay = Math.floor(totalPeriodDemand / periodDays);
+    let remainder = totalPeriodDemand - basePerDay * periodDays;
+
+    for (let d = 0; d < periodDays; d += 1) {
+      schedule.push(basePerDay);
+    }
+
+    if (remainder > 0 && periodDays > 0) {
+      const indices = Array.from({ length: periodDays }, (_, idx) => idx);
+      for (let j = indices.length - 1; j > 0; j -= 1) {
+        const swap = Math.floor(Math.random() * (j + 1));
+        [indices[j], indices[swap]] = [indices[swap], indices[j]];
+      }
+      for (let r = 0; r < remainder; r += 1) {
+        const idx = indices[r % periodDays];
+        const globalIndex = schedule.length - periodDays + idx;
+        schedule[globalIndex] = schedule[globalIndex] + 1;
+      }
+    }
+  }
+
+  while (schedule.length < safeHorizon) {
+    const last = schedule.length ? schedule[schedule.length - 1] : 0;
+    schedule.push(last);
+  }
+  if (schedule.length > safeHorizon) {
+    schedule.length = safeHorizon;
+  }
+
+  const total = schedule.reduce((sum, value) => sum + value, 0);
+  const average = safeHorizon > 0 ? Math.round(total / safeHorizon) : 0;
+  return { schedule, total, average };
+}
 
 
 interface Team {
@@ -294,6 +350,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initialFix: number[];
     initialPool: number[];
     insolvent: boolean[];
+    demandSchedule: number[];
+    dayIndex: number;
+    totalDays: number;
   } | null>(null);
 
   useEffect(() => {
@@ -923,16 +982,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const rnd = (min: number, max: number) => Math.random() * (max - min) + min;
     const irnd = (min: number, max: number) => Math.floor(rnd(min, max + 1));
 
-  const totalAircraftSeats = irnd(600, 1400);
-  const perTeamCount = aiCount + 1;
-  const fixSeatPrice = irnd(50, 80);
-  const airlinePriceMin = defaultConfig?.airline?.P_min ?? 80;
-  const airlinePriceMax = defaultConfig?.airline?.P_max ?? 400;
-  const fixSeatMinBid = Math.max(fixSeatPrice, airlinePriceMin);
-  const fixSeatShare = Math.min(0.95, Math.max(0, perTeamCount * 0.08));
-  const poolingCost = irnd(70, 120);
-const perTeamBudget = irnd(15000, 40000);
-  const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const totalAircraftSeats = irnd(600, 1400);
+    const perTeamCount = aiCount + 1;
+    const fixSeatPrice = irnd(50, 80);
+    const airlinePriceMin = defaultConfig?.airline?.P_min ?? 80;
+    const airlinePriceMax = defaultConfig?.airline?.P_max ?? 400;
+    const fixSeatMinBid = Math.max(fixSeatPrice, airlinePriceMin);
+    const fixSeatShare = Math.min(0.95, Math.max(0, perTeamCount * 0.08));
+    const poolingCost = irnd(70, 120);
+    const perTeamBudget = irnd(15000, 40000);
+    const departureDate = new Date(Date.now() + 365 * MS_PER_DAY);
+    const baselineCapacity = Math.max(1, defaultConfig?.airline?.C_total ?? totalAircraftSeats);
+    const demandVolatility = Number(rnd(0.05, 0.2).toFixed(2));
+    const priceElasticity = Number((-rnd(0.9, 2.7)).toFixed(2));
+    const crossElasticity = Number(rnd(0.0, 1.0).toFixed(2));
+    const marketConcentration = Number(rnd(0.5, 0.9).toFixed(2));
+    const horizonDays = Math.max(1, Math.ceil((departureDate.getTime() - Date.now()) / MS_PER_DAY));
+    const defaultDemandCurve = Array.isArray(defaultConfig?.market?.D_base) && defaultConfig.market.D_base.length > 0
+      ? defaultConfig.market.D_base
+      : Array.from({ length: 12 }, () => 20);
+    const demandPlan = buildPracticeDemandSchedule({
+      horizonDays,
+      totalCapacity: totalAircraftSeats,
+      baselineCapacity,
+      demandCurve: defaultDemandCurve,
+    });
+    const practiceDemandSchedule = demandPlan.schedule;
+    const baseDemand = Math.max(1, demandPlan.average);
 
     // Construct teams: current + AIs
     const myId = socket?.id || 'me';
@@ -970,11 +1046,11 @@ const perTeamBudget = irnd(15000, 40000);
       teams: [myTeam, ...aiTeams],
       isActive: false,
       currentRound: 1,
-      baseDemand: irnd(80, 240),
-      demandVolatility: Number(rnd(0.05, 0.2).toFixed(2)),
-      priceElasticity: Number((-rnd(0.9, 2.7)).toFixed(2)),
-      crossElasticity: Number(rnd(0.0, 1.0).toFixed(2)),
-      marketConcentration: Number(rnd(0.5, 0.9).toFixed(2)),
+      baseDemand,
+      demandVolatility,
+      priceElasticity,
+      crossElasticity,
+      marketConcentration,
       roundTime: 60, // seconds for pre-purchase
       currentPhase: 'prePurchase',
       phaseTime: 60,
@@ -1164,6 +1240,7 @@ const perTeamBudget = irnd(15000, 40000);
               return initialFixAllocations[index] * clearing;
             });
 
+            const scheduleForSim = practiceDemandSchedule.length ? practiceDemandSchedule.slice() : [];
             simDataRef.current = {
               remainingFix: initialFixAllocations.slice(),
               remainingPool: initialPoolAllocations.slice(),
@@ -1174,7 +1251,10 @@ const perTeamBudget = irnd(15000, 40000);
               demand: teams.map(() => 0),
               initialFix: initialFixAllocations,
               initialPool: initialPoolAllocations,
-              insolvent: teams.map(() => false)
+              insolvent: teams.map(() => false),
+              demandSchedule: scheduleForSim,
+              dayIndex: 0,
+              totalDays: scheduleForSim.length || Math.max(1, daysToDeparture)
             };
             startSimInterval();
           }, 0);
@@ -1226,10 +1306,6 @@ const perTeamBudget = irnd(15000, 40000);
           const daysRemaining = Math.max(0, previousDays - 1);
           const countdownSeconds = daysRemaining;
 
-          // Per-tick demand (daily baseline)
-          const baseD = Math.max(10, prev.baseDemand || 100);
-          const demandToday = Math.round(baseD * (0.8 + Math.random() * 0.4));
-
           // Price-dependent demand distribution across teams (softmax around the average price)
           const teams = prev.teams.map(t => ({
             ...t,
@@ -1238,13 +1314,6 @@ const perTeamBudget = irnd(15000, 40000);
               price: typeof t.decisions?.price === 'number' ? t.decisions.price : 500
             }
           }));
-          const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 500), 0) / Math.max(1, teams.length);
-          const elasticity = Math.abs(prev.priceElasticity || 1); // typically 0.9..2.7 from the practice setup
-          const k = Math.min(0.08, Math.max(0.008, elasticity / 50)); // 0.018..0.054
-          const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 500) - avgPrice)));
-          const sumW = weights.reduce((a, b) => a + b, 0) || 1;
-          const demandPerTeam = teams.map((_, i) => Math.max(0, Math.round(demandToday * (weights[i] / sumW))));
-
           // Per-tick matching: manage remaining capacities
           if (!simDataRef.current || (simDataRef.current.remainingFix.length !== teams.length)) {
             // Fallback init if values were not provided
@@ -1260,6 +1329,7 @@ const perTeamBudget = irnd(15000, 40000);
                 : defaultClearing;
               return initialFix[index] * clearing;
             });
+            const fallbackSchedule = practiceDemandSchedule.length ? practiceDemandSchedule.slice() : [];
             simDataRef.current = {
               remainingFix: initialFix.slice(),
               remainingPool: initialPool.slice(),
@@ -1270,10 +1340,37 @@ const perTeamBudget = irnd(15000, 40000);
               demand: teams.map(() => 0),
               initialFix,
               initialPool,
-              insolvent: teams.map(() => false)
+              insolvent: teams.map(() => false),
+              demandSchedule: fallbackSchedule,
+              dayIndex: 0,
+              totalDays: fallbackSchedule.length || Math.max(1, previousDays)
             };
           }
           const data = simDataRef.current!;
+
+          const schedule = data.demandSchedule && data.demandSchedule.length > 0
+            ? data.demandSchedule
+            : (practiceDemandSchedule.length ? practiceDemandSchedule : []);
+          const scheduleLength = schedule.length;
+          const currentDayIndex = Math.min(data.dayIndex ?? 0, scheduleLength > 0 ? scheduleLength - 1 : 0);
+          let baseD = scheduleLength > 0 ? (schedule[currentDayIndex] ?? 0) : 0;
+          if (scheduleLength === 0) {
+            baseD = Math.max(10, prev.baseDemand || 100);
+          }
+          const volatility = Math.abs(prev.demandVolatility ?? 0.1);
+          const variation = scheduleLength > 0 ? Math.min(0.5, Math.max(0.02, volatility)) : 0.4;
+          const noiseMultiplier = 1 + ((Math.random() * 2 - 1) * variation);
+          const demandToday = Math.max(0, Math.round(baseD * noiseMultiplier));
+          if (scheduleLength > 0) {
+            data.dayIndex = Math.min(scheduleLength, currentDayIndex + 1);
+          }
+
+          const avgPrice = teams.reduce((s, t) => s + (t.decisions.price || 500), 0) / Math.max(1, teams.length);
+          const elasticity = Math.abs(prev.priceElasticity || 1); // typically 0.9..2.7 from the practice setup
+          const k = Math.min(0.08, Math.max(0.008, elasticity / 50)); // 0.018..0.054
+          const weights = teams.map(t => Math.exp(-k * ((t.decisions.price || 500) - avgPrice)));
+          const sumW = weights.reduce((a, b) => a + b, 0) || 1;
+          const demandPerTeam = teams.map((_, i) => Math.max(0, Math.round(demandToday * (weights[i] / sumW))));
 
           // Pricing before consumption: use pre-tick available pooling supply and remaining fixed seats
           const remainingFixBefore = data.remainingFix.slice();
