@@ -56,8 +56,8 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
                 <h3 className="text-lg font-semibold text-white">Phase 1 – Bidding</h3>
               </div>
               <ul className="space-y-2 text-sm text-slate-200">
-                <li>• Submit a sealed bid with your maximum price per seat (current target: €{fixSeatPrice}).</li>
-                <li>• Choose how many of the {totalSeats.toLocaleString("de-DE")} seats you want to lock in.</li>
+                <li>• Submit a sealed bid with your maximum price per seat.</li>
+                <li>• Choose how many of the seats you want to lock in.</li>
                 <li>• The airline accepts the highest bids first until capacity runs out—you only learn your allocation when the timer ends.</li>
               </ul>
               <p className="text-xs text-slate-400 mt-3">
@@ -75,7 +75,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <ul className="space-y-2 text-sm text-slate-200">
                 <li>• One in-game year counts down in real time (≈365 seconds, one day per second).</li>
                 <li>• Adjust your retail price at any moment—new settings apply to the next demand tick.</li>
-                <li>• Demand consumes fixed seats first; when those are gone, pooling seats are bought automatically at the live airline price (currently €{poolingPrice}).</li>
+                <li>• Demand consumes fixed seats first; when those are gone, pooling seats are bought automatically at the live airline price.</li>
               </ul>
               <p className="text-xs text-slate-400 mt-3">
                 Keep your retail price comfortably above pooling to avoid negative margins as you scale.
