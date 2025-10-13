@@ -131,6 +131,21 @@ interface AllocationSummary {
   minimumBidPrice?: number;
 }
 
+type RoundEndedPayload = {
+  roundResults: RoundResult[];
+  currentRound?: number;
+  roundNumber?: number;
+  timestamp?: string;
+};
+
+type PendingServerSync = {
+  gameState?: GameState;
+  roundStarted?: number;
+  roundEnded?: RoundEndedPayload;
+  allocationSummary?: AllocationSummary | null;
+  leaderboard?: Array<{ name: string; revenue: number; profit?: number }>;
+};
+
 interface GameContextType {
   socket: Socket | null;
   isConnected: boolean;
@@ -258,6 +273,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     | { running: false; results?: any }
     | null
   >(null);
+  const practiceRef = React.useRef<typeof practice>(practice);
+  const pendingServerSyncRef = React.useRef<PendingServerSync | null>(null);
+  const socketIdRef = React.useRef<string | null>(null);
   const liveGameSnapshot = React.useRef<GameState | null>(null);
   const preTimerRef = React.useRef<any>(null);
   const simTimerRef = React.useRef<any>(null);
@@ -287,6 +305,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     roundHistoryRef.current = roundHistory;
   }, [roundHistory]);
+
+  useEffect(() => {
+    practiceRef.current = practice;
+  }, [practice]);
 
   const extractRoundKey = (entry: any) => {
     const value = Number(entry?.roundNumber ?? entry?.round ?? entry?.id);
@@ -428,6 +450,74 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return maxRound + 1;
   };
 
+  const applyServerSnapshot = React.useCallback((state: GameState) => {
+    if (!state) return;
+    const fareCodes = (state.fares || []).map(f => f.code);
+    const normalizedTeams = (state.teams || []).map(team => ({
+      ...team,
+      decisions: {
+        price: team.decisions?.price ?? 500,
+        buy: fareCodes.reduce((acc, code) => ({ ...acc, [code]: team.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
+        fixSeatsPurchased: team.decisions?.fixSeatsPurchased ?? 0,
+        fixSeatsAllocated: team.decisions?.fixSeatsAllocated,
+        poolingAllocation: team.decisions?.poolingAllocation ?? 0,
+        fixSeatsRequested: team.decisions?.fixSeatsRequested ?? team.decisions?.fixSeatsPurchased ?? 0,
+        fixSeatBidPrice: team.decisions?.fixSeatBidPrice ?? null,
+        fixSeatClearingPrice: team.decisions?.fixSeatClearingPrice ?? null
+      }
+    }));
+    const normalizedState: GameState = { ...state, teams: normalizedTeams };
+    setGameState(normalizedState);
+
+    const sid = socketIdRef.current;
+    if (sid) {
+      const myTeam = normalizedTeams.find(team => team.id === sid);
+      if (myTeam) {
+        setCurrentTeam(myTeam);
+      }
+    }
+  }, [setGameState, setCurrentTeam]);
+
+  const requestServerResync = React.useCallback(() => {
+    const s = socket;
+    if (!s) return;
+    const token = localStorage.getItem('apxo_resume_token');
+    if (token) {
+      s.emit('resumeTeam', token, () => {});
+    }
+  }, [socket]);
+
+  const processRoundStarted = React.useCallback((roundNumber: number) => {
+    console.log('Round started:', roundNumber);
+    setRoundResults(null);
+  }, []);
+
+  const processRoundEnded = React.useCallback((data: RoundEndedPayload) => {
+    const results = Array.isArray(data?.roundResults) ? data.roundResults : [];
+    const resolvedRoundNumber = resolveIncomingRoundNumber(data);
+    const fallbackRoundNumber = getNextRoundNumber();
+    const finalRoundNumber = Number.isFinite(resolvedRoundNumber) ? (resolvedRoundNumber as number) : fallbackRoundNumber;
+    const timestamp = data?.timestamp ?? new Date().toISOString();
+
+    console.log('Round ended:', finalRoundNumber);
+    setRoundResults(results);
+
+    if (results.length > 0) {
+      const roundEntry = buildRoundHistoryEntry(finalRoundNumber, results, timestamp);
+      setRoundHistory(prev => mergeRoundHistoryEntries(prev, [roundEntry], true));
+      setAnalyticsData(prev => {
+        const existingHistory = Array.isArray(prev?.roundHistory) ? prev.roundHistory : [];
+        const mergedHistory = mergeRoundHistoryEntries(existingHistory, [roundEntry], true);
+        return {
+          ...(prev ?? {}),
+          roundHistory: mergedHistory,
+          latestRoundNumber: finalRoundNumber,
+          latestUpdatedAt: timestamp
+        };
+      });
+    }
+  }, [setRoundResults, setRoundHistory, setAnalyticsData]);
+
   // Tutorial state
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -448,6 +538,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('connect', () => {
       setIsConnected(true);
       setIsReconnecting(false);
+      socketIdRef.current = newSocket.id;
       console.log('Connected to server');
 
       // Try to resume existing session using stored token
@@ -464,75 +555,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('disconnect', () => {
       setIsConnected(false);
       setIsReconnecting(true);
+      socketIdRef.current = null;
       console.log('Disconnected from server');
     });
 
     // Listen for game state updates
     newSocket.on('gameState', (state: GameState) => {
-      // If practice runs but a live phase is active, abort practice and sync
-      if (practice?.running && state?.isActive) {
-        stopPracticeMode();
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          gameState: state
+        };
+        return;
       }
-      if (practice?.running) return; // otherwise ignore server while practicing
       console.log('Game state updated:', state);
-      // Ensure each team has all fare codes initialized
-      const allCodes = (state.fares || []).map(f => f.code);
-      const normalizedTeams = (state.teams || []).map(t => ({
-        ...t,
-        decisions: {
-          price: t.decisions?.price ?? 500,
-          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
-          fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
-          // Before allocation is confirmed by server, do not infer allocated seats
-          fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-          poolingAllocation: t.decisions?.poolingAllocation ?? 0,
-          fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
-          fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
-          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null
-        }
-      }));
-      setGameState({ ...state, teams: normalizedTeams });
-      // Keep currentTeam in sync with backend state (by socket id)
-      const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
-      if (myTeam) {
-        setCurrentTeam(myTeam);
-      }
+      applyServerSnapshot(state);
     });
 
     // Also listen for gameStateUpdate events (broadcasted updates)
     newSocket.on('gameStateUpdate', (state: GameState) => {
-      if (practice?.running && state?.isActive) {
-        stopPracticeMode();
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          gameState: state
+        };
+        return;
       }
-      if (practice?.running) return; // ignore server while practicing
       console.log('Game state broadcast updated:', state);
-
-      // Ensure each team has all fare codes initialized
-      const allCodes = (state.fares || []).map(f => f.code);
-      const normalizedTeams = (state.teams || []).map(t => ({
-        ...t,
-        decisions: {
-          price: t.decisions?.price ?? 500,
-          buy: allCodes.reduce((acc, code) => ({ ...acc, [code]: t.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
-          fixSeatsPurchased: t.decisions?.fixSeatsPurchased ?? 0,
-          fixSeatsAllocated: t.decisions?.fixSeatsAllocated,
-          poolingAllocation: t.decisions?.poolingAllocation ?? 0,
-          fixSeatsRequested: t.decisions?.fixSeatsRequested ?? t.decisions?.fixSeatsPurchased ?? 0,
-          fixSeatBidPrice: t.decisions?.fixSeatBidPrice ?? null,
-          fixSeatClearingPrice: t.decisions?.fixSeatClearingPrice ?? null
-        }
-      }));
-      setGameState({ ...state, teams: normalizedTeams });
-      // Keep currentTeam in sync with backend state (by socket id)
-      const myTeam = normalizedTeams.find(t => t.id === newSocket.id);
-      if (myTeam) {
-        setCurrentTeam(myTeam);
-      }
+      applyServerSnapshot(state);
     });
 
     const handlePhaseStarted = (phase: string) => {
-      if (practice?.running) {
-        stopPracticeMode();
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        const nextSummary = phase === 'prePurchase' ? null : (pendingState.allocationSummary ?? null);
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          allocationSummary: nextSummary
+        };
+        return;
       }
       if (phase === 'prePurchase') {
         setAllocationSummary(null);
@@ -541,7 +604,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('phaseStarted', handlePhaseStarted);
 
     const handleFixSeatsAllocated = (result: AllocationSummary) => {
-      if (practice?.running) return;
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          allocationSummary: result
+        };
+        return;
+      }
       setAllocationSummary(result);
     };
     newSocket.on('fixSeatsAllocated', handleFixSeatsAllocated);
@@ -578,40 +648,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for round events
     newSocket.on('roundStarted', (roundNumber: number) => {
-      console.log('Round started:', roundNumber);
-      setRoundResults(null);
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          roundStarted: roundNumber
+        };
+        return;
+      }
+      processRoundStarted(roundNumber);
       // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
-    newSocket.on('roundEnded', (data: { roundResults: RoundResult[]; currentRound?: number; roundNumber?: number; timestamp?: string }) => {
-      const results = Array.isArray(data?.roundResults) ? data.roundResults : [];
-      const resolvedRoundNumber = resolveIncomingRoundNumber(data);
-      const fallbackRoundNumber = getNextRoundNumber();
-      const finalRoundNumber = Number.isFinite(resolvedRoundNumber) ? (resolvedRoundNumber as number) : fallbackRoundNumber;
-      const timestamp = data?.timestamp ?? new Date().toISOString();
-
-      console.log('Round ended:', finalRoundNumber);
-      setRoundResults(results);
-
-      if (results.length > 0) {
-        const roundEntry = buildRoundHistoryEntry(finalRoundNumber, results, timestamp);
-        setRoundHistory(prev => mergeRoundHistoryEntries(prev, [roundEntry], true));
-        setAnalyticsData(prev => {
-          const existingHistory = Array.isArray(prev?.roundHistory) ? prev.roundHistory : [];
-          const mergedHistory = mergeRoundHistoryEntries(existingHistory, [roundEntry], true);
-          return {
-            ...(prev ?? {}),
-            roundHistory: mergedHistory,
-            latestRoundNumber: finalRoundNumber,
-            latestUpdatedAt: timestamp
-          };
-        });
+    newSocket.on('roundEnded', (data: RoundEndedPayload) => {
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          roundEnded: data
+        };
+        return;
       }
+      processRoundEnded(data);
       // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
     // Listen for leaderboard
     newSocket.on('leaderboard', (board: Array<{ name: string; revenue: number; profit?: number }>) => {
+      if (practiceRef.current?.running) {
+        const pendingState = pendingServerSyncRef.current ?? {};
+        pendingServerSyncRef.current = {
+          ...pendingState,
+          leaderboard: board
+        };
+        return;
+      }
       setLeaderboard(board);
     });
 
@@ -687,7 +758,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       newSocket.off('fixSeatsAllocated', handleFixSeatsAllocated);
       newSocket.close();
     };
-  }, []);
+  }, [applyServerSnapshot, processRoundEnded, processRoundStarted]);
 
   const registerTeam = (name: string) => {
     setRegistrationError(null); // Clear any previous error
@@ -835,17 +906,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startPracticeMode = (config?: { rounds?: number; aiCount?: number; overridePrice?: number; overrideFixSeats?: number; overrideBid?: number }) => {
     // Toggle off if running
     if (practice?.running) { stopPracticeMode(); return; }
-    // Do not allow starting practice while a live game is active
-    if (gameState.isActive) {
-      setLastError('Practice mode cannot be started while a live game is running.');
-      return;
-    }
 
     const aiCount = Math.max(2, Math.min(6, Number(config?.aiCount) || 3));
     setPractice({ running: true, rounds: 1, aiCount });
+    practiceRef.current = { running: true, rounds: 1, aiCount };
     setAllocationSummary(null);
     // Snapshot live state
     liveGameSnapshot.current = gameState;
+    pendingServerSyncRef.current = null;
 
     // Build randomized practice state mirroring server
     const rnd = (min: number, max: number) => Math.random() * (max - min) + min;
@@ -1399,11 +1467,43 @@ const perTeamBudget = irnd(15000, 40000);
   const stopPracticeMode = () => {
     if (preTimerRef.current) clearInterval(preTimerRef.current);
     if (simTimerRef.current) clearInterval(simTimerRef.current);
+    simDataRef.current = null;
     setPractice({ running: false });
-    // Restore live state
-    if (liveGameSnapshot.current) {
-      setGameState(liveGameSnapshot.current);
-      liveGameSnapshot.current = null;
+    practiceRef.current = { running: false };
+
+    const pending = pendingServerSyncRef.current;
+    pendingServerSyncRef.current = null;
+
+    let appliedPendingState = false;
+    if (pending?.gameState) {
+      applyServerSnapshot(pending.gameState);
+      appliedPendingState = true;
+    } else if (liveGameSnapshot.current) {
+      applyServerSnapshot(liveGameSnapshot.current);
+    }
+    liveGameSnapshot.current = null;
+
+    if (pending && Object.prototype.hasOwnProperty.call(pending, 'roundStarted')) {
+      const roundNumber = pending.roundStarted ?? 0;
+      processRoundStarted(roundNumber);
+    } else if (!(pending && Object.prototype.hasOwnProperty.call(pending, 'roundEnded'))) {
+      setRoundResults(null);
+    }
+
+    if (pending && Object.prototype.hasOwnProperty.call(pending, 'roundEnded') && pending.roundEnded) {
+      processRoundEnded(pending.roundEnded);
+    }
+
+    if (pending && Object.prototype.hasOwnProperty.call(pending, 'allocationSummary')) {
+      setAllocationSummary(pending.allocationSummary ?? null);
+    }
+
+    if (pending && Object.prototype.hasOwnProperty.call(pending, 'leaderboard')) {
+      setLeaderboard(pending.leaderboard ?? null);
+    }
+
+    if (!appliedPendingState) {
+      requestServerResync();
     }
   };
 
