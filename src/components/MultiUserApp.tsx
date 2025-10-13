@@ -1409,7 +1409,7 @@ export const MultiUserApp: React.FC = () => {
                       {showBudgetTile && budgetRemaining !== null ? ` | Remaining budget: €${budgetRemaining.toLocaleString('de-DE')}` : ''}
                     </div>
                     <div className="text-xs text-slate-400">
-                      Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel below to secure capacity.
+                      Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel above to secure capacity.
                     </div>
                   </CardContent>
                 </Card>
