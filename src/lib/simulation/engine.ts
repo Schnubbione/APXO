@@ -257,8 +257,13 @@ export function airlineReprice(config: Config, runtime: Runtime): number {
   const sold = runtime.soldCum[index] ?? 0;
   const forecast = runtime.forecastCum[index] ?? 0;
   const delta = sold - forecast;
-  const factor = 1 + gamma * Math.tanh(delta / Math.max(kappa, 1e-6));
-  return clamp(runtime.P_airline * factor, P_min, P_max);
+  const pressure = Math.tanh(delta / Math.max(kappa, 1e-6));
+  const current = runtime.P_airline;
+  const headroomUp = Math.max(0, P_max - current);
+  const headroomDown = Math.max(0, current - P_min);
+  const appliedHeadroom = pressure >= 0 ? headroomUp : headroomDown;
+  const change = appliedHeadroom * gamma * pressure;
+  return clamp(current + change, P_min, P_max);
 }
 
 export function runTick(

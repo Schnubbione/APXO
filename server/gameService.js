@@ -1302,7 +1302,11 @@ export class GameService {
         ? Math.max(1, Number(settings.airlinePriceKappa))
         : AGENT_V1_DEFAULTS.airline.kappa;
 
-      let candidatePrice = currentAirlinePrice * (1 + gamma * Math.tanh(delta / Math.max(1, kappa)));
+      const pressure = Math.tanh(delta / Math.max(1, kappa));
+      const headroomUp = Math.max(0, priceMax - currentAirlinePrice);
+      const headroomDown = Math.max(0, currentAirlinePrice - priceMin);
+      const appliedHeadroom = pressure >= 0 ? headroomUp : headroomDown;
+      let candidatePrice = currentAirlinePrice + appliedHeadroom * gamma * pressure;
       candidatePrice = Math.max(priceMin, Math.min(priceMax, candidatePrice));
       candidatePrice = Math.round(candidatePrice);
       if (!Number.isFinite(candidatePrice) || candidatePrice <= 0) {
