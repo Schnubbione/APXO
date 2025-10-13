@@ -1188,6 +1188,10 @@ io.on('connection', async (socket) => {
 
   // Get analytics data
   socket.on('getAnalytics', async () => {
+    if (socket.id !== adminSocket) {
+      socket.emit('error', 'Unauthorized: Admin access required');
+      return;
+    }
     try {
       const analyticsData = await GameService.getAnalyticsData();
       socket.emit('analyticsData', analyticsData);

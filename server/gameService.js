@@ -834,10 +834,24 @@ export class GameService {
     };
   }
 
+  static sanitizeSessionForClient(session) {
+    if (!session) return null;
+    const payload = typeof session.toJSON === 'function' ? session.toJSON() : { ...session };
+    if (payload?.settings && typeof payload.settings === 'object') {
+      const { adminPassword, ...restSettings } = payload.settings;
+      payload.settings = restSettings;
+    }
+    if ('adminSocketId' in payload) {
+      delete payload.adminSocketId;
+    }
+    return payload;
+  }
+
   // Get analytics data
   static async getAnalyticsData() {
     const session = await this.getCurrentGameSession();
     const teams = await this.getActiveTeams();
+    const sessionPayload = this.sanitizeSessionForClient(session) || {};
 
     // Get round history
     const roundHistory = await RoundResultModel.findAll({
@@ -935,7 +949,7 @@ export class GameService {
     return {
       roundHistory: roundHistoryArray,
       currentGameState: {
-        ...session.toJSON(),
+        ...sessionPayload,
         teams: teams.map(team => team.toJSON())
       },
       leaderboard

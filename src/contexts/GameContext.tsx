@@ -244,6 +244,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const isAdminRef = React.useRef(isAdmin);
   const [roundResults, setRoundResults] = useState<RoundResult[] | null>(null);
   const [leaderboard, setLeaderboard] = useState<Array<{ name: string; revenue: number; profit?: number }> | null>(null);
   const [roundHistory, setRoundHistory] = useState<any[]>([]);
@@ -272,6 +273,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initialPool: number[];
     insolvent: boolean[];
   } | null>(null);
+
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
   const latestGameStateRef = React.useRef<GameState>(gameState);
   const roundHistoryRef = React.useRef<any[]>(roundHistory);
 
@@ -621,6 +626,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for analytics data
     newSocket.on('analyticsData', (data: any) => {
+      if (!isAdminRef.current) {
+        console.warn('Ignoring analytics payload for non-admin client');
+        return;
+      }
       const incomingHistory = Array.isArray(data?.roundHistory) ? data.roundHistory : [];
       const mergedHistory = mergeRoundHistoryEntries(roundHistoryRef.current ?? [], incomingHistory, true);
       setRoundHistory(mergedHistory);
@@ -1415,6 +1424,10 @@ const perTeamBudget = irnd(15000, 40000);
   };
 
   const getAnalytics = () => {
+    if (!isAdminRef.current) {
+      console.warn('Analytics request blocked: admin access required');
+      return;
+    }
     socket?.emit('getAnalytics');
   };
 
