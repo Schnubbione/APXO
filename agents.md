@@ -36,7 +36,7 @@ This document compresses the current project context and outlines sensible next 
 - Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
 - Round evaluation screen summarises Phase 1 allocation, Phase 2 performance, and top performers while live controls are hidden.
-- Airline guardrails in place: only 20 % of seats are released in Phase 1 by default (admin-adjustable), the auction enforces a minimum bid tied to the airline floor, pooling sales pause before breaching the insolvency limit, and profit is clamped at −€20 000 everywhere it is displayed.
+- Airline guardrails in place: only 30 % of seats are released in Phase 1 by default (admin-adjustable), the auction enforces a minimum bid tied to the airline floor, pooling sales pause before breaching the insolvency limit, and profit is clamped at −€20 000 everywhere it is displayed.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.
 

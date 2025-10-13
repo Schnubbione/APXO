@@ -6,7 +6,6 @@ import AdminPanel from './AdminPanel';
 import RoundTimer from './RoundTimer';
 import Tutorial from './Tutorial';
 import TutorialTour from './TutorialTour';
-import MotivationalMessages from './MotivationalMessages';
 import LiveCompetition from './LiveCompetition';
 import SoundEffects from './SoundEffects';
 import { Button } from './ui/button';
@@ -363,7 +362,7 @@ export const MultiUserApp: React.FC = () => {
   const effectiveMinimumBid = allocationSummary?.minimumBidPrice
     ? Math.max(fixSeatMinBid, allocationSummary.minimumBidPrice)
     : fixSeatMinBid;
-  const fixSeatShareValue = Math.max(0.05, Math.min(0.95, gameState.fixSeatShare ?? (defaultConfig?.fixSeatShare ?? 0.2)));
+  const fixSeatShareValue = Math.max(0.05, Math.min(0.95, gameState.fixSeatShare ?? (defaultConfig?.fixSeatShare ?? 0.3)));
 
   const liveTeamsWithScore = React.useMemo(() => {
     const teams = gameState.teams ?? [];
@@ -1488,7 +1487,7 @@ export const MultiUserApp: React.FC = () => {
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
                                 formatter={(value: any, name: string, { payload }: any) => {
                                   if (name === 'Pooling price') return [`€${Number(value).toFixed(0)}`, name];
-                                  if (name === 'Market demand') {
+                                  if (name === 'Total Market Demand') {
                                     const rawDemand = Number(payload?.rawDemand ?? value);
                                     return [`${rawDemand.toFixed(0)} pax`, name];
                                   }
@@ -1496,7 +1495,7 @@ export const MultiUserApp: React.FC = () => {
                                 }}
                               />
                               <Area yAxisId="left" type="monotone" dataKey="price" name="Pooling price" stroke="#38bdf8" strokeWidth={2} fill="url(#poolPriceGradient)" />
-                              <Line yAxisId="right" type="monotone" dataKey="demand" name="Market demand" stroke="#f97316" strokeWidth={2} dot={false} />
+                              <Line yAxisId="right" type="monotone" dataKey="demand" name="Total Market Demand" stroke="#f97316" strokeWidth={2} dot={false} />
                             </AreaChart>
                           </ResponsiveContainer>
                         ) : (
@@ -1530,7 +1529,7 @@ export const MultiUserApp: React.FC = () => {
                       <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(poolingPrice) ? poolingPrice.toLocaleString('de-DE') : '0'}</div>
                     </div>
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Market demand</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Total Market Demand</div>
                       <div className="text-2xl font-semibold text-white tabular-nums">{demandPerTeam?.reduce?.((sum: number, d: number) => sum + (Number.isFinite(d) ? d : 0), 0)?.toLocaleString('de-DE') ?? 0}</div>
                     </div>
                   </div>
@@ -1555,13 +1554,6 @@ export const MultiUserApp: React.FC = () => {
             currentTeam={currentTeam}
             leaderboard={leaderboard || []}
             roundResults={roundResults || []}
-          />
-
-          {/* Motivational Messages */}
-          <MotivationalMessages
-            currentTeam={currentTeam}
-            roundResults={roundResults || []}
-            leaderboard={leaderboard || []}
           />
 
           {/* Sound Effects */}

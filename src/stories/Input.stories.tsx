@@ -115,7 +115,7 @@ export const BudgetInput: Story = {
       <Input
         id="budget"
         type="number"
-        placeholder="20000"
+        placeholder="10000"
         min="10000"
         max="50000"
       />

@@ -27,7 +27,7 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   logitBeta: 6.0,
   referencePrice: 150,
   baselineCapacity: AGENT_BASE_CAPACITY,
-  fixSeatShare: 0.2,
+  fixSeatShare: 0.3,
   airline: {
     startPrice: 120,
     minPrice: 80,
@@ -90,7 +90,7 @@ export class GameService {
             referencePrice: 199,
             marketPriceElasticity: -0.9,
             // Budget per team (equal for all teams)
-            perTeamBudget: 20000
+            perTeamBudget: 10000
           }
         });
       }
@@ -1402,7 +1402,7 @@ export class GameService {
           ,
           // Hotel defaults
           // Budget
-          perTeamBudget: 20000
+          perTeamBudget: 10000
         }
       }, { where: {} });
 
@@ -1474,7 +1474,7 @@ export class GameService {
           ,
           // Hotel defaults
           // Budget
-          perTeamBudget: 20000
+          perTeamBudget: 10000
         }
       });
 

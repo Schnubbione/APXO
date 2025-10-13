@@ -10,7 +10,7 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Round Evaluation View** - Post-round recap for teams that distills Phase 1 allocations plus Phase 2 market performance while hiding live controls.
-- **Airline Guardrails** - Admin-only controls for the fixed-seat share (default 20%), a hard minimum bid aligned with the airline floor, and automatic pooling safety to prevent forced insolvency.
+- **Airline Guardrails** - Admin-only controls for the fixed-seat share (default 30%), a hard minimum bid aligned with the airline floor, and automatic pooling safety to prevent forced insolvency.
 - **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
 - **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
 - **CI-Ready Tooling** - Jest/Vitest, Playwright, ESLint. Engine-specific tests safeguard the core domain.
@@ -115,7 +115,7 @@ Covered scenarios:
 ### Phase 1 - Fixed-Seat Auction
 
 - Single sealed bid per team (`bid_price_per_seat`, `bid_quantity`, optional `budget_cap`).
-- Sorted in descending price until the airline capacity earmarked for teams is exhausted (by default 20 % of the aircraft seats; the admin can adjust this privately in the control panel).
+- Sorted in descending price until the airline capacity earmarked for teams is exhausted (by default 30 % of the aircraft seats; the admin can adjust this privately in the control panel).
 - Pay-as-bid: the paid price matches the bid price. The airline rejects bids below its current floor (default €80), so lowball bids keep the full budget but receive zero seats.
 
 ### Phase 2 - Live Market (continuous countdown)

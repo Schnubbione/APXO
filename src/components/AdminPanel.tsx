@@ -316,7 +316,7 @@ export default function AdminPanel({
                         // Reset prices to sensible defaults
                         setFixSeatPrice && setFixSeatPrice(60);
                         setPoolingCost && setPoolingCost(90);
-                        setPerTeamBudget && setPerTeamBudget(20000);
+                        setPerTeamBudget && setPerTeamBudget(10000);
                       }}
                     >
                       Restore Legacy Defaults
@@ -383,7 +383,7 @@ export default function AdminPanel({
                   </div>
                   <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
                     <Slider
-                      value={[Math.round(((fixSeatShare ?? 0.2) * 100))]}
+                      value={[Math.round(((fixSeatShare ?? 0.3) * 100))]}
                       onValueChange={([v]) => setFixSeatShare && setFixSeatShare(Number((v / 100).toFixed(2)))}
                       min={5}
                       max={60}
@@ -391,7 +391,7 @@ export default function AdminPanel({
                       className="w-full"
                     />
                   </div>
-                  <div className="text-sm text-slate-400 text-center">{Math.round((fixSeatShare ?? 0.2) * 100)}% of seats released in the auction</div>
+                  <div className="text-sm text-slate-400 text-center">{Math.round((fixSeatShare ?? 0.3) * 100)}% of seats released in the auction</div>
                 </div>
 
                 {/* Price Controls */}
@@ -424,7 +424,7 @@ export default function AdminPanel({
                   </div>
                   <Input
                     type="number"
-                    value={perTeamBudget === 0 ? '' : (perTeamBudget ?? _gameState?.perTeamBudget ?? 20000)}
+                    value={perTeamBudget === 0 ? '' : (perTeamBudget ?? _gameState?.perTeamBudget ?? 10000)}
                     onChange={e => setPerTeamBudget && setPerTeamBudget(Number(e.target.value || 0))}
                     className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 min-h-[44px] rounded-lg"
                   />
