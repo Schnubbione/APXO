@@ -378,6 +378,74 @@ export default function AnalyticsPanel({
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
                     <History className="w-5 h-5" />
+                    Round History Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {roundHistorySummaries.length === 0 ? (
+                    <div className="text-center text-slate-400 py-6">No rounds recorded yet.</div>
+                  ) : (
+                    roundHistorySummaries.map(summary => (
+                      <div key={summary.round} className="border border-slate-600/50 rounded-lg overflow-hidden">
+                        <div className="bg-slate-700/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="text-white font-semibold">Round {summary.round}</div>
+                          <div className="text-xs text-slate-400">{summary.timestamp}</div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-300">
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
+                              <span className="font-mono text-sm">€{currencyFormatter.format(Math.round(summary.totals.revenue))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Cost</span>
+                              <span className="font-mono text-sm">€{currencyFormatter.format(Math.round(summary.totals.cost))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Profit</span>
+                              <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Math.round(summary.totals.profit))}</span>
+                            </div>
+                            <div>
+                              <span className="block text-slate-500 uppercase tracking-wide">Points</span>
+                              <span className="font-mono text-sm">{summary.totals.points}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-4 py-4">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-600">
+                                  <th className="text-left text-slate-300 py-2">Team</th>
+                                  <th className="text-right text-slate-300 py-2">Revenue (€)</th>
+                                  <th className="text-right text-slate-300 py-2">Cost (€)</th>
+                                  <th className="text-right text-slate-300 py-2">Profit (€)</th>
+                                  <th className="text-right text-slate-300 py-2">Points</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {summary.teams.map((team, idx) => (
+                                  <tr key={idx} className="border-b border-slate-700">
+                                    <td className="text-white py-2">{team.teamName}</td>
+                                    <td className="text-slate-200 py-2 text-right font-mono">€{currencyFormatter.format(Math.round(team.revenue))}</td>
+                                    <td className="text-slate-200 py-2 text-right font-mono">€{currencyFormatter.format(Math.round(team.cost))}</td>
+                                    <td className="text-slate-200 py-2 text-right font-mono">€{currencyFormatter.format(Math.round(team.profit))}</td>
+                                    <td className="text-slate-200 py-2 text-right font-mono">{Math.max(0, Math.round(team.points))}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+
+              <Card className="bg-slate-700/30 border-slate-600">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <History className="w-5 h-5" />
                     Round History
                   </CardTitle>
                   <p className="text-sm text-slate-400">All completed rounds remain available here until an admin performs a full data reset.</p>
