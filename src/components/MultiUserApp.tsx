@@ -215,7 +215,7 @@ export const MultiUserApp: React.FC = () => {
     if (roundProfitValues.length === 0) return 0;
     if (roundMaxProfit === roundMinProfit) return profit > 0 ? 10 : 0;
     const normalized = (profit - roundMinProfit) / roundProfitRange;
-    return Math.max(0, Math.min(10, Number((normalized * 10).toFixed(2))));
+    return Math.max(0, Math.min(10, Math.round(normalized * 10)));
   };
 
   const roundResultsWithMeta = React.useMemo(() => {
@@ -395,7 +395,7 @@ export const MultiUserApp: React.FC = () => {
       const normalized = maxProfit === minProfit
         ? (team.profit > 0 ? 10 : 0)
         : ((team.profit - minProfit) / profitRange) * 10;
-      const points = Number(normalized.toFixed(2));
+      const points = Math.max(0, Math.min(10, Math.round(normalized)));
       return { ...team, points };
     });
   }, [gameState.teams, gameState.simState?.perTeam, roundResults]);
