@@ -156,21 +156,36 @@ export default function AdminPanel({
     ...result,
     points: computePoints(Number(result.profit ?? 0))
   })) ?? null;
-  const globalRoundSummary = Array.isArray(roundHistory) && roundHistory.length > 0
+
+  const latestAnalyticsRound = Array.isArray(roundHistory) && roundHistory.length > 0
     ? roundHistory[roundHistory.length - 1]
     : null;
 
-  const globalTeamResults = Array.isArray(globalRoundSummary?.teamResults) ? globalRoundSummary.teamResults : [];
+  const analyticsTeamResults = Array.isArray(latestAnalyticsRound?.teamResults)
+    ? latestAnalyticsRound.teamResults
+    : [];
 
-  const globalTotals = globalTeamResults.reduce((acc, entry) => ({
+  const analyticsTotals = analyticsTeamResults.reduce((acc, entry) => ({
     sold: acc.sold + (entry?.sold ?? 0),
     revenue: acc.revenue + (entry?.revenue ?? 0),
     cost: acc.cost + (entry?.cost ?? 0),
     profit: acc.profit + (entry?.profit ?? 0)
   }), { sold: 0, revenue: 0, cost: 0, profit: 0 });
 
-  const sortedResultsWithPoints = resultsWithPoints
-    ? [...resultsWithPoints].sort((a, b) => b.points - a.points)
+  const analyticsResultsWithPoints = analyticsTeamResults.map(entry => {
+    const profit = Number(entry?.profit ?? 0);
+    const points = entry?.points !== undefined
+      ? Math.max(0, Math.min(10, Math.round(Number(entry.points))))
+      : computePoints(profit);
+    return {
+      ...entry,
+      teamName: entry?.teamName || entry?.teamId || '—',
+      points
+    };
+  });
+
+  const sortedResultsWithPoints = analyticsResultsWithPoints.length > 0
+    ? [...analyticsResultsWithPoints].sort((a, b) => b.points - a.points)
     : null;
 
   return (
@@ -215,75 +230,6 @@ export default function AdminPanel({
           <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsContent value="settings" className="mt-0">
             <CardContent className="space-y-5 p-6">
-              {globalRoundSummary && (
-                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Summary</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Round</span>
-                      <span className="font-mono text-sm text-slate-200">{globalRoundSummary?.roundNumber}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Timestamp</span>
-                      <span className="font-mono text-sm text-slate-200">{globalRoundSummary?.timestamp ? new Date(globalRoundSummary.timestamp).toLocaleString() : '—'}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Total Profit</span>
-                      <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Math.round(globalTotals.profit))}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Total Revenue</span>
-                      <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(globalTotals.revenue))}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Total Cost</span>
-                      <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(globalTotals.cost))}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500 uppercase tracking-wide">Seats Sold</span>
-                      <span className="font-mono text-sm text-slate-200">{globalTotals.sold.toLocaleString('de-DE')}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {sortedResultsWithPoints && (
-                <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                  <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Results</div>
-                  <div className="space-y-2">
-                    {sortedResultsWithPoints.map(result => {
-                      const teamName = teamNameMap.get(result.teamId) || result.teamId;
-                      return (
-                        <div key={result.teamId} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
-                          <div className="flex items-center justify-between text-sm text-slate-200">
-                            <span className="font-semibold text-white">{teamName}</span>
-                            <span className="text-xs text-slate-200 font-semibold">Points: {Math.round(result.points)} / 10</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
-                            <div>
-                              <span className="block text-slate-500 uppercase tracking-wide">Revenue</span>
-                              <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Number(result.revenue ?? 0))}</span>
-                            </div>
-                            <div>
-                              <span className="block text-slate-500 uppercase tracking-wide">Profit</span>
-                              <span className={`font-mono text-sm ${Number(result.profit ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>€{currencyFormatter.format(Number(result.profit ?? 0))}</span>
-                            </div>
-                            <div>
-                              <span className="block text-slate-500 uppercase tracking-wide">Sold</span>
-                              <span className="font-mono text-sm text-white">{numberFormatter.format(Number(result.sold ?? 0))}</span>
-                            </div>
-                            <div>
-                              <span className="block text-slate-500 uppercase tracking-wide">Market Share</span>
-                              <span className="font-mono text-sm text-white">{(Number(result.marketShare ?? 0) * 100).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                 <div className="text-slate-200 text-sm font-semibold mb-2">Agent v1 Simulation Snapshot (Practice Mode)</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
@@ -685,45 +631,48 @@ export default function AdminPanel({
 
             <TabsContent value="analytics" className="mt-0">
               <CardContent className="space-y-6 p-6">
-                {globalRoundSummary && (
+                {latestAnalyticsRound && (
                   <div className="space-y-3">
                     <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                       <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Summary</div>
                       <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Round</span>
-                          <span className="font-mono text-sm text-slate-200">{globalRoundSummary?.roundNumber}</span>
+                          <span className="font-mono text-sm text-slate-200">{latestAnalyticsRound?.roundNumber}</span>
                         </div>
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Timestamp</span>
-                          <span className="font-mono text-sm text-slate-200">{globalRoundSummary?.timestamp ? new Date(globalRoundSummary.timestamp).toLocaleString() : '—'}</span>
+                          <span className="font-mono text-sm text-slate-200">{latestAnalyticsRound?.timestamp ? new Date(latestAnalyticsRound.timestamp).toLocaleString() : '—'}</span>
                         </div>
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Total Profit</span>
-                          <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Math.round(globalTotals.profit))}</span>
+                          <span className="font-mono text-sm text-emerald-300">€{currencyFormatter.format(Math.round(analyticsTotals.profit))}</span>
                         </div>
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Total Revenue</span>
-                          <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(globalTotals.revenue))}</span>
+                          <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(analyticsTotals.revenue))}</span>
                         </div>
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Total Cost</span>
-                          <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(globalTotals.cost))}</span>
+                          <span className="font-mono text-sm text-slate-200">€{currencyFormatter.format(Math.round(analyticsTotals.cost))}</span>
                         </div>
                         <div>
                           <span className="block text-slate-500 uppercase tracking-wide">Seats Sold</span>
-                          <span className="font-mono text-sm text-slate-200">{globalTotals.sold.toLocaleString('de-DE')}</span>
+                          <span className="font-mono text-sm text-slate-200">{analyticsTotals.sold.toLocaleString('de-DE')}</span>
                         </div>
                       </div>
                     </div>
-                    {sortedResultsWithPoints && (
+                    {analyticsResultsWithPoints.length > 0 && (
                       <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
                         <div className="text-slate-200 text-sm font-semibold mb-2">Latest Round Results</div>
                         <div className="space-y-2">
-                          {sortedResultsWithPoints.map(result => {
-                            const teamName = teamNameMap.get(result.teamId) || result.teamId;
+                          {analyticsResultsWithPoints
+                            .slice()
+                            .sort((a, b) => b.points - a.points)
+                            .map(result => {
+                            const teamName = result.teamName;
                             return (
-                              <div key={result.teamId} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
+                              <div key={`${latestAnalyticsRound?.roundNumber}-${teamName}`} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
                                 <div className="flex items-center justify-between text-sm text-slate-200">
                                   <span className="font-semibold text-white">{teamName}</span>
                                   <span className="text-xs text-slate-200 font-semibold">Points: {Math.round(result.points)} / 10</span>
