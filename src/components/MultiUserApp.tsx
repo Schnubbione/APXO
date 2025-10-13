@@ -200,16 +200,26 @@ export const MultiUserApp: React.FC = () => {
     const horizon = Math.max(0, Number(gameState.simulationHorizon ?? history.length));
     const totalPoints = history.length;
     const startIndex = Math.max(0, totalPoints - 40);
+    const smoothingAlpha = 0.35; // simple exponential smoothing factor for demand line
+    let previousSmoothedDemand: number | null = null;
+
     return history.slice(-40).map((entry, localIndex) => {
       const actualIndex = startIndex + localIndex;
       const remainingDays = typeof entry.remainingDays === 'number'
         ? Math.max(0, entry.remainingDays)
         : Math.max(0, Math.round(horizon - actualIndex));
+      const rawDemand = typeof entry.demand === 'number' ? entry.demand : 0;
+      const smoothedDemand = previousSmoothedDemand === null
+        ? rawDemand
+        : previousSmoothedDemand + (rawDemand - previousSmoothedDemand) * smoothingAlpha;
+      previousSmoothedDemand = smoothedDemand;
+
       return {
         index: localIndex,
         label: `${remainingDays} dBD`,
         price: entry.price,
-        demand: typeof entry.demand === 'number' ? entry.demand : 0
+        demand: smoothedDemand,
+        rawDemand
       };
     });
   }, [gameState.poolingMarket?.priceHistory, gameState.simulationHorizon]);
@@ -318,7 +328,6 @@ export const MultiUserApp: React.FC = () => {
   const currentRoundSold = Math.max(0, currentTeamRound?.sold ?? Math.round(mySimState?.sold ?? 0));
   const currentRoundPoints = typeof currentTeamRound?.points === 'number' ? currentTeamRound.points : null;
   const poolingUsageShare = currentRoundSold > 0 ? Math.max(0, Math.min(100, (poolSoldSoFar / currentRoundSold) * 100)) : null;
-  const poolRemainingSeats = Math.max(0, mySimState?.poolRemaining ?? 0);
   const totalAircraftSeats = Math.max(0, Number(gameState.totalAircraftSeats ?? (gameState as any).totalCapacity ?? 0));
   const perTeamBudget = Number((gameState as any).perTeamBudget ?? 0);
   const effectiveClearingPrice = Math.max(0, Math.round(fixedSeatClearingPrice ?? gameState.fixSeatPrice ?? 0));
@@ -1235,12 +1244,6 @@ export const MultiUserApp: React.FC = () => {
                           </div>
                           <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
                             <div className="text-2xl font-semibold text-white tabular-nums">
-                              {poolRemainingSeats.toLocaleString('de-DE')}
-                            </div>
-                            <div className="text-xs text-slate-400 uppercase tracking-wide">Pooling seats remaining</div>
-                          </div>
-                          <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
-                            <div className="text-2xl font-semibold text-white tabular-nums">
                               {remainingFixSeats.toLocaleString('de-DE')}
                             </div>
                             <div className="text-xs text-slate-400 uppercase tracking-wide">Fixed seats left</div>
@@ -1483,9 +1486,12 @@ export const MultiUserApp: React.FC = () => {
                               />
                               <RechartsTooltip
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: 8 }}
-                                formatter={(value: any, name: string) => {
+                                formatter={(value: any, name: string, { payload }: any) => {
                                   if (name === 'Pooling price') return [`€${Number(value).toFixed(0)}`, name];
-                                  if (name === 'Market demand') return [`${Number(value).toFixed(0)} pax`, name];
+                                  if (name === 'Market demand') {
+                                    const rawDemand = Number(payload?.rawDemand ?? value);
+                                    return [`${rawDemand.toFixed(0)} pax`, name];
+                                  }
                                   return [value, name];
                                 }}
                               />
@@ -1502,7 +1508,7 @@ export const MultiUserApp: React.FC = () => {
                     </Card>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
                       <div className="text-xs uppercase tracking-wide text-slate-400/80">Current profit</div>
                       <div className={`text-2xl font-semibold ${currentProfit >= 0 ? 'text-white' : 'text-red-300'} tabular-nums`}>
@@ -1512,6 +1518,12 @@ export const MultiUserApp: React.FC = () => {
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
                       <div className="text-xs uppercase tracking-wide text-slate-400/80">Seats sold so far</div>
                       <div className="text-2xl font-semibold text-white tabular-nums">{Number.isFinite(seatsSoldSoFar) ? seatsSoldSoFar.toLocaleString('de-DE') : '0'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Fixed seats remaining</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">
+                        {remainingFixSeats.toLocaleString('de-DE')}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
                       <div className="text-xs uppercase tracking-wide text-slate-400/80">Pooling price</div>
