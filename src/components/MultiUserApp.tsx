@@ -1610,16 +1610,6 @@ export const MultiUserApp: React.FC = () => {
           </>
           )}
 
-          {/* Live Competition */}
-          <LiveCompetition
-            currentTeam={currentTeam}
-            leaderboard={displayedLeaderboard}
-          />
-
-          {/* Sound Effects */}
-          <SoundEffects playSound={soundEffect} />
-          {/* Practice Mode overlay removed; runs integrated via context */}
-
           {/* Leaderboard */}
           {showLiveLeaderboard && liveLeaderboard.length > 0 ? (
             <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300" data-tutorial="leaderboard">
@@ -1700,6 +1690,16 @@ export const MultiUserApp: React.FC = () => {
               </CardContent>
             </Card>
           ) : null}
+
+          {/* Live Competition */}
+          <LiveCompetition
+            currentTeam={currentTeam}
+            leaderboard={displayedLeaderboard}
+          />
+
+          {/* Sound Effects */}
+          <SoundEffects playSound={soundEffect} />
+          {/* Practice Mode overlay removed; runs integrated via context */}
         </div>
 
         {/* Tutorial Tour */}
