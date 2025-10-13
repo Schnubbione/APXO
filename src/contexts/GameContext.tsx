@@ -480,7 +480,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('currentGameReset', (data: any) => {
       console.log('Current game reset successfully:', data.message);
       console.log('Reset timestamp:', data.timestamp);
-      // Reset local state for current game (keep high scores)
+      // Reset local state for current game (keep historical analytics data)
       setGameState(prev => ({
         ...prev,
         teams: [],
@@ -490,8 +490,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentTeam(null);
       setRoundResults(null);
       setLeaderboard(null);
-      setRoundHistory([]);
-      setAnalyticsData(null);
       setAllocationSummary(null);
     });
 

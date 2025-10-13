@@ -145,12 +145,17 @@ export default function AdminPanel({
   const resultMinProfit = resultProfitValues.length > 0 ? Math.min(...resultProfitValues) : 0;
   const resultRange = Math.max(1, resultMaxProfit - resultMinProfit);
 
-  const resultsWithPoints = latestRoundResults?.map(result => {
-    const normalized = resultMaxProfit === resultMinProfit
-      ? (Number(result.profit ?? 0) > 0 ? 10 : 0)
-      : ((Number(result.profit ?? 0) - resultMinProfit) / resultRange) * 10;
-    return { ...result, points: Number(normalized.toFixed(2)) };
-  }) ?? null;
+  const computePoints = (profit: number) => {
+    if (resultProfitValues.length === 0) return 0;
+    if (resultMaxProfit === resultMinProfit) return profit > 0 ? 10 : 0;
+    const normalized = (profit - resultMinProfit) / resultRange;
+    return Math.max(0, Math.min(10, Math.round(normalized * 10)));
+  };
+
+  const resultsWithPoints = latestRoundResults?.map(result => ({
+    ...result,
+    points: computePoints(Number(result.profit ?? 0))
+  })) ?? null;
   const sortedResultsWithPoints = resultsWithPoints
     ? [...resultsWithPoints].sort((a, b) => b.points - a.points)
     : null;
@@ -207,7 +212,7 @@ export default function AdminPanel({
                         <div key={result.teamId} className="p-3 rounded-lg bg-slate-800/60 border border-slate-600/40">
                           <div className="flex items-center justify-between text-sm text-slate-200">
                             <span className="font-semibold text-white">{teamName}</span>
-                            <span className="text-xs text-slate-200 font-semibold">Points: {result.points.toFixed(2)} / 10</span>
+                            <span className="text-xs text-slate-200 font-semibold">Points: {Math.round(result.points)} / 10</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mt-2">
                             <div>
@@ -777,7 +782,7 @@ export default function AdminPanel({
                               </div>
                               <div>
                                 <span className="block text-slate-500 uppercase tracking-wide">Points</span>
-                                <span className="font-mono text-sm text-slate-200">{result.points.toFixed(2)} / 10</span>
+                                <span className="font-mono text-sm text-slate-200">{Math.round(result.points)} / 10</span>
                               </div>
                             </div>
                           </div>

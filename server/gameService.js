@@ -862,7 +862,8 @@ export class GameService {
           totalSold: 0,
           totalRevenue: 0,
           totalCost: 0,
-          totalProfit: 0
+          totalProfit: 0,
+          totalPoints: 0
         });
       }
 
@@ -888,7 +889,31 @@ export class GameService {
       round.totalProfit += parseFloat(result.profit);
     });
 
-    const roundHistoryArray = Array.from(roundsMap.values());
+    const roundHistoryArray = Array.from(roundsMap.values()).map(round => {
+      const profits = round.teamResults.map(entry => Number(entry.profit ?? 0));
+      const maxProfit = profits.length > 0 ? Math.max(...profits) : 0;
+      const minProfit = profits.length > 0 ? Math.min(...profits) : 0;
+      const range = Math.max(1, maxProfit - minProfit);
+
+      const teamResultsWithPoints = round.teamResults.map((entry, idx) => {
+        const profit = profits[idx] ?? 0;
+        const points = profits.length === 0
+          ? 0
+          : maxProfit === minProfit
+            ? (profit > 0 ? 10 : 0)
+            : Math.max(0, Math.min(10, Math.round(((profit - minProfit) / range) * 10)));
+        return {
+          ...entry,
+          points
+        };
+      });
+
+      return {
+        ...round,
+        teamResults: teamResultsWithPoints,
+        totalPoints: teamResultsWithPoints.reduce((sum, entry) => sum + entry.points, 0)
+      };
+    });
 
     // Create leaderboard
     const leaderboard = teams.map(team => {
@@ -1439,10 +1464,7 @@ export class GameService {
         }
       });
 
-      // Delete round results for current session only
-      await RoundResultModel.destroy({ where: { gameSessionId: session.id } });
-
-      // Keep high scores intact - don't delete them
+      // Keep existing round results so analytics remain available
 
       // Reset current session cache
       this.currentGameSession = null;

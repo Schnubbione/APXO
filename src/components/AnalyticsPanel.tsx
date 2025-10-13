@@ -17,7 +17,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { TrendingUp, Users, Target, BarChart3, PieChart as PieChartIcon, Activity, Award } from 'lucide-react';
+import { TrendingUp, Users, Target, BarChart3, PieChart as PieChartIcon, Activity, Award, History } from 'lucide-react';
 
 interface AnalyticsPanelProps {
   showAnalytics: boolean;
@@ -27,6 +27,8 @@ interface AnalyticsPanelProps {
   leaderboard: any[];
   onGetAnalytics?: () => void;
 }
+
+const currencyFormatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
@@ -98,24 +100,28 @@ export default function AnalyticsPanel({
 
         <CardContent className="p-6">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 bg-slate-700/50 border border-slate-600">
-              <TabsTrigger value="overview" className="text-slate-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white">
+            <TabsList className="grid w-full grid-cols-6 bg-slate-700/50 border border-slate-600">
+              <TabsTrigger value="overview" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
                 <Activity className="w-4 h-4 mr-2" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="trends" className="text-slate-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white">
+              <TabsTrigger value="trends" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Trends
               </TabsTrigger>
-              <TabsTrigger value="performance" className="text-slate-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white">
+              <TabsTrigger value="performance" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
                 <Users className="w-4 h-4 mr-2" />
                 Performance
               </TabsTrigger>
-              <TabsTrigger value="decisions" className="text-slate-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white">
+              <TabsTrigger value="decisions" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
                 <Target className="w-4 h-4 mr-2" />
                 Decisions
               </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="text-slate-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white">
+              <TabsTrigger value="history" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
+                <History className="w-4 h-4 mr-2" />
+                History
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="text-slate-300 data-[state=active]:bg-slate-600 data-[state=active]:text-white">
                 <Award className="w-4 h-4 mr-2" />
                 Leaderboard
               </TabsTrigger>
@@ -363,6 +369,46 @@ export default function AnalyticsPanel({
                       </tbody>
                     </table>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-6 mt-6">
+              <Card className="bg-slate-700/30 border-slate-600">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Round History
+                  </CardTitle>
+                  <p className="text-sm text-slate-400">All completed rounds remain available here until an admin performs a full data reset.</p>
+                </CardHeader>
+                <CardContent>
+                  {roundHistoryRows.length === 0 ? (
+                    <div className="text-center text-slate-400 py-6">No rounds recorded yet.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-600">
+                            <th className="text-left text-slate-300 py-2 px-2">Round</th>
+                            <th className="text-left text-slate-300 py-2 px-2">Team</th>
+                            <th className="text-right text-slate-300 py-2 px-2">Profit (€)</th>
+                            <th className="text-right text-slate-300 py-2 px-2">Points</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roundHistoryRows.map((row, idx) => (
+                            <tr key={idx} className="border-b border-slate-700">
+                              <td className="text-slate-200 py-2 px-2">{row.round}</td>
+                              <td className="text-white py-2 px-2">{row.teamName}</td>
+                              <td className="text-slate-200 py-2 px-2 text-right font-mono">€{currencyFormatter.format(Math.round(row.profit ?? 0))}</td>
+                              <td className="text-slate-200 py-2 px-2 text-right font-mono">{Math.round(row.points)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
