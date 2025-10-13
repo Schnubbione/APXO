@@ -100,7 +100,7 @@ describe('GameService', () => {
           simulationMonths: 12,
           departureDate: expect.any(Date),
           poolingMarketUpdateInterval: 1,
-          simulatedWeeksPerUpdate: 1
+          simulatedWeeksPerUpdate: 7
         }
       };
 
@@ -502,7 +502,7 @@ describe('GameService', () => {
           poolingCost: 90,
           perTeamBudget: 50,
           poolingMarket: { currentPrice: 150, totalPoolingCapacity: 15, availablePoolingCapacity: 15, priceHistory: [{ price: 150, timestamp: new Date().toISOString() }], lastUpdate: new Date().toISOString() },
-          simulatedWeeksPerUpdate: 1,
+          simulatedWeeksPerUpdate: 7,
           departureDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
           simState: {
             returnedDemandRemaining: 0,

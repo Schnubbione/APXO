@@ -220,8 +220,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000), // 12 months from now
     fixSeatsAllocated: false,
     poolingReserveCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.2))),
-    poolingMarketUpdateInterval: 1, // 1 second = 1 day
-    simulatedWeeksPerUpdate: 1, // 1 day per update
+    poolingMarketUpdateInterval: 1, // 1 second = 7 days
+    simulatedWeeksPerUpdate: 7, // 7 days per update
     referencePrice: 199,
     marketPriceElasticity: -0.9,
     airlinePriceMin: defaultConfig?.airline?.P_min ?? 80,
@@ -917,7 +917,7 @@ const perTeamBudget = irnd(15000, 40000);
       airlinePriceMin,
       airlinePriceMax,
   poolingMarketUpdateInterval: 1,
-  simulatedWeeksPerUpdate: 1,
+  simulatedWeeksPerUpdate: 7,
   departureDate,
   remainingTime: 0,
   simulatedDaysUntilDeparture: Math.ceil((departureDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),

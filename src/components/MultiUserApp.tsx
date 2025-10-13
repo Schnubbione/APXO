@@ -567,7 +567,7 @@ export const MultiUserApp: React.FC = () => {
           setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
-          simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
+          simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 7}
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
@@ -890,7 +890,7 @@ export const MultiUserApp: React.FC = () => {
           setRoundTime={(v) => updateGameSettings({ roundTime: v * 60 })}
           poolingMarketUpdateInterval={gameState.poolingMarketUpdateInterval || 15}
           setPoolingMarketUpdateInterval={(v) => updateGameSettings({ poolingMarketUpdateInterval: v })}
-          simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 2}
+          simulatedWeeksPerUpdate={gameState.simulatedWeeksPerUpdate || 7}
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}

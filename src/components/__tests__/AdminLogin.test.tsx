@@ -40,7 +40,7 @@ describe('AdminLogin', () => {
         simulationMonths: 12,
         departureDate: new Date(),
         poolingMarketUpdateInterval: 1,
-        simulatedWeeksPerUpdate: 1,
+        simulatedWeeksPerUpdate: 7,
         poolingMarket: {
           currentPrice: 150,
           totalPoolingCapacity: 300,

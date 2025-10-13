@@ -172,7 +172,7 @@ function startPoolingMarketUpdates() {
   }, updateInterval);
 
   const sessionForLog = GameService.currentGameSession;
-  const dayStepForLog = Number(sessionForLog?.settings?.simulatedWeeksPerUpdate ?? 1);
+  const dayStepForLog = Number(sessionForLog?.settings?.simulatedWeeksPerUpdate ?? 7);
   console.log(`🏊 Pooling market updates started (every ${secondsPerDay}s; days per update = ${dayStepForLog})`);
 }
 
@@ -638,7 +638,7 @@ io.on('connection', async (socket) => {
       const aiCount = Math.max(2, Math.min(6, Number(config.aiCount) || irnd(2, 5)));
       const prePurchaseDurationSec = 60; // always 1 minute
       const daysTotal = 365; // represent a year
-      const daysPerUpdate = 1; // 1 day per update (semantic)
+      const daysPerUpdate = 7; // 7 days per update (semantic)
 
       // Randomized market settings (covering all important admin controls)
       const settings = {
@@ -654,7 +654,7 @@ io.on('connection', async (socket) => {
         poolingCost: irnd(70, 120),
         costVolatility: rnd(0.03, 0.1),
         poolingMarketUpdateInterval: 1,
-        simulatedWeeksPerUpdate: 1,
+        simulatedWeeksPerUpdate: 7,
         poolingMarket: { currentPrice: irnd(100, 220) }
       };
 

@@ -85,8 +85,8 @@ export class GameService {
             poolingCost: 90,
             simulationMonths: 12,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
-            poolingMarketUpdateInterval: 1, // 1 second = 1 day
-            simulatedWeeksPerUpdate: 1, // 1 day per update
+            poolingMarketUpdateInterval: 1, // 1 second = 7 days
+            simulatedWeeksPerUpdate: 7, // 7 days per update
             referencePrice: 199,
             marketPriceElasticity: -0.9,
             // Budget per team (equal for all teams)
@@ -1057,7 +1057,7 @@ export class GameService {
 
     const dayStep = Number.isFinite(Number(settings.simulatedWeeksPerUpdate)) && Number(settings.simulatedWeeksPerUpdate) > 0
       ? Number(settings.simulatedWeeksPerUpdate)
-      : 1;
+      : 7;
     const nextDays = Math.max(0, daysRemaining - dayStep);
     const dayElapsed = Math.max(0, Math.min(horizon - 1, horizon - nextDays));
     const progress = horizon > 0 ? (horizon - nextDays) / horizon : 0;
@@ -1397,8 +1397,8 @@ export class GameService {
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
           poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
-          poolingMarketUpdateInterval: 1, // 1 second = 1 day
-          simulatedWeeksPerUpdate: 1 // 1 day per update
+          poolingMarketUpdateInterval: 1, // 1 second = 7 days
+          simulatedWeeksPerUpdate: 7 // 7 days per update
           ,
           // Hotel defaults
           // Budget
@@ -1469,8 +1469,8 @@ export class GameService {
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
           poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
-          poolingMarketUpdateInterval: 1, // 1 second = 1 day
-          simulatedWeeksPerUpdate: 1 // 1 day per update
+          poolingMarketUpdateInterval: 1, // 1 second = 7 days
+          simulatedWeeksPerUpdate: 7 // 7 days per update
           ,
           // Hotel defaults
           // Budget
