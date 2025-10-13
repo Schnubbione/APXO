@@ -1423,7 +1423,10 @@ export class GameService {
   static async resetAllData() {
     try {
       // Deactivate all teams
-      await TeamModel.update({ isActive: false }, { where: {} });
+      await TeamModel.update(
+        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null },
+        { where: {} }
+      );
 
       // Reset all game sessions
       await GameSessionModel.update({
@@ -1494,7 +1497,10 @@ export class GameService {
   static async resetCurrentGame() {
     try {
       // Deactivate all current teams (but keep them in database for potential high scores)
-      await TeamModel.update({ isActive: false }, { where: { isActive: true } });
+      await TeamModel.update(
+        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null },
+        { where: {} }
+      );
 
       // Reset current game session
       const session = await this.getCurrentGameSession();

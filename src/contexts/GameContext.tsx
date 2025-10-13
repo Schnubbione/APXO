@@ -811,6 +811,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('resetAllDataSuccess', () => {
       console.log('All data reset successfully');
       // Reset local state
+      localStorage.removeItem('apxo_resume_token');
       setGameState(prev => ({
         ...prev,
         teams: [],
@@ -834,6 +835,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Current game reset successfully:', data.message);
       console.log('Reset timestamp:', data.timestamp);
       // Reset local state for current game (keep historical analytics data)
+      localStorage.removeItem('apxo_resume_token');
       setGameState(prev => ({
         ...prev,
         teams: [],
