@@ -272,6 +272,156 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initialPool: number[];
     insolvent: boolean[];
   } | null>(null);
+  const latestGameStateRef = React.useRef<GameState>(gameState);
+  const roundHistoryRef = React.useRef<any[]>(roundHistory);
+
+  useEffect(() => {
+    latestGameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    roundHistoryRef.current = roundHistory;
+  }, [roundHistory]);
+
+  const extractRoundKey = (entry: any) => {
+    const value = Number(entry?.roundNumber ?? entry?.round ?? entry?.id);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const mergeRoundHistoryEntries = (existing: any[], incoming: any[], preferIncoming = false) => {
+    if (!Array.isArray(existing) && !Array.isArray(incoming)) return [];
+    const map = new Map<number, any>();
+
+    if (Array.isArray(existing)) {
+      existing.forEach(entry => {
+        const key = extractRoundKey(entry);
+        if (key === null) return;
+        map.set(key, entry);
+      });
+    }
+
+    if (Array.isArray(incoming)) {
+      incoming.forEach(entry => {
+        const key = extractRoundKey(entry);
+        if (key === null) return;
+        const current = map.get(key);
+        if (!current) {
+          map.set(key, entry);
+          return;
+        }
+        const merged = preferIncoming
+          ? {
+            ...current,
+            ...entry,
+            teamResults: Array.isArray(entry?.teamResults) ? entry.teamResults : current.teamResults
+          }
+          : {
+            ...entry,
+            ...current,
+            teamResults: Array.isArray(current?.teamResults) ? current.teamResults : entry.teamResults
+          };
+        map.set(key, merged);
+      });
+    }
+
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, value]) => value);
+  };
+
+  const resolveIncomingRoundNumber = (payload: { currentRound?: number; roundNumber?: number }) => {
+    if (typeof payload?.roundNumber === 'number' && Number.isFinite(payload.roundNumber)) {
+      return payload.roundNumber;
+    }
+    if (typeof payload?.currentRound === 'number' && Number.isFinite(payload.currentRound)) {
+      const derived = payload.currentRound - 1;
+      if (Number.isFinite(derived)) return derived;
+    }
+    return undefined;
+  };
+
+  const computeRoundEntryTotals = (results: RoundResult[]) => {
+    return results.reduce(
+      (acc, result) => {
+        const sold = Number(result?.sold ?? 0);
+        const revenue = Number(result?.revenue ?? 0);
+        const cost = Number(result?.cost ?? 0);
+        const profit = Number(result?.profit ?? 0);
+        const demand = Number((result as any)?.demand ?? 0);
+
+        acc.totalSold += Number.isFinite(sold) ? sold : 0;
+        acc.totalRevenue += Number.isFinite(revenue) ? revenue : 0;
+        acc.totalCost += Number.isFinite(cost) ? cost : 0;
+        acc.totalProfit += Number.isFinite(profit) ? profit : 0;
+        acc.totalDemand += Number.isFinite(demand) ? demand : 0;
+        return acc;
+      },
+      {
+        totalDemand: 0,
+        totalSold: 0,
+        totalRevenue: 0,
+        totalCost: 0,
+        totalProfit: 0
+      }
+    );
+  };
+
+  const buildRoundHistoryEntry = (roundNumber: number, results: RoundResult[], timestamp: string) => {
+    const teams = latestGameStateRef.current?.teams ?? [];
+    const teamNameMap = new Map<string, string>(teams.map(team => [team.id, team.name]));
+    const profits = results.map(result => Number(result?.profit ?? 0));
+    const maxProfit = profits.length > 0 ? Math.max(...profits) : 0;
+    const minProfit = profits.length > 0 ? Math.min(...profits) : 0;
+    const range = Math.max(1, maxProfit - minProfit);
+
+    const teamResults = results.map(result => {
+      const profit = Number(result?.profit ?? 0);
+      const points = profits.length === 0
+        ? 0
+        : maxProfit === minProfit
+          ? (profit > 0 ? 10 : 0)
+          : Math.max(0, Math.min(10, Math.round(((profit - minProfit) / range) * 10)));
+      const teamName = teamNameMap.get(result.teamId) ?? (result as any)?.teamName ?? `Team ${String(result.teamId).slice(0, 4)}`;
+      return {
+        ...result,
+        teamName,
+        points
+      };
+    });
+
+    const totals = computeRoundEntryTotals(results);
+    const totalSold = totals.totalSold || 0;
+    const weightedPriceSum = results.reduce((sum, result) => {
+      const sold = Number(result?.sold ?? 0);
+      const avgPrice =
+        Number((result as any)?.avgPrice) ||
+        (sold > 0 ? Number(result?.revenue ?? 0) / sold : 0);
+      return sum + (Number.isFinite(avgPrice) ? avgPrice * sold : 0);
+    }, 0);
+
+    return {
+      roundNumber,
+      timestamp,
+      teamResults,
+      totalDemand: totals.totalDemand,
+      totalSold,
+      totalRevenue: totals.totalRevenue,
+      totalCost: totals.totalCost,
+      totalProfit: totals.totalProfit,
+      totalPoints: teamResults.reduce((sum, entry) => sum + Number(entry?.points ?? 0), 0),
+      avgPrice: totalSold > 0 ? weightedPriceSum / totalSold : 0
+    };
+  };
+
+  const getNextRoundNumber = () => {
+    const history = roundHistoryRef.current ?? [];
+    const maxRound = history.reduce((max: number, entry: any) => {
+      const key = extractRoundKey(entry);
+      if (key === null) return max;
+      return Math.max(max, key);
+    }, 0);
+    return maxRound + 1;
+  };
 
   // Tutorial state
   const [tutorialActive, setTutorialActive] = useState(false);
@@ -428,9 +578,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
-    newSocket.on('roundEnded', (data: { roundResults: RoundResult[], roundNumber: number }) => {
-      console.log('Round ended:', data.roundNumber);
-      setRoundResults(data.roundResults);
+    newSocket.on('roundEnded', (data: { roundResults: RoundResult[]; currentRound?: number; roundNumber?: number; timestamp?: string }) => {
+      const results = Array.isArray(data?.roundResults) ? data.roundResults : [];
+      const resolvedRoundNumber = resolveIncomingRoundNumber(data);
+      const fallbackRoundNumber = getNextRoundNumber();
+      const finalRoundNumber = Number.isFinite(resolvedRoundNumber) ? (resolvedRoundNumber as number) : fallbackRoundNumber;
+      const timestamp = data?.timestamp ?? new Date().toISOString();
+
+      console.log('Round ended:', finalRoundNumber);
+      setRoundResults(results);
+
+      if (results.length > 0) {
+        const roundEntry = buildRoundHistoryEntry(finalRoundNumber, results, timestamp);
+        setRoundHistory(prev => mergeRoundHistoryEntries(prev, [roundEntry], true));
+        setAnalyticsData(prev => {
+          const existingHistory = Array.isArray(prev?.roundHistory) ? prev.roundHistory : [];
+          const mergedHistory = mergeRoundHistoryEntries(existingHistory, [roundEntry], true);
+          return {
+            ...(prev ?? {}),
+            roundHistory: mergedHistory,
+            latestRoundNumber: finalRoundNumber,
+            latestUpdatedAt: timestamp
+          };
+        });
+      }
       // Note: gameState.isActive will be updated via gameStateUpdate event
     });
 
@@ -450,8 +621,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for analytics data
     newSocket.on('analyticsData', (data: any) => {
-      setRoundHistory(data.roundHistory || []);
-      setAnalyticsData(data);
+      const incomingHistory = Array.isArray(data?.roundHistory) ? data.roundHistory : [];
+      const mergedHistory = mergeRoundHistoryEntries(roundHistoryRef.current ?? [], incomingHistory, true);
+      setRoundHistory(mergedHistory);
+      setAnalyticsData({
+        ...data,
+        roundHistory: mergedHistory
+      });
     });
 
     // Listen for reset confirmation
