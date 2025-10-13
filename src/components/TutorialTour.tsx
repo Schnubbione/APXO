@@ -70,7 +70,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'pooling-market',
     title: 'Live Market Controls',
-    description: 'During Phase 2 you manage price, watch the pooling chart, and track real-time metrics. Every decision updates the countdown immediately, and once the timer expires the evaluation cards surface your results.',
+    description: 'During Phase 2 you manage price, watch the pooling chart, and track live metrics. Changes apply on the next demand tick, and when the countdown ends the evaluation cards summarize your results.',
     target: '[data-tutorial="live-controls"]',
     position: 'top'
   },
@@ -90,7 +90,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'ready-to-play',
     title: 'Ready to Play!',
-    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, Phase 2 is won with consistent execution across the continuous countdown. Watch the price guard, tool cooldowns, pooling costs, and use the post-round recap to adapt before the next phase. Victory requires profit and positive unit margins.',
+    description: 'You are ready! Phase 1 rewards smart risk management under information asymmetry, while Phase 2 is won by pacing price against demand. Track pooling costs and use the post-round recap to adapt before the next phase—victory still demands both profit and positive unit margins.',
     position: 'center'
   }
 ];
