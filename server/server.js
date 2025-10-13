@@ -937,7 +937,10 @@ io.on('connection', async (socket) => {
           revenue: Math.round(team.totalRevenue || 0),
           profit: Math.round(team.totalProfit || 0)
         }))
-        .sort((a, b) => b.revenue - a.revenue);
+        .sort((a, b) => {
+          if (b.profit !== a.profit) return b.profit - a.profit;
+          return b.revenue - a.revenue;
+        });
 
       settings.poolingMarket = {
         currentPrice: poolPrice,

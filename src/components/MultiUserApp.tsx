@@ -17,10 +17,14 @@ import { Slider } from './ui/slider';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Line, Tooltip as RechartsTooltip } from 'recharts';
 import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map as MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
 import { useToast } from './ui/toast';
+import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
 const TEAM_COLORS = ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 const TOURIST_ICONS = [Sun, Camera, Compass, Anchor, MapPin, Mountain, Tent, Binoculars, MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee];
+
+const AIRLINE_PRICE_MIN_DEFAULT = defaultConfig?.airline?.P_min ?? 80;
+const AIRLINE_PRICE_MAX_DEFAULT = defaultConfig?.airline?.P_max ?? 400;
 
 const currencyFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 0,
@@ -36,9 +40,12 @@ type AllocationEntry = {
   teamId: string;
   teamName: string;
   requested: number;
+  requestedOriginal?: number;
   bidPrice: number;
   allocated: number;
   clearingPrice: number | null;
+  disqualifiedForLowBid?: boolean;
+  minRequiredBid?: number;
 };
 
 // Function to get a consistent icon for each team based on team name
@@ -200,14 +207,14 @@ export const MultiUserApp: React.FC = () => {
 
 
   const roundResultsData = roundResults ?? [];
-  const roundRevenueValues = roundResultsData.map(result => Number(result.revenue ?? 0));
-  const roundMaxRevenue = roundRevenueValues.length > 0 ? Math.max(...roundRevenueValues) : 0;
-  const roundMinRevenue = roundRevenueValues.length > 0 ? Math.min(...roundRevenueValues) : 0;
-  const roundRevenueRange = Math.max(1, roundMaxRevenue - roundMinRevenue);
-  const getRoundPoints = (revenue: number) => {
-    if (roundRevenueValues.length === 0) return 0;
-    if (roundMaxRevenue === roundMinRevenue) return revenue > 0 ? 10 : 0;
-    const normalized = (revenue - roundMinRevenue) / roundRevenueRange;
+  const roundProfitValues = roundResultsData.map(result => Number(result.profit ?? 0));
+  const roundMaxProfit = roundProfitValues.length > 0 ? Math.max(...roundProfitValues) : 0;
+  const roundMinProfit = roundProfitValues.length > 0 ? Math.min(...roundProfitValues) : 0;
+  const roundProfitRange = Math.max(1, roundMaxProfit - roundMinProfit);
+  const getRoundPoints = (profit: number) => {
+    if (roundProfitValues.length === 0) return 0;
+    if (roundMaxProfit === roundMinProfit) return profit > 0 ? 10 : 0;
+    const normalized = (profit - roundMinProfit) / roundProfitRange;
     return Math.max(0, Math.min(10, Number((normalized * 10).toFixed(2))));
   };
 
@@ -217,7 +224,7 @@ export const MultiUserApp: React.FC = () => {
     return [...roundResultsData].map(result => ({
       ...result,
       teamName: teamNameLookup.get(result.teamId) || result.teamId,
-      points: getRoundPoints(Number(result.revenue ?? 0))
+      points: getRoundPoints(Number(result.profit ?? 0))
     })).sort((a, b) => b.points - a.points);
   }, [roundResultsData, gameState.teams]);
 
@@ -253,6 +260,16 @@ export const MultiUserApp: React.FC = () => {
     };
   }, []);
 
+  const airlinePriceMin = Number((gameState as any).airlinePriceMin ?? AIRLINE_PRICE_MIN_DEFAULT);
+  const airlinePriceMax = Number((gameState as any).airlinePriceMax ?? AIRLINE_PRICE_MAX_DEFAULT);
+  const fixSeatMinBid = Math.max(
+    1,
+    Number(
+      (gameState as any).fixSeatMinBid
+        ?? Math.max(gameState.fixSeatPrice ?? 0, airlinePriceMin)
+    )
+  );
+
   const currentProfit = Math.round((mySimState?.revenue ?? 0) - (mySimState?.cost ?? 0));
   const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
   const poolingPrice = Math.round(gameState.poolingMarket?.currentPrice ?? 0);
@@ -275,7 +292,8 @@ export const MultiUserApp: React.FC = () => {
   })();
   const requestedFixSeats = Math.max(
     0,
-    myAllocation?.requested
+    myAllocation?.requestedOriginal
+      ?? myAllocation?.requested
       ?? currentTeam?.decisions?.fixSeatsRequested
       ?? currentTeam?.decisions?.fixSeatsPurchased
       ?? 0
@@ -295,6 +313,24 @@ export const MultiUserApp: React.FC = () => {
   const poolRemainingSeats = Math.max(0, mySimState?.poolRemaining ?? 0);
   const totalAircraftSeats = Math.max(0, Number(gameState.totalAircraftSeats ?? (gameState as any).totalCapacity ?? 0));
   const perTeamBudget = Number((gameState as any).perTeamBudget ?? 0);
+  const effectiveClearingPrice = Math.max(0, Math.round(fixedSeatClearingPrice ?? gameState.fixSeatPrice ?? 0));
+  const allocationCost = Math.max(0, allocatedFixSeats * effectiveClearingPrice);
+  const budgetAfterAllocation = perTeamBudget > 0 ? Math.max(0, Math.round(perTeamBudget - allocationCost)) : null;
+  const poolingPriceHistory = Array.isArray(gameState.poolingMarket?.priceHistory)
+    ? (gameState.poolingMarket?.priceHistory as Array<{ price?: number }>)
+    : [];
+  const poolingHistoricalPrices = poolingPriceHistory
+    .map(entry => Number(entry?.price))
+    .filter((price): price is number => Number.isFinite(price));
+  const derivedPoolingBaseline = poolingPrice > 0
+    ? poolingPrice
+    : Math.max(airlinePriceMin, Math.round(effectiveClearingPrice * 1.15));
+  const poolingRangeMin = poolingHistoricalPrices.length > 0
+    ? Math.min(...poolingHistoricalPrices)
+    : airlinePriceMin;
+  const poolingRangeMax = poolingHistoricalPrices.length > 0
+    ? Math.max(...poolingHistoricalPrices)
+    : Math.max(airlinePriceMin, airlinePriceMax, derivedPoolingBaseline);
   const parsedBidInput = Number(bidPriceInput);
   const currentBidPriceValue = Number.isFinite(parsedBidInput) && bidPriceInput.trim() !== ''
     ? parsedBidInput
@@ -307,6 +343,9 @@ export const MultiUserApp: React.FC = () => {
   const estimatedFixCost = Number.isFinite(rawEstimatedCost) ? Math.max(0, Math.round(rawEstimatedCost)) : 0;
   const budgetRemaining = perTeamBudget > 0 ? Math.round(perTeamBudget - estimatedFixCost) : null;
   const showBudgetTile = perTeamBudget > 0;
+  const effectiveMinimumBid = allocationSummary?.minimumBidPrice
+    ? Math.max(fixSeatMinBid, allocationSummary.minimumBidPrice)
+    : fixSeatMinBid;
 
   const liveTeamsWithScore = React.useMemo(() => {
     const teams = gameState.teams ?? [];
@@ -346,15 +385,15 @@ export const MultiUserApp: React.FC = () => {
       };
     });
 
-    const revenueValues = liveTeams.map(team => team.revenue);
-    const maxRevenue = revenueValues.length > 0 ? Math.max(...revenueValues) : 0;
-    const minRevenue = revenueValues.length > 0 ? Math.min(...revenueValues) : 0;
-    const revenueRange = Math.max(1, maxRevenue - minRevenue);
+    const profitValues = liveTeams.map(team => team.profit);
+    const maxProfit = profitValues.length > 0 ? Math.max(...profitValues) : 0;
+    const minProfit = profitValues.length > 0 ? Math.min(...profitValues) : 0;
+    const profitRange = Math.max(1, maxProfit - minProfit);
 
     return liveTeams.map(team => {
-      const normalized = maxRevenue === minRevenue
-        ? (team.revenue > 0 ? 10 : 0)
-        : ((team.revenue - minRevenue) / revenueRange) * 10;
+      const normalized = maxProfit === minProfit
+        ? (team.profit > 0 ? 10 : 0)
+        : ((team.profit - minProfit) / profitRange) * 10;
       const points = Number(normalized.toFixed(2));
       return { ...team, points };
     });
@@ -741,7 +780,7 @@ export const MultiUserApp: React.FC = () => {
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
                     <Award className="w-5 h-5 text-yellow-400" />
                   </div>
-                  High Scores (Revenue)
+                  High Scores (Profit)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -754,7 +793,9 @@ export const MultiUserApp: React.FC = () => {
                         </div>
                         <span className="font-semibold text-white text-lg">{entry.name}</span>
                       </div>
-                      <div className="text-2xl font-bold text-green-400 tabular-nums">€{(entry.revenue ?? 0).toFixed(0)}</div>
+                      <div className={`text-2xl font-bold tabular-nums ${(entry.profit ?? 0) >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                        €{(entry.profit ?? 0).toFixed(0)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -909,7 +950,7 @@ export const MultiUserApp: React.FC = () => {
                   <CardTitle className="text-xl text-white">Set Your Initial Price</CardTitle>
                   <p className="text-slate-400 text-sm">Choose your starting price for the simulation.</p>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-5">
                   <div className="space-y-2">
                     <Label className="text-slate-300 text-sm font-medium">Initial Retail Price (€)</Label>
                     <Input
@@ -924,6 +965,60 @@ export const MultiUserApp: React.FC = () => {
                       className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500/20 text-lg font-mono min-h-[48px] rounded-xl"
                     />
                   </div>
+
+                  <div className="space-y-3 text-sm text-slate-200">
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600/60">
+                      <div className="text-xs uppercase tracking-wide text-slate-400 mb-2">Round 1 Recap</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-slate-400 uppercase tracking-wide">Fixed seats secured</div>
+                          <div className="font-mono text-base text-white">{numberFormatter.format(allocatedFixSeats)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400 uppercase tracking-wide">Clearing price</div>
+                          <div className="font-mono text-base text-white">€{currencyFormatter.format(effectiveClearingPrice)}</div>
+                        </div>
+                        {perTeamBudget > 0 && (
+                          <div className="col-span-2">
+                            <div className="text-xs text-slate-400 uppercase tracking-wide">Budget remaining</div>
+                            <div className="font-mono text-base text-emerald-300">
+                              €{currencyFormatter.format(budgetAfterAllocation ?? perTeamBudget)}
+                              <span className="text-xs text-slate-400 ml-2">
+                                (Start: €{currencyFormatter.format(perTeamBudget)}, spent: €{currencyFormatter.format(allocationCost)})
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600/60">
+                      <div className="text-xs uppercase tracking-wide text-slate-400 mb-2">Airline Pooling Outlook</div>
+                      <p className="text-slate-300">
+                        Recent pooling updates ranged between €{currencyFormatter.format(poolingRangeMin)} and €{currencyFormatter.format(poolingRangeMax)} per seat.
+                        The current live price sits at €{currencyFormatter.format(poolingPrice || derivedPoolingBaseline)}.
+                      </p>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Expect the airline to adjust within this window as demand shifts during the countdown.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600/60">
+                      <div className="text-xs uppercase tracking-wide text-slate-400 mb-2">Quick Tips</div>
+                      <ul className="space-y-1">
+                        <li title="Staying above the pooling price keeps your early bookings profitable.">
+                          • Start a little above the expected pooling price so your first sales stay profitable.
+                        </li>
+                        <li title="You can lower the price once you see the airline reaction.">
+                          • Adjust in small steps after the first ticks show how the airline reacts.
+                        </li>
+                        <li title="Monitor spare fixed seats so you don't flood pooling prematurely.">
+                          • Keep an eye on remaining fixed seats—pooling kicks in automatically once they are gone.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
                   <Button
                     onClick={() => {
                       updateTeamDecision({ price: tempPrice });
@@ -1000,6 +1095,15 @@ export const MultiUserApp: React.FC = () => {
                         Results will appear once the round is evaluated.
                       </div>
                     )}
+                    <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/60">
+                      <div className="text-xs text-slate-400 uppercase tracking-wide mb-2">Airline guidance</div>
+                      <p className="text-sm text-slate-200">
+                        Minimum accepted bid this round: €{currencyFormatter.format(effectiveMinimumBid)}. Bids below this value are ignored and keep the full budget.
+                      </p>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Pooling seats typically trade between €{currencyFormatter.format(airlinePriceMin)} and €{currencyFormatter.format(airlinePriceMax)} once the live market opens.
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -1036,12 +1140,25 @@ export const MultiUserApp: React.FC = () => {
                             </div>
                             <div className="text-xs text-slate-400 uppercase tracking-wide">Your bid price</div>
                           </div>
+                          {allocationSummary?.minimumBidPrice && (
+                            <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4 text-center">
+                              <div className="text-2xl font-semibold text-white tabular-nums">
+                                €{Math.round(allocationSummary.minimumBidPrice).toLocaleString('de-DE')}
+                              </div>
+                              <div className="text-xs text-slate-400 uppercase tracking-wide">Minimum accepted bid</div>
+                            </div>
+                          )}
                         </div>
                         <div className="grid gap-2 text-xs text-slate-400">
                           <div>Total requested: {allocationSummary.totalRequested.toLocaleString('de-DE')} seats</div>
                           <div>Total allocated: {allocationSummary.totalAllocated.toLocaleString('de-DE')} seats</div>
                           {allocationShare !== null && (
                             <div>Your share: {allocationShare.toFixed(1)}%</div>
+                          )}
+                          {myAllocation?.disqualifiedForLowBid && (
+                            <div className="text-rose-300">
+                              Your bid was below the airline minimum (€{currencyFormatter.format(myAllocation.minRequiredBid ?? effectiveMinimumBid)}) so no fixed seats were assigned.
+                            </div>
                           )}
                         </div>
                         {topAllocations.length > 0 && (
@@ -1069,6 +1186,11 @@ export const MultiUserApp: React.FC = () => {
                                         : '—'}
                                     </span>
                                   </div>
+                                  {allocation.disqualifiedForLowBid && (
+                                    <div className="text-xs text-rose-300">
+                                      Bid below minimum (€{currencyFormatter.format(allocation.minRequiredBid ?? effectiveMinimumBid)})
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1426,7 +1548,7 @@ export const MultiUserApp: React.FC = () => {
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
                     <Award className="w-5 h-5 text-yellow-400" />
                   </div>
-                  High Scores (Revenue)
+                  High Scores (Profit)
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1446,7 +1568,9 @@ export const MultiUserApp: React.FC = () => {
                             {entry.name}
                           </span>
                         </div>
-                        <div className="text-xl font-bold text-green-400 tabular-nums">€{(entry.revenue ?? 0).toFixed(0)}</div>
+                        <div className={`text-xl font-bold tabular-nums ${(entry.profit ?? 0) >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                          €{(entry.profit ?? 0).toFixed(0)}
+                        </div>
                       </div>
                     );
                   })}

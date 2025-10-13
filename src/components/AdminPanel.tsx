@@ -137,15 +137,15 @@ export default function AdminPanel({
   const numberFormatter = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
   const currencyFormatter = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const resultRevenueValues = latestRoundResults ? latestRoundResults.map(result => Number(result.revenue ?? 0)) : [];
-  const resultMaxRevenue = resultRevenueValues.length > 0 ? Math.max(...resultRevenueValues) : 0;
-  const resultMinRevenue = resultRevenueValues.length > 0 ? Math.min(...resultRevenueValues) : 0;
-  const resultRange = Math.max(1, resultMaxRevenue - resultMinRevenue);
+  const resultProfitValues = latestRoundResults ? latestRoundResults.map(result => Number(result.profit ?? 0)) : [];
+  const resultMaxProfit = resultProfitValues.length > 0 ? Math.max(...resultProfitValues) : 0;
+  const resultMinProfit = resultProfitValues.length > 0 ? Math.min(...resultProfitValues) : 0;
+  const resultRange = Math.max(1, resultMaxProfit - resultMinProfit);
 
   const resultsWithPoints = latestRoundResults?.map(result => {
-    const normalized = resultMaxRevenue === resultMinRevenue
-      ? (Number(result.revenue ?? 0) > 0 ? 10 : 0)
-      : ((Number(result.revenue ?? 0) - resultMinRevenue) / resultRange) * 10;
+    const normalized = resultMaxProfit === resultMinProfit
+      ? (Number(result.profit ?? 0) > 0 ? 10 : 0)
+      : ((Number(result.profit ?? 0) - resultMinProfit) / resultRange) * 10;
     return { ...result, points: Number(normalized.toFixed(2)) };
   }) ?? null;
   const sortedResultsWithPoints = resultsWithPoints

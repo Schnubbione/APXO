@@ -75,6 +75,7 @@ export class GameService {
             totalFixSeats: 500,
             availableFixSeats: 500,
             fixSeatPrice: 60,
+            fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
             poolingCost: 90,
             simulationMonths: 12,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
@@ -82,6 +83,8 @@ export class GameService {
             simulatedWeeksPerUpdate: 1, // 1 day per update
             referencePrice: 199,
             marketPriceElasticity: -0.9,
+            airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
+            airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
             // Budget per team (equal for all teams)
             perTeamBudget: 20000
           }
@@ -314,12 +317,25 @@ export class GameService {
 
     // Collect all requests with bids (cap by budget in first round)
     const defaultUnitPrice = Number(settings.fixSeatPrice || 60) || 60;
+    const rawMinBid = Number(settings.fixSeatMinBid);
+    const minBidPrice = Number.isFinite(rawMinBid)
+      ? Math.max(1, Math.round(rawMinBid))
+      : Math.max(
+          1,
+          Math.round(
+            Math.max(
+              Number(settings.fixSeatPrice || 0),
+              AGENT_V1_DEFAULTS.airline.minPrice
+            )
+          )
+        );
     const requests = teams.map(team => {
       const rawRequested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
       const rawBid = team.decisions?.fixSeatBidPrice ?? defaultUnitPrice;
       const normalizedBid = Number.isFinite(Number(rawBid)) && Number(rawBid) > 0
         ? Math.round(Number(rawBid))
         : defaultUnitPrice;
+      const meetsMinBid = normalizedBid >= minBidPrice;
       let cappedRequested = rawRequested;
       if ((session.currentRound || 0) === 0) {
         const budget = Number(settings.perTeamBudget || 0);
@@ -327,13 +343,17 @@ export class GameService {
           cappedRequested = Math.min(cappedRequested, Math.floor(budget / normalizedBid));
         }
       }
+      if (!meetsMinBid) {
+        cappedRequested = 0;
+      }
       return {
         team,
         teamId: team.id,
         teamName: team.name,
         requestedOriginal: rawRequested,
         requested: Math.max(0, cappedRequested),
-        bidPrice: normalizedBid
+        bidPrice: normalizedBid,
+        meetsMinBid
       };
     });
 
@@ -401,11 +421,12 @@ export class GameService {
     for (const req of requests) {
       const allocInfo = allocationMap.get(req.teamId) || { allocated: 0, price: req.bidPrice };
       const allocated = Math.max(0, Math.min(req.requested, allocInfo.allocated || 0));
-      const clearingPrice = allocated > 0 ? allocInfo.price : null;
+      const disqualified = !req.meetsMinBid;
+      const clearingPrice = !disqualified && allocated > 0 ? allocInfo.price : null;
 
       const updatedDecisions = {
         ...req.team.decisions,
-        fixSeatsRequested: req.requested,
+        fixSeatsRequested: req.requestedOriginal,
         fixSeatsPurchased: allocated,
         fixSeatsAllocated: allocated,
         fixSeatBidPrice: req.bidPrice,
@@ -418,9 +439,12 @@ export class GameService {
         teamId: req.teamId,
         teamName: req.teamName,
         requested: req.requested,
+        requestedOriginal: req.requestedOriginal,
         bidPrice: req.bidPrice,
         allocated,
-        clearingPrice
+        clearingPrice,
+        disqualifiedForLowBid: disqualified,
+        minRequiredBid: minBidPrice
       });
     }
 
@@ -448,10 +472,11 @@ export class GameService {
 
     return {
       allocations,
-      totalRequested: requests.reduce((sum, req) => sum + req.requested, 0),
+      totalRequested: requests.reduce((sum, req) => sum + req.requestedOriginal, 0),
       totalAllocated,
       maxFixCapacity,
-      poolingReserveCapacity: totalCapacity - totalAllocated
+      poolingReserveCapacity: totalCapacity - totalAllocated,
+      minimumBidPrice: minBidPrice
     };
   }
 
@@ -853,7 +878,10 @@ export class GameService {
         avgPrice: team.decisions?.price || 500,
         capacity: (team.decisions?.fixSeatsAllocated ?? team.decisions?.fixSeatsPurchased ?? 0) + Math.round(((team.decisions?.poolingAllocation || 0) / 100) * 1000)
       };
-    }).sort((a, b) => b.revenue - a.revenue);
+    }).sort((a, b) => {
+      if (b.profit !== a.profit) return b.profit - a.profit;
+      return b.revenue - a.revenue;
+    });
 
     return {
       roundHistory: roundHistoryArray,
@@ -1272,6 +1300,9 @@ export class GameService {
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,
+          fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
+          airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
+          airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
           poolingCost: 90,
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
@@ -1340,6 +1371,9 @@ export class GameService {
           totalFixSeats: 500,
           availableFixSeats: 500,
           fixSeatPrice: 60,
+          fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
+          airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
+          airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
           poolingCost: 90,
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),

@@ -300,6 +300,7 @@ describe('GameService', () => {
         settings: {
           totalAircraftSeats: 100,
           fixSeatPrice: 50,
+          fixSeatMinBid: 50,
           perTeamBudget: 120
         },
         update: jest.fn(function (payload) {
@@ -319,14 +320,14 @@ describe('GameService', () => {
 
       // maxByBudget = floor(120/50) = 2 -> allocate exactly 2 if not oversubscribed
       expect(t1.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
-        fixSeatsRequested: 2,
+        fixSeatsRequested: 10,
         fixSeatsPurchased: 2,
         fixSeatsAllocated: 2,
         fixSeatBidPrice: 50,
         fixSeatClearingPrice: 50
       }) });
       expect(t2.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
-        fixSeatsRequested: 2,
+        fixSeatsRequested: 10,
         fixSeatsPurchased: 2,
         fixSeatsAllocated: 2,
         fixSeatBidPrice: 50,
@@ -343,9 +344,75 @@ describe('GameService', () => {
       expect(a1.allocated).toBe(2);
       expect(a1.bidPrice).toBe(50);
       expect(a1.clearingPrice).toBe(50);
+      expect(a1.requestedOriginal).toBe(10);
       expect(a2.allocated).toBe(2);
       expect(a2.bidPrice).toBe(50);
       expect(a2.clearingPrice).toBe(50);
+      expect(a2.requestedOriginal).toBe(10);
+    });
+
+    test('ignores bids below the minimum airline threshold', async () => {
+      const session = {
+        id: 'sess-2',
+        currentRound: 0,
+        isActive: false,
+        settings: {
+          totalAircraftSeats: 100,
+          fixSeatPrice: 60,
+          fixSeatMinBid: 90,
+          perTeamBudget: 1000
+        },
+        update: jest.fn(function (payload) {
+          if (payload && payload.settings) this.settings = payload.settings;
+          return Promise.resolve(this);
+        })
+      };
+      GameService.currentGameSession = session;
+
+      const lowBidTeam = {
+        id: 'low',
+        name: 'LowBid',
+        decisions: { fixSeatsPurchased: 10, fixSeatBidPrice: 80 },
+        update: jest.fn().mockResolvedValue(true)
+      };
+      const highBidTeam = {
+        id: 'high',
+        name: 'HighBid',
+        decisions: { fixSeatsPurchased: 10, fixSeatBidPrice: 120 },
+        update: jest.fn().mockResolvedValue(true)
+      };
+
+      Team.findAll.mockResolvedValue([lowBidTeam, highBidTeam]);
+
+      const res = await GameService.allocateFixSeats();
+
+      expect(lowBidTeam.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
+        fixSeatsRequested: 10,
+        fixSeatsPurchased: 0,
+        fixSeatsAllocated: 0,
+        fixSeatBidPrice: 80,
+        fixSeatClearingPrice: null
+      }) });
+      expect(highBidTeam.update).toHaveBeenCalledWith({ decisions: expect.objectContaining({
+        fixSeatsRequested: 10,
+        fixSeatsPurchased: expect.any(Number),
+        fixSeatsAllocated: expect.any(Number),
+        fixSeatBidPrice: 120,
+        fixSeatClearingPrice: expect.any(Number)
+      }) });
+
+      const lowSummary = res.allocations.find(a => a.teamId === 'low');
+      const highSummary = res.allocations.find(a => a.teamId === 'high');
+
+      expect(lowSummary.allocated).toBe(0);
+      expect(lowSummary.disqualifiedForLowBid).toBe(true);
+      expect(lowSummary.minRequiredBid).toBe(90);
+
+      expect(highSummary.allocated).toBeGreaterThan(0);
+      expect(highSummary.disqualifiedForLowBid).toBe(false);
+
+      expect(res.minimumBidPrice).toBe(90);
+      expect(session.settings.fixSeatsAllocated).toBe(true);
     });
   });
 

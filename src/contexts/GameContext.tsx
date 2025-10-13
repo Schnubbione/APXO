@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { resolveServerUrl } from '@/lib/env';
+import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
 interface Team {
   id: string;
@@ -46,6 +47,7 @@ interface GameState {
   totalFixSeats: number;
   availableFixSeats: number;
   fixSeatPrice: number;
+  fixSeatMinBid?: number;
   poolingCost?: number;
   simulationMonths: number;
   departureDate: Date;
@@ -60,6 +62,8 @@ interface GameState {
   marketConcentration?: number;
   costVolatility?: number;
   crossElasticity?: number;
+  airlinePriceMin?: number;
+  airlinePriceMax?: number;
   poolingMarket?: {
     currentPrice: number;
     totalPoolingCapacity: number;
@@ -109,14 +113,18 @@ interface AllocationSummary {
     teamId: string;
     teamName: string;
     requested: number;
+    requestedOriginal?: number;
     bidPrice: number;
     allocated: number;
     clearingPrice: number | null;
+    disqualifiedForLowBid?: boolean;
+    minRequiredBid?: number;
   }>;
   totalRequested: number;
   totalAllocated: number;
   maxFixCapacity: number;
   poolingReserveCapacity: number;
+  minimumBidPrice?: number;
 }
 
 interface GameContextType {
@@ -202,6 +210,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     totalFixSeats: 500,
     availableFixSeats: 500,
     fixSeatPrice: 60,
+    fixSeatMinBid: defaultConfig?.airline?.P_min ?? 80,
     simulationMonths: 12,
     departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000), // 12 months from now
     fixSeatsAllocated: false,
@@ -210,6 +219,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     simulatedWeeksPerUpdate: 1, // 1 day per update
     referencePrice: 199,
     marketPriceElasticity: -0.9,
+    airlinePriceMin: defaultConfig?.airline?.P_min ?? 80,
+    airlinePriceMax: defaultConfig?.airline?.P_max ?? 400,
     poolingMarket: {
       currentPrice: 150,
       totalPoolingCapacity: 300,
@@ -652,12 +663,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const rnd = (min: number, max: number) => Math.random() * (max - min) + min;
     const irnd = (min: number, max: number) => Math.floor(rnd(min, max + 1));
 
-    const totalAircraftSeats = irnd(600, 1400);
-    const perTeamCount = aiCount + 1;
-    const fixSeatPrice = irnd(50, 80);
-    const poolingCost = irnd(70, 120);
-  const perTeamBudget = irnd(15000, 40000);
-    const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+  const totalAircraftSeats = irnd(600, 1400);
+  const perTeamCount = aiCount + 1;
+  const fixSeatPrice = irnd(50, 80);
+  const airlinePriceMin = defaultConfig?.airline?.P_min ?? 80;
+  const airlinePriceMax = defaultConfig?.airline?.P_max ?? 400;
+  const fixSeatMinBid = Math.max(fixSeatPrice, airlinePriceMin);
+  const poolingCost = irnd(70, 120);
+const perTeamBudget = irnd(15000, 40000);
+  const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
     // Construct teams: current + AIs
     const myId = socket?.id || 'me';
@@ -708,7 +722,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   totalFixSeats: Math.floor(totalAircraftSeats * 0.7),
   availableFixSeats: Math.floor(totalAircraftSeats * 0.7),
       fixSeatPrice,
+  fixSeatMinBid,
   perTeamBudget,
+      airlinePriceMin,
+      airlinePriceMax,
       poolingMarketUpdateInterval: 1,
       simulatedWeeksPerUpdate: 1,
       departureDate,
@@ -740,16 +757,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - poolingReserveRatio));
           const budget = Number(prev.perTeamBudget || 0);
           const defaultBid = Number(prev.fixSeatPrice || 60) || 60;
+          const minBidPrice = Math.max(
+            1,
+            Math.round(
+              prev.fixSeatMinBid
+                ?? Math.max(prev.fixSeatPrice || 0, defaultConfig?.airline?.P_min ?? 80)
+            )
+          );
 
           const requests = prev.teams.map(team => {
             const rawRequested = Math.max(0, Math.floor(Number(team.decisions?.fixSeatsPurchased || 0)));
             const rawBid = team.decisions?.fixSeatBidPrice ?? defaultBid;
             const bidPrice = Number.isFinite(Number(rawBid)) && Number(rawBid) > 0 ? Math.round(Number(rawBid)) : defaultBid;
+            const meetsMinBid = bidPrice >= minBidPrice;
             let capped = rawRequested;
-            if (budget > 0 && bidPrice > 0) {
+            if (!meetsMinBid) {
+              capped = 0;
+            } else if (budget > 0 && bidPrice > 0) {
               capped = Math.min(capped, Math.floor(budget / bidPrice));
             }
-            return { team, teamId: team.id, requested: rawRequested, capped, bidPrice };
+            return {
+              team,
+              teamId: team.id,
+              requestedOriginal: rawRequested,
+              requested: Math.max(0, capped),
+              capped: Math.max(0, capped),
+              bidPrice,
+              meetsMinBid
+            };
           });
 
           const grouped = [...requests]
@@ -764,17 +799,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }, new Map<number, typeof requests>());
 
           let remaining = maxFixCapacity;
-          const allocationMap = new Map<string, { allocated: number; price: number; requested: number }>();
+          const allocationMap = new Map<string, { allocated: number; price: number; requested: number; requestedOriginal: number; meetsMinBid: boolean }>();
 
           for (const [price, group] of grouped.entries()) {
             if (remaining <= 0) {
-              group.forEach(req => allocationMap.set(req.teamId, { allocated: 0, price, requested: req.capped }));
+              group.forEach(req => allocationMap.set(req.teamId, { allocated: 0, price, requested: req.capped, requestedOriginal: req.requestedOriginal, meetsMinBid: req.meetsMinBid }));
               continue;
             }
             const totalGroupRequested = group.reduce((sum, req) => sum + req.capped, 0);
             if (totalGroupRequested <= remaining) {
               for (const req of group) {
-                allocationMap.set(req.teamId, { allocated: req.capped, price, requested: req.capped });
+                allocationMap.set(req.teamId, { allocated: req.capped, price, requested: req.capped, requestedOriginal: req.requestedOriginal, meetsMinBid: req.meetsMinBid });
                 remaining -= req.capped;
               }
               continue;
@@ -798,23 +833,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 extra = 1;
                 seatsLeft -= 1;
               }
-              allocationMap.set(item.req.teamId, { allocated: item.base + extra, price, requested: item.req.capped });
+              allocationMap.set(item.req.teamId, {
+                allocated: item.base + extra,
+                price,
+                requested: item.req.capped,
+                requestedOriginal: item.req.requestedOriginal,
+                meetsMinBid: item.req.meetsMinBid
+              });
             }
             remaining = 0;
           }
 
+          const requestLookup = new Map(requests.map(req => [req.teamId, req]));
           const teams = prev.teams.map(t => {
             const alloc = allocationMap.get(t.id);
             const allocated = alloc ? alloc.allocated : 0;
             const bidPrice = Number.isFinite(Number(t.decisions?.fixSeatBidPrice)) && Number(t.decisions?.fixSeatBidPrice) > 0
               ? Math.round(Number(t.decisions?.fixSeatBidPrice))
               : defaultBid;
-            const clearingPrice = allocated > 0 ? (alloc ? alloc.price : bidPrice) : null;
+            const meetsMin = alloc ? alloc.meetsMinBid : (requestLookup.get(t.id)?.meetsMinBid ?? (bidPrice >= minBidPrice));
+            const clearingPrice = allocated > 0 && meetsMin ? (alloc ? alloc.price : bidPrice) : null;
+            const requestedOriginal = requestLookup.get(t.id)?.requestedOriginal ?? Math.max(0, Math.floor(Number(t.decisions?.fixSeatsPurchased || 0)));
             return {
               ...t,
               decisions: {
                 ...t.decisions,
-                fixSeatsRequested: alloc ? alloc.requested : Math.max(0, Math.floor(Number(t.decisions?.fixSeatsPurchased || 0))),
+                fixSeatsRequested: requestedOriginal,
                 fixSeatsPurchased: allocated,
                 fixSeatsAllocated: allocated,
                 fixSeatBidPrice: bidPrice,
@@ -871,6 +915,35 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             startSimInterval();
           }, 0);
+
+          const allocationsForSummary = requests.map(req => {
+            const alloc = allocationMap.get(req.teamId);
+            const allocated = alloc ? alloc.allocated : 0;
+            const price = alloc ? alloc.price : req.bidPrice;
+            const disqualified = !req.meetsMinBid;
+            return {
+              teamId: req.teamId,
+              teamName: req.team.name,
+              requested: req.capped,
+              requestedOriginal: req.requestedOriginal,
+              bidPrice: req.bidPrice,
+              allocated,
+              clearingPrice: !disqualified && allocated > 0 ? price : null,
+              disqualifiedForLowBid: disqualified,
+              minRequiredBid: minBidPrice
+            };
+          });
+          const totalRequested = requests.reduce((sum, req) => sum + req.requestedOriginal, 0);
+          const totalAllocated = allocationsForSummary.reduce((sum, entry) => sum + entry.allocated, 0);
+          const poolingReserveCapacity = Math.floor((prev.totalAircraftSeats || 1000) * poolingReserveRatio);
+          setAllocationSummary({
+            allocations: allocationsForSummary,
+            totalRequested,
+            totalAllocated,
+            maxFixCapacity,
+            poolingReserveCapacity,
+            minimumBidPrice: minBidPrice
+          });
           return { ...prev, isActive: false, remainingTime: 0, teams };
         }
         return { ...prev, remainingTime: rt };

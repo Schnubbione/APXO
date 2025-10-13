@@ -372,7 +372,7 @@ export default function AnalyticsPanel({
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
                     <Award className="w-5 h-5" />
-                    Historical High Scores (Revenue)
+                    Historical High Scores (Profit)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -388,8 +388,8 @@ export default function AnalyticsPanel({
                           </div>
                           <span className="font-semibold text-white text-lg">{entry.name}</span>
                         </div>
-                        <div className="text-2xl font-bold text-green-400 tabular-nums">
-                          €{(entry.revenue ?? 0).toFixed(0)}
+                        <div className={`text-2xl font-bold tabular-nums ${(entry.profit ?? 0) >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                          €{(entry.profit ?? 0).toFixed(0)}
                         </div>
                       </div>
                     ))}
