@@ -19,6 +19,15 @@ const SIMULATION_SECONDS_PER_DAY = 1;
 const AGENT_BASE_CAPACITY = 180;
 const MIN_PROFIT_LIMIT = -20000;
 
+const FIX_SHARE_PER_TEAM = 0.08;
+const clampShareValue = (value) => {
+  if (!Number.isFinite(Number(value))) return 0;
+  return Math.max(0, Math.min(0.95, Number(value)));
+};
+const computeTeamBasedFixSeatShare = (teamCount) => clampShareValue((teamCount || 0) * FIX_SHARE_PER_TEAM);
+const DEFAULT_TEAM_COUNT = 3;
+const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
+
 const AGENT_V1_DEFAULTS = Object.freeze({
   ticksTotal: SIMULATION_DEFAULT_DAYS,
   secondsPerTick: SIMULATION_SECONDS_PER_DAY,
@@ -27,7 +36,7 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   logitBeta: 6.0,
   referencePrice: 150,
   baselineCapacity: AGENT_BASE_CAPACITY,
-  fixSeatShare: 0.3,
+  fixSeatShare: DEFAULT_FIX_SHARE,
   airline: {
     startPrice: 120,
     minPrice: 80,
@@ -37,9 +46,60 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   },
 });
 
+const buildSettingsWithShare = (settings = {}, share, options = {}) => {
+  const { resetAvailableToFull = false, availableFixSeatsOverride } = options;
+  const base = { ...settings };
+  const totalSeats = Math.max(1, Number(base.totalAircraftSeats || base.totalCapacity || 1000));
+  const totalCapacity = Math.max(1, Number(base.totalCapacity || totalSeats));
+  const totalFixSeats = Math.round(totalSeats * share);
+
+  let availableFixSeats = Math.min(totalFixSeats, Number.isFinite(Number(base.availableFixSeats))
+    ? Math.round(Number(base.availableFixSeats))
+    : totalFixSeats);
+
+  if (resetAvailableToFull) {
+    availableFixSeats = totalFixSeats;
+  }
+
+  if (availableFixSeatsOverride !== undefined && Number.isFinite(Number(availableFixSeatsOverride))) {
+    availableFixSeats = Math.min(totalFixSeats, Math.max(0, Math.round(Number(availableFixSeatsOverride))));
+  }
+
+  const poolingReserveCapacity = Math.max(0, totalCapacity - totalFixSeats);
+
+  return {
+    ...base,
+    totalAircraftSeats: totalSeats,
+    totalCapacity,
+    fixSeatShare: share,
+    totalFixSeats,
+    availableFixSeats,
+    poolingReserveCapacity,
+  };
+};
+
 // Game Service - Handles all game-related database operations
 export class GameService {
   static currentGameSession = null;
+
+  static async updateFixSeatShare(session = null, { teamCount, resetAvailable = false, availableFixSeatsOverride } = {}) {
+    const targetSession = session ?? await this.getCurrentGameSession();
+    let resolvedTeamCount = typeof teamCount === 'number' ? teamCount : null;
+    if (resolvedTeamCount === null) {
+      const teams = await this.getActiveTeams();
+      resolvedTeamCount = teams.length;
+    }
+    const share = computeTeamBasedFixSeatShare(resolvedTeamCount);
+    const updatedSettings = buildSettingsWithShare(targetSession.settings || {}, share, {
+      resetAvailableToFull: resetAvailable,
+      availableFixSeatsOverride,
+    });
+    if (typeof targetSession.update === 'function') {
+      await targetSession.update({ settings: updatedSettings });
+    }
+    targetSession.settings = updatedSettings;
+    return { share, settings: updatedSettings };
+  }
 
   /**
    * Initialize or get current game session
@@ -93,6 +153,7 @@ export class GameService {
             perTeamBudget: 10000
           }
         });
+        await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
       }
 
       this.currentGameSession = session;
@@ -261,6 +322,9 @@ export class GameService {
           totalRevenue: 0
         });
 
+        const activeTeams = await this.getActiveTeams();
+        await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
+
         return anyTeamWithName;
       }
 
@@ -281,6 +345,9 @@ export class GameService {
         totalRevenue: 0
       });
 
+      const activeTeams = await this.getActiveTeams();
+      await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
+
       return team;
     } catch (error) {
       // Map unique constraint errors to a friendly message
@@ -298,6 +365,9 @@ export class GameService {
     if (!team) return null;
   const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
   await team.update({ socketId, isActive: true, resumeUntil });
+    const session = await this.getCurrentGameSession();
+    const activeTeams = await this.getActiveTeams();
+    await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     return team;
   }
 
@@ -306,6 +376,9 @@ export class GameService {
     const team = await TeamModel.findOne({ where: { socketId } });
     if (!team) return null;
     await team.update({ isActive: false, socketId: null, resumeToken: null });
+    const session = await this.getCurrentGameSession();
+    const activeTeams = await this.getActiveTeams();
+    await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     return team;
   }
 
@@ -316,10 +389,8 @@ export class GameService {
     const settings = session.settings || {};
 
     const totalCapacity = settings.totalAircraftSeats || settings.totalCapacity || 1000;
-    const configuredShare = Number(settings.fixSeatShare);
-    const fixSeatShare = Number.isFinite(configuredShare)
-      ? Math.max(0.05, Math.min(0.95, configuredShare))
-      : AGENT_V1_DEFAULTS.fixSeatShare;
+    const teamCount = teams.length;
+    const fixSeatShare = computeTeamBasedFixSeatShare(teamCount);
     const maxFixCapacity = Math.floor(totalCapacity * fixSeatShare);
 
     // Collect all requests with bids (cap by budget in first round)
@@ -461,7 +532,7 @@ export class GameService {
       fixSeatShare,
       totalFixSeats: maxFixCapacity,
       availableFixSeats: Math.max(0, maxFixCapacity - totalAllocated),
-      poolingReserveCapacity: totalCapacity - totalAllocated,
+      poolingReserveCapacity: Math.max(0, totalCapacity - totalAllocated),
       fixSeatsAllocated: true, // Mark that allocation has happened
       // Initialize pooling market
       poolingMarket: {
@@ -484,7 +555,7 @@ export class GameService {
       totalRequested: requests.reduce((sum, req) => sum + req.requestedOriginal, 0),
       totalAllocated,
       maxFixCapacity,
-      poolingReserveCapacity: totalCapacity - totalAllocated,
+      poolingReserveCapacity: Math.max(0, totalCapacity - totalAllocated),
       minimumBidPrice: minBidPrice
     };
   }
@@ -494,11 +565,6 @@ export class GameService {
     const session = await this.getCurrentGameSession();
     const currentSettings = session.settings || {};
     let updatedSettings = { ...currentSettings, ...settings };
-
-    const clampShare = (value) => {
-      if (!Number.isFinite(Number(value))) return null;
-      return Math.max(0.05, Math.min(0.95, Number(value)));
-    };
 
     if (Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0) {
       updatedSettings.originalDemandCurve = settings.demandCurve.map(point => Number(point));
@@ -511,14 +577,6 @@ export class GameService {
       updatedSettings.demandCurveBaselineCapacity = AGENT_V1_DEFAULTS.baselineCapacity;
     }
 
-    // If totalAircraftSeats is being updated, adjust related parameters dynamically
-    if (settings.fixSeatShare !== undefined) {
-      const share = clampShare(settings.fixSeatShare);
-      if (share !== null) {
-        updatedSettings.fixSeatShare = share;
-      }
-    }
-
     if (settings.totalAircraftSeats !== undefined) {
       const newTotalSeats = Math.max(1, Number(settings.totalAircraftSeats));
       updatedSettings.totalAircraftSeats = newTotalSeats;
@@ -527,23 +585,18 @@ export class GameService {
     }
 
     const effectiveTotalSeats = Math.max(1, Number(updatedSettings.totalAircraftSeats || currentSettings.totalAircraftSeats || 1000));
-    const effectiveShare = clampShare(updatedSettings.fixSeatShare !== undefined ? updatedSettings.fixSeatShare : currentSettings.fixSeatShare);
-    const resolvedShare = effectiveShare ?? AGENT_V1_DEFAULTS.fixSeatShare;
-    updatedSettings.fixSeatShare = resolvedShare;
+    updatedSettings.totalAircraftSeats = effectiveTotalSeats;
+    updatedSettings.totalCapacity = Math.max(1, Number(updatedSettings.totalCapacity || effectiveTotalSeats));
 
-    const recalculatedFixSeats = Math.round(effectiveTotalSeats * resolvedShare);
-    updatedSettings.totalFixSeats = recalculatedFixSeats;
-    updatedSettings.availableFixSeats = Math.max(0, Math.min(recalculatedFixSeats, updatedSettings.availableFixSeats ?? recalculatedFixSeats));
-
-    const totalCapacity = Math.max(1, Number(updatedSettings.totalCapacity || effectiveTotalSeats));
-    const newPoolingReserve = Math.max(0, totalCapacity - recalculatedFixSeats);
-    updatedSettings.poolingReserveCapacity = newPoolingReserve;
+    const activeTeams = await this.getActiveTeams();
+    const resolvedShare = computeTeamBasedFixSeatShare(activeTeams.length);
+    updatedSettings = buildSettingsWithShare(updatedSettings, resolvedShare, { resetAvailableToFull: true });
 
     if (updatedSettings.poolingMarket) {
       updatedSettings.poolingMarket = {
         ...updatedSettings.poolingMarket,
-        totalPoolingCapacity: newPoolingReserve,
-        availablePoolingCapacity: newPoolingReserve
+        totalPoolingCapacity: updatedSettings.poolingReserveCapacity,
+        availablePoolingCapacity: updatedSettings.poolingReserveCapacity
       };
     }
 
@@ -1360,6 +1413,9 @@ export class GameService {
     if (team) {
       await team.update({ isActive: false });
       console.log(`Team ${team.name} deactivated due to disconnect`);
+      const session = await this.getCurrentGameSession();
+      const activeTeams = await this.getActiveTeams();
+      await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     }
   }
 
@@ -1389,9 +1445,9 @@ export class GameService {
           phaseTime: 600,
           totalCapacity: 1000,
           totalAircraftSeats: 1000,
-          fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
-          totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
-          availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+          fixSeatShare: 0,
+          totalFixSeats: 0,
+          availableFixSeats: 0,
           fixSeatPrice: 60,
           fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
           airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
@@ -1400,7 +1456,7 @@ export class GameService {
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
+          poolingReserveCapacity: 1000, // remaining for pooling
           poolingMarketUpdateInterval: 1, // 1 second = 7 days
           simulatedWeeksPerUpdate: 7 // 7 days per update
           ,
@@ -1461,9 +1517,9 @@ export class GameService {
           phaseTime: 600,
           totalCapacity: 1000,
           totalAircraftSeats: 1000,
-          fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
-          totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
-          availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+          fixSeatShare: 0,
+          totalFixSeats: 0,
+          availableFixSeats: 0,
           fixSeatPrice: 60,
           fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
           airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
@@ -1472,7 +1528,7 @@ export class GameService {
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
+          poolingReserveCapacity: 1000, // remaining for pooling
           poolingMarketUpdateInterval: 1, // 1 second = 7 days
           simulatedWeeksPerUpdate: 7 // 7 days per update
           ,

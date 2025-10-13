@@ -8,6 +8,8 @@ import { syncDatabase, Team } from './models.js';
 import GameService from './gameService.js';
 import { calculateRoundResults, calculateMarketShares } from './calc.js';
 
+const FIX_SHARE_PER_TEAM = 0.08;
+
 // Load environment variables
 if (process.env.NODE_ENV === 'production') {
   dotenv.config({ path: '.env.production' });
@@ -725,7 +727,8 @@ io.on('connection', async (socket) => {
 
       // Phase 1: Pre-Purchase allocation (proportional if oversubscribed)
       const totalCapacity = settings.totalAircraftSeats || 1000;
-      const poolingReserveRatio = 0.3; // 30% reserved for pooling, like real game
+      const dynamicFixShare = Math.max(0, Math.min(0.95, (teams.length || 0) * FIX_SHARE_PER_TEAM));
+      const poolingReserveRatio = Math.max(0.05, 1 - dynamicFixShare);
       const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
 
       const defaultBid = Number(settings.fixSeatPrice || 60) || 60;

@@ -21,6 +21,8 @@ import {
   Bar
 } from 'recharts';
 
+const FIX_SHARE_PER_TEAM = 0.08;
+
 interface AdminPanelProps {
   baseDemand: number;
   setBaseDemand: (value: number) => void;
@@ -41,7 +43,6 @@ interface AdminPanelProps {
   totalAircraftSeats: number;
   setTotalAircraftSeats: (value: number) => void;
   fixSeatShare?: number;
-  setFixSeatShare?: (value: number) => void;
   demandVolatility?: number;
   setDemandVolatility?: (value: number) => void;
   priceElasticity?: number;
@@ -75,7 +76,6 @@ interface AdminPanelProps {
   roundResults: any[] | null;
   onGetAnalytics?: () => void;
   onResetAllData?: () => void;
-  onResetCurrentGame?: () => void;
 }
 
 export default function AdminPanel({
@@ -85,7 +85,7 @@ export default function AdminPanel({
   poolingMarketUpdateInterval, setPoolingMarketUpdateInterval,
   simulatedWeeksPerUpdate, setSimulatedWeeksPerUpdate,
   totalAircraftSeats, setTotalAircraftSeats,
-  fixSeatShare, setFixSeatShare,
+  fixSeatShare,
   demandVolatility, setDemandVolatility,
   priceElasticity, setPriceElasticity,
   marketPriceElasticity, setMarketPriceElasticity,
@@ -98,11 +98,18 @@ export default function AdminPanel({
   perTeamBudget, setPerTeamBudget,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, roundResults, onGetAnalytics,
-  onResetAllData, onResetCurrentGame
+  onResetAllData
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
   const agentConfig = defaultConfig;
   const pushCosts = agentConfig.rules.push_cost_per_level.join(' / ');
+  const activeTeamsCount = Array.isArray(_gameState?.teams)
+    ? _gameState.teams.filter((team: any) => team?.isActive !== false).length
+    : 0;
+  const automaticFixShare = Math.min(0.95, Math.max(0, activeTeamsCount * FIX_SHARE_PER_TEAM));
+  const displayedFixShare = Number.isFinite(Number(_gameState?.fixSeatShare))
+    ? Math.min(0.95, Math.max(0, Number(_gameState.fixSeatShare)))
+    : (Number.isFinite(Number(fixSeatShare)) ? Math.min(0.95, Math.max(0, Number(fixSeatShare))) : automaticFixShare);
 
   // Load analytics data when analytics tab is selected
   useEffect(() => {
@@ -378,20 +385,15 @@ export default function AdminPanel({
 
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-slate-300 text-sm font-medium">Fix Seat Share (Admin)</Label>
-                    <div className="text-xs text-slate-500 mt-1">Portion of total capacity offered during the auction. Remaining seats stay with the airline for pooling.</div>
+                    <Label className="text-slate-300 text-sm font-medium">Fix Seat Share (auto)</Label>
+                    <div className="text-xs text-slate-500 mt-1">Calculated as 8% per active team. Adjust team count or aircraft seats to change the cap.</div>
                   </div>
-                  <div className="px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                    <Slider
-                      value={[Math.round(((fixSeatShare ?? 0.3) * 100))]}
-                      onValueChange={([v]) => setFixSeatShare && setFixSeatShare(Number((v / 100).toFixed(2)))}
-                      min={5}
-                      max={60}
-                      step={1}
-                      className="w-full"
-                    />
+                  <div className="px-3 py-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                    <div className="text-2xl font-semibold text-white text-center">{Math.round(displayedFixShare * 100)}%</div>
+                    <div className="text-xs text-slate-400 mt-2 text-center">
+                      {`${activeTeamsCount} team${activeTeamsCount === 1 ? '' : 's'} × 8% = ${(automaticFixShare * 100).toFixed(1)}%`}
+                    </div>
                   </div>
-                  <div className="text-sm text-slate-400 text-center">{Math.round((fixSeatShare ?? 0.3) * 100)}% of seats released in the auction</div>
                 </div>
 
                 {/* Price Controls */}
@@ -602,17 +604,6 @@ export default function AdminPanel({
                     Danger Zone
                   </h3>
                   <div className="space-y-3">
-                    <Button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to reset the current game? This will keep high scores but clear all current game data.')) {
-                          onResetCurrentGame?.();
-                        }
-                      }}
-                      variant="outline"
-                      className="w-full bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 font-medium"
-                    >
-                      Reset Current Game
-                    </Button>
                     <Button
                       onClick={() => {
                         if (window.confirm('Are you sure you want to reset ALL data? This will delete everything including high scores!')) {

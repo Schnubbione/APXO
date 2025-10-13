@@ -362,7 +362,11 @@ export const MultiUserApp: React.FC = () => {
   const effectiveMinimumBid = allocationSummary?.minimumBidPrice
     ? Math.max(fixSeatMinBid, allocationSummary.minimumBidPrice)
     : fixSeatMinBid;
-  const fixSeatShareValue = Math.max(0.05, Math.min(0.95, gameState.fixSeatShare ?? (defaultConfig?.fixSeatShare ?? 0.3)));
+  const activeTeamCount = Array.isArray(gameState.teams)
+    ? gameState.teams.filter(team => team && (team as any).isActive !== false).length
+    : 0;
+  const dynamicFixShare = Math.min(0.95, Math.max(0, activeTeamCount * 0.08));
+  const fixSeatShareValue = Math.min(0.95, Math.max(0, Number.isFinite(Number(gameState.fixSeatShare)) ? Number(gameState.fixSeatShare) : dynamicFixShare));
 
   const liveTeamsWithScore = React.useMemo(() => {
     const teams = gameState.teams ?? [];
@@ -580,7 +584,6 @@ export const MultiUserApp: React.FC = () => {
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
           fixSeatShare={fixSeatShareValue}
-          setFixSeatShare={(v) => updateGameSettings({ fixSeatShare: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}
@@ -611,7 +614,6 @@ export const MultiUserApp: React.FC = () => {
           roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
-          onResetCurrentGame={resetCurrentGame}
         />
 
         <RoundTimer
@@ -705,6 +707,20 @@ export const MultiUserApp: React.FC = () => {
                       End Current Phase
                     </span>
                   </Button>
+                  <Button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to reset the current game? This will keep high scores but clear all current game data.')) {
+                        resetCurrentGame();
+                      }
+                    }}
+                    variant="outline"
+                    className="bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 font-semibold px-8 py-3 rounded-lg transition-all duration-200 min-h-[48px]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                      Reset Current Game
+                    </span>
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -731,7 +747,6 @@ export const MultiUserApp: React.FC = () => {
                     const teamColor = TEAM_COLORS[team.order % TEAM_COLORS.length];
                     const TeamIcon = getTeamIconByName(team.name);
                     const profitColor = team.profit >= 0 ? 'text-emerald-300' : 'text-rose-300';
-                    const totalRemainingColor = team.totalRemaining > 0 ? 'text-white' : 'text-amber-300';
                     return (
                       <div key={team.id} className="p-4 rounded-xl bg-slate-700/30 border border-slate-600/50 hover:bg-slate-700/50 transition-all duration-200">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -753,7 +768,7 @@ export const MultiUserApp: React.FC = () => {
                               : 'Price —'}
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs text-slate-300 mt-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs text-slate-300 mt-3">
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Sold</span>
                             <span className="font-mono text-sm text-white">{numberFormatter.format(team.sold)}</span>
@@ -773,14 +788,6 @@ export const MultiUserApp: React.FC = () => {
                           <div>
                             <span className="block text-slate-500 uppercase tracking-wide">Fix Remaining</span>
                             <span className="font-mono text-sm text-white">{numberFormatter.format(team.fixRemaining)}</span>
-                          </div>
-                          <div>
-                            <span className="block text-slate-500 uppercase tracking-wide">Pool Remaining</span>
-                            <span className="font-mono text-sm text-blue-200">{numberFormatter.format(team.poolRemaining)}</span>
-                          </div>
-                          <div className="md:col-span-2">
-                            <span className="block text-slate-500 uppercase tracking-wide">Total Remaining Capacity</span>
-                            <span className={`font-mono text-sm ${totalRemainingColor}`}>{numberFormatter.format(team.totalRemaining)}</span>
                           </div>
                         </div>
                       </div>
@@ -903,7 +910,6 @@ export const MultiUserApp: React.FC = () => {
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
           fixSeatShare={fixSeatShareValue}
-          setFixSeatShare={(v) => updateGameSettings({ fixSeatShare: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}
@@ -934,7 +940,6 @@ export const MultiUserApp: React.FC = () => {
           roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
-          onResetCurrentGame={resetCurrentGame}
         />
 
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">

@@ -211,6 +211,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const initialTeamCount = Array.isArray(defaultConfig?.teams) ? defaultConfig.teams.length : 0;
+  const initialFixShare = Math.min(0.95, Math.max(0, initialTeamCount * 0.08));
+  const initialFixSeats = Math.round(1000 * initialFixShare);
+  const initialPoolingCapacity = Math.max(0, 1000 - initialFixSeats);
   const [gameState, setGameState] = useState<GameState>({
     teams: [],
     currentRound: 0,
@@ -226,15 +230,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phaseTime: 600, // 10 minutes for pre-purchase phase
     totalCapacity: 1000,
     totalAircraftSeats: 1000,
-    fixSeatShare: defaultConfig?.fixSeatShare ?? 0.3,
-    totalFixSeats: Math.round(1000 * (defaultConfig?.fixSeatShare ?? 0.3)),
-    availableFixSeats: Math.round(1000 * (defaultConfig?.fixSeatShare ?? 0.3)),
+    fixSeatShare: initialFixShare,
+    totalFixSeats: initialFixSeats,
+    availableFixSeats: initialFixSeats,
     fixSeatPrice: 60,
     fixSeatMinBid: defaultConfig?.airline?.P_min ?? 80,
     simulationMonths: 12,
     departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000), // 12 months from now
     fixSeatsAllocated: false,
-    poolingReserveCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.3))),
+    poolingReserveCapacity: initialPoolingCapacity,
     poolingMarketUpdateInterval: 1, // 1 second = 7 days
     simulatedWeeksPerUpdate: 7, // 7 days per update
     referencePrice: 199,
@@ -243,8 +247,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     airlinePriceMax: defaultConfig?.airline?.P_max ?? 400,
     poolingMarket: {
       currentPrice: 150,
-      totalPoolingCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.3))),
-      availablePoolingCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.3))),
+      totalPoolingCapacity: initialPoolingCapacity,
+      availablePoolingCapacity: initialPoolingCapacity,
       offeredPoolingCapacity: 0,
       currentDemand: 100,
       lastUpdate: new Date().toISOString(),
@@ -925,7 +929,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const airlinePriceMin = defaultConfig?.airline?.P_min ?? 80;
   const airlinePriceMax = defaultConfig?.airline?.P_max ?? 400;
   const fixSeatMinBid = Math.max(fixSeatPrice, airlinePriceMin);
-  const fixSeatShare = 0.3;
+  const fixSeatShare = Math.min(0.95, Math.max(0, perTeamCount * 0.08));
   const poolingCost = irnd(70, 120);
 const perTeamBudget = irnd(15000, 40000);
   const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -1012,7 +1016,7 @@ const perTeamBudget = irnd(15000, 40000);
         if (rt <= 0) {
           clearInterval(preTimerRef.current);
           // allocate fix seats via local auction logic
-          const share = Math.max(0.05, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
+          const share = Math.max(0, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
           const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * share);
           const budget = Number(prev.perTeamBudget || 0);
           const defaultBid = Number(prev.fixSeatPrice || 60) || 60;
@@ -1278,7 +1282,7 @@ const perTeamBudget = irnd(15000, 40000);
           const poolingOfferedBefore = remainingPoolBefore.reduce((a, b) => a + b, 0);
 
           // Pool price dynamics with mean reversion and light noise
-          const share = Math.max(0.05, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
+          const share = Math.max(0, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
           const pm = prev.poolingMarket || {
             currentPrice: 150,
             totalPoolingCapacity: Math.floor((prev.totalAircraftSeats || 1000) * (1 - share)),
