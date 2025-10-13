@@ -620,10 +620,7 @@ export const MultiUserApp: React.FC = () => {
 
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-r from-slate-600 to-slate-800 rounded-xl shadow-lg">
-                <Waves className="w-8 h-8 text-white" />
-              </div>
+            <div className="mb-4">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                 Allotment Procurement & Demand Simulation
               </h1>
@@ -632,7 +629,7 @@ export const MultiUserApp: React.FC = () => {
               <span className="text-lg">Admin Control Panel</span>
               <Button
                 onClick={() => setShowAdminPanel(true)}
-                className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
@@ -839,7 +836,7 @@ export const MultiUserApp: React.FC = () => {
           {isAdmin && (
             <Button
               onClick={() => setShowAdminPanel(true)}
-              className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
+              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 min-h-[44px] text-sm"
             >
               <Settings className="w-4 h-4 mr-2" />
               Admin
@@ -937,10 +934,7 @@ export const MultiUserApp: React.FC = () => {
 
   <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-r from-slate-600 to-slate-800 rounded-xl shadow-lg">
-                <Waves className="w-8 h-8 text-white" />
-              </div>
+            <div className="mb-4">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                 Allotment Procurement & Demand Simulation
               </h1>
@@ -1044,7 +1038,7 @@ export const MultiUserApp: React.FC = () => {
                       setInitialPriceSet(true);
                     }}
                     disabled={tempPrice <= 0}
-                    className="w-full bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px]"
+                    className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Confirm Initial Price (€{tempPrice})
                   </Button>
@@ -1303,10 +1297,7 @@ export const MultiUserApp: React.FC = () => {
                   data-tutorial="fix-market"
                 >
                   <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-3 text-xl text-white">
-                      <div className="p-2 bg-orange-500/20 rounded-lg">
-                        <Waves className="w-5 h-5 text-orange-300" />
-                      </div>
+                    <CardTitle className="text-xl text-white">
                       Fix Market Overview
                     </CardTitle>
                     <p className="text-xs text-slate-400">

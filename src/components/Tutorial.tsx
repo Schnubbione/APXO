@@ -104,7 +104,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Button
                 onClick={onStart}
-                className="bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transition-all duration-200 min-h-[52px] w-full sm:w-auto"
+                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold px-8 py-3 rounded-xl shadow-lg transition-all duration-200 min-h-[52px] w-full sm:w-auto"
               >
                 <span className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />

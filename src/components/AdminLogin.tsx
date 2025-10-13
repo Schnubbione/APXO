@@ -65,7 +65,7 @@ export const AdminLogin: React.FC = () => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-slate-600 to-slate-800 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200"
+              className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold text-lg min-h-[52px] rounded-xl shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? (
