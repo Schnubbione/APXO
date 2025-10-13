@@ -17,6 +17,12 @@ type PracticeSummary = {
   auction: ReturnType<typeof runAuction>;
 };
 
+const euroFormatter = new Intl.NumberFormat('de-DE', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+
 const aiBid = (teamId: string, basePrice: number): AuctionBid => ({
   teamId,
   bid_price_per_seat: basePrice,
@@ -52,12 +58,33 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
       teams: baseTeams,
     };
 
-    const totalSeats = Math.max(1, baseConfig.airline.C_total);
-    const horizon = Math.max(1, baseConfig.ticks_total);
+    const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-    const originalCurve = baseConfig.market.D_base.length === horizon
-      ? baseConfig.market.D_base
-      : Array.from({ length: horizon }, (_, idx) => baseConfig.market.D_base[idx % baseConfig.market.D_base.length]);
+    // Randomize airline price band to simulate varied routes in practice mode.
+    const randomizedMin = randomInt(60, 110);
+    const maxLowerBound = Math.max(randomizedMin + 180, 320);
+    const maxUpperBound = Math.min(Math.max(randomizedMin + 260, 520), 600);
+    const randomizedMax = randomInt(maxLowerBound, maxUpperBound);
+    const startLowerBound = randomizedMin + 20;
+    const startUpperBound = Math.max(startLowerBound, randomizedMax - 60);
+    const randomizedStart = randomInt(startLowerBound, startUpperBound);
+
+    const configWithRoute = {
+      ...baseConfig,
+      airline: {
+        ...baseConfig.airline,
+        P_min: randomizedMin,
+        P_max: randomizedMax,
+        P_airline_start: randomizedStart,
+      },
+    };
+
+    const totalSeats = Math.max(1, configWithRoute.airline.C_total);
+    const horizon = Math.max(1, configWithRoute.ticks_total);
+
+    const originalCurve = configWithRoute.market.D_base.length === horizon
+      ? configWithRoute.market.D_base
+      : Array.from({ length: horizon }, (_, idx) => configWithRoute.market.D_base[idx % configWithRoute.market.D_base.length]);
 
     const originalTotal = originalCurve.reduce((sum, value) => sum + Math.max(0, value), 0);
 
@@ -84,9 +111,9 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
     }
 
     return {
-      ...baseConfig,
+      ...configWithRoute,
       market: {
-        ...baseConfig.market,
+        ...configWithRoute.market,
         D_base: scaledCurve,
       },
     };
@@ -184,6 +211,9 @@ export function PracticeMode({ onClose, humanTeamName }: PracticeModeProps) {
             <>
               <p className="text-sm text-slate-300">
                 Runs a full Agent v1 simulation with two phases: a pay-as-bid auction followed by a continuous countdown to the departure day. Adjust your initial bid and starting price to explore the new mechanics.
+              </p>
+              <p className="text-sm text-slate-400">
+                Current route price band: {euroFormatter.format(config.airline.P_min)} – {euroFormatter.format(config.airline.P_max)} (airline starts at {euroFormatter.format(config.airline.P_airline_start)}).
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
