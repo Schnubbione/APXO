@@ -146,6 +146,15 @@ export const MultiUserApp: React.FC = () => {
     return gameState.simState?.perTeam?.[currentTeam.id] ?? null;
   }, [gameState.simState, currentTeam]);
 
+  const demandPerTeam = React.useMemo(() => {
+    const perTeamState = gameState.simState?.perTeam ?? {};
+    if (!gameState.teams?.length) return [];
+    return gameState.teams.map(team => {
+      const demandValue = perTeamState[team.id]?.demand;
+      return typeof demandValue === 'number' && Number.isFinite(demandValue) ? demandValue : 0;
+    });
+  }, [gameState.simState?.perTeam, gameState.teams]);
+
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
 
