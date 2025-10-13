@@ -1,60 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, TrendingUp, TrendingDown, Minus, Crown, Medal, Award } from 'lucide-react';
 
 interface LiveCompetitionProps {
   currentTeam: any;
-  leaderboard: any[];
-  roundResults: any[];
+  leaderboard: Array<{ name: string }>;
 }
 
-export default function LiveCompetition({ currentTeam, leaderboard, roundResults }: LiveCompetitionProps) {
+type RankedCompetitor = {
+  name: string;
+  rank: number;
+};
+
+export default function LiveCompetition({ currentTeam, leaderboard }: LiveCompetitionProps) {
   const [rankChange, setRankChange] = useState<number>(0);
-  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [competitors, setCompetitors] = useState<RankedCompetitor[]>([]);
+  const previousOrderRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!currentTeam || !leaderboard.length) return;
 
-    const currentRank = leaderboard.findIndex(team => team.name === currentTeam.name) + 1;
-    const previousRoundResults = roundResults.slice(0, -1);
-    const previousLeaderboard = calculatePreviousLeaderboard(previousRoundResults);
+    const order = leaderboard.map(entry => entry.name);
+    const currentRankIndex = order.findIndex(name => name === currentTeam.name);
+    if (currentRankIndex === -1) return;
 
-    const previousRank = previousLeaderboard.findIndex(team => team.name === currentTeam.name) + 1;
+    const currentRank = currentRankIndex + 1;
+    const previousOrder = previousOrderRef.current;
+    const previousRankIndex = previousOrder.findIndex(name => name === currentTeam.name);
+    const previousRank = previousRankIndex >= 0 ? previousRankIndex + 1 : currentRank;
+
     setRankChange(previousRank - currentRank);
 
-    // Get top 3 competitors (excluding current team)
     const topCompetitors = leaderboard
-      .filter(team => team.name !== currentTeam.name)
-      .slice(0, 3)
-      .map(team => ({
-        ...team,
-        rank: leaderboard.findIndex(t => t.name === team.name) + 1
-      }));
+      .filter(entry => entry.name !== currentTeam.name)
+      .map(entry => ({
+        name: entry.name,
+        rank: order.findIndex(name => name === entry.name) + 1
+      }))
+      .slice(0, 3);
 
     setCompetitors(topCompetitors);
-  }, [leaderboard, currentTeam, roundResults]);
-
-  const calculatePreviousLeaderboard = (previousResults: any[]) => {
-    if (!previousResults.length) return [];
-
-    // Simple calculation - in real implementation this would be more sophisticated
-    const teamProfit: { [key: string]: number } = {};
-
-    previousResults.forEach(result => {
-      const profitValue = typeof result.profit === 'number'
-        ? result.profit
-        : (Number(result.revenue ?? 0) - Number(result.cost ?? 0));
-
-      teamProfit[result.teamId] = (teamProfit[result.teamId] || 0) + profitValue;
-    });
-
-    return Object.entries(teamProfit)
-      .map(([teamId, profit]) => ({
-        name: `Team ${teamId.slice(0, 4)}`, // Simplified team name
-        profit
-      }))
-      .sort((a, b) => b.profit - a.profit);
-  };
+    previousOrderRef.current = order;
+  }, [leaderboard, currentTeam]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -75,21 +62,8 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
     return <Minus className="w-4 h-4 text-slate-400" />;
   };
 
-  const getProfitFromEntry = (entry: any) => {
-    if (!entry) return 0;
-    if (typeof entry.profit === 'number') return entry.profit;
-    const revenue = typeof entry.revenue === 'number' ? entry.revenue : 0;
-    const purchaseCost = typeof entry.cost === 'number' ? entry.cost : 0;
-    return revenue - purchaseCost;
-  };
-
-  const currentRank = leaderboard.findIndex(team => team.name === currentTeam.name) + 1;
-  const currentTeamEntry = leaderboard.find(team => team.name === currentTeam.name);
-  const currentProfit = getProfitFromEntry(currentTeamEntry);
-
-  const moneyClass = (value: number) => (value >= 0 ? 'text-green-400' : 'text-red-400');
-
-  if (!currentTeam || !leaderboard.length) return null;
+  const currentRank = leaderboard.findIndex(team => team.name === currentTeam?.name) + 1;
+  if (!currentTeam || !leaderboard.length || currentRank === 0) return null;
 
   return (
     <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
@@ -112,43 +86,50 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
             </div>
             <div className="flex items-center gap-1">
               {getRankChangeIcon(rankChange)}
-              <span className={`text-sm font-semibold ${
-                rankChange > 0 ? 'text-green-400' :
-                rankChange < 0 ? 'text-red-400' : 'text-slate-400'
-              }`}>
-                {rankChange > 0 ? `+${rankChange}` :
-                 rankChange < 0 ? rankChange : '—'}
+              <span
+                className={`text-sm font-semibold ${
+                  rankChange > 0 ? 'text-green-400' : rankChange < 0 ? 'text-red-400' : 'text-slate-400'
+                }`}
+              >
+                {rankChange > 0 ? `+${rankChange}` : rankChange < 0 ? rankChange : '—'}
               </span>
             </div>
           </div>
-          <div className={`text-lg font-bold tabular-nums ${moneyClass(currentProfit)}`}>
-            €{currentProfit.toFixed(0)}
-          </div>
+          <p className="text-sm text-slate-400 mt-2">
+            Positions refresh continuously—nudge your strategy to climb before the countdown reaches zero.
+          </p>
         </div>
 
         {/* Top Competitors */}
         <div className="space-y-2">
           <h4 className="text-sm text-slate-400 font-medium">Top Competitors</h4>
-          {competitors.map((competitor) => (
-            <div key={competitor.name} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg border border-slate-600/50">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-400">#{competitor.rank}</span>
-                  {getRankIcon(competitor.rank)}
-                </div>
-                <span className="text-white font-medium">{competitor.name}</span>
-              </div>
-              <div className="text-right">
-                <div className={`font-bold tabular-nums ${moneyClass(getProfitFromEntry(competitor))}`}>
-                  €{getProfitFromEntry(competitor).toFixed(0)}
+          {competitors.length === 0 ? (
+            <div className="text-xs text-slate-500 bg-slate-700/30 rounded-lg border border-slate-600/50 px-3 py-2">
+              Waiting for more teams to join the fray.
+            </div>
+          ) : (
+            competitors.map((competitor) => (
+              <div
+                key={competitor.name}
+                className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg border border-slate-600/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-400">#{competitor.rank}</span>
+                    {getRankIcon(competitor.rank)}
+                  </div>
+                  <span className="text-white font-medium">{competitor.name}</span>
                 </div>
                 <div className="text-xs text-slate-500">
-                  {competitor.rank < currentRank ? 'Ahead' :
-                   competitor.rank > currentRank ? 'Behind' : 'Tied'}
+                  {competitor.rank < currentRank
+                    ? 'Ahead of you'
+                    : competitor.rank > currentRank
+                      ? 'Behind you'
+                      : 'Neck and neck'}
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Competition Insights */}
@@ -157,27 +138,27 @@ export default function LiveCompetition({ currentTeam, leaderboard, roundResults
           <div className="space-y-1 text-sm">
             {currentRank === 1 && (
               <div className="text-yellow-400 flex items-center gap-2">
-                🏆 You're in the lead! Maintain your advantage.
+                🏆 You're in the lead! Maintain steady margins to stay on top.
               </div>
             )}
             {currentRank === 2 && (
               <div className="text-gray-400 flex items-center gap-2">
-                🥈 Close second! One strong round could put you on top.
+                🥈 Close second! One smart adjustment could secure first place.
               </div>
             )}
             {currentRank === 3 && (
               <div className="text-amber-600 flex items-center gap-2">
-                🥉 On the podium! Keep pushing to reach the top.
+                🥉 On the podium—keep pressure on the leaders.
               </div>
             )}
             {currentRank > 3 && currentRank <= leaderboard.length / 2 && (
               <div className="text-blue-400 flex items-center gap-2">
-                📈 Good position! Focus on consistent profits.
+                📈 Solidly mid-pack. Focus on consistent, positive rounds to climb.
               </div>
             )}
             {currentRank > leaderboard.length / 2 && (
               <div className="text-orange-400 flex items-center gap-2">
-                🚀 Room for improvement! Study the leaders' strategies.
+                🚀 Plenty of runway left—watch the teams ahead and plan your comeback.
               </div>
             )}
           </div>

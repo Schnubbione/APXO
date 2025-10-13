@@ -154,6 +154,24 @@ export const MultiUserApp: React.FC = () => {
     });
   }, [gameState.simState?.perTeam, gameState.teams]);
 
+  const liveLeaderboard = React.useMemo((): Array<{ name: string; profit: number; revenue: number }> => {
+    const teams = Array.isArray(gameState.teams) ? gameState.teams : [];
+    return teams
+      .map(team => ({
+        name: team.name ?? 'Team',
+        profit: Number.isFinite(Number(team.totalProfit)) ? Number(team.totalProfit) : 0,
+        revenue: Number.isFinite(Number((team as any)?.totalRevenue)) ? Number((team as any)?.totalRevenue) : 0
+      }))
+      .sort((a, b) => {
+        if (b.profit !== a.profit) return b.profit - a.profit;
+        if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+        return a.name.localeCompare(b.name);
+      });
+  }, [gameState.teams]);
+
+  const showLiveLeaderboard = gameState.currentPhase === 'simulation' && Boolean(gameState.isActive) && liveLeaderboard.length > 0;
+  const displayedLeaderboard = React.useMemo(() => (showLiveLeaderboard ? liveLeaderboard : (leaderboard ?? [])), [showLiveLeaderboard, liveLeaderboard, leaderboard]);
+
   const poolSoldSoFar = Math.max(0, mySimState?.poolUsed ?? 0);
   const fixAllocatedTotal = Math.max(0, mySimState?.initialFix ?? (currentTeam?.decisions?.fixSeatsAllocated ?? 0));
 
@@ -789,8 +807,42 @@ export const MultiUserApp: React.FC = () => {
           </Card>
 
           {/* Leaderboard */}
-          {leaderboard && (
-            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl">
+          {showLiveLeaderboard && liveLeaderboard.length > 0 ? (
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl" data-tutorial="leaderboard">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl text-white">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Award className="w-5 h-5 text-purple-300" />
+                  </div>
+                  Live Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {liveLeaderboard.map((entry, index) => {
+                    const TeamIcon = getTeamIconByName(entry.name);
+                    return (
+                      <div
+                        key={`${entry.name}-${index}`}
+                        className="flex items-center justify-between p-3 rounded-lg border border-slate-600/40 bg-slate-700/40"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-500/30 to-indigo-500/30 text-white font-bold text-sm">
+                            #{index + 1}
+                          </div>
+                          <div className="p-1 bg-slate-600/40 rounded-lg">
+                            <TeamIcon className="w-4 h-4 text-slate-200" />
+                          </div>
+                          <span className="font-semibold text-white text-lg">{entry.name}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : leaderboard && leaderboard.length > 0 ? (
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl" data-tutorial="leaderboard">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
@@ -817,7 +869,7 @@ export const MultiUserApp: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -1541,8 +1593,7 @@ export const MultiUserApp: React.FC = () => {
           {/* Live Competition */}
           <LiveCompetition
             currentTeam={currentTeam}
-            leaderboard={leaderboard || []}
-            roundResults={roundResults || []}
+            leaderboard={displayedLeaderboard}
           />
 
           {/* Sound Effects */}
@@ -1550,7 +1601,49 @@ export const MultiUserApp: React.FC = () => {
           {/* Practice Mode overlay removed; runs integrated via context */}
 
           {/* Leaderboard */}
-          {leaderboard && (
+          {showLiveLeaderboard && liveLeaderboard.length > 0 ? (
+            <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300" data-tutorial="leaderboard">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-xl text-white">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Award className="w-5 h-5 text-purple-300" />
+                  </div>
+                  Live Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {liveLeaderboard.map((entry, index) => {
+                    const TeamIcon = getTeamIconByName(entry.name);
+                    const isCurrentTeam = entry.name === currentTeam.name;
+                    return (
+                      <div
+                        key={`${entry.name}-${index}`}
+                        className={`flex items-center justify-between p-3 rounded-lg border ${isCurrentTeam ? 'border-purple-400/40 bg-purple-500/15' : 'border-slate-600/40 bg-slate-700/40'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${isCurrentTeam ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white' : 'bg-gradient-to-r from-slate-600 to-slate-800 text-white'}`}>
+                            #{index + 1}
+                          </div>
+                          <div className="p-1 bg-slate-600/40 rounded-lg">
+                            <TeamIcon className="w-4 h-4 text-slate-200" />
+                          </div>
+                          <span className={`font-semibold text-lg ${isCurrentTeam ? 'text-purple-100' : 'text-white'}`}>
+                            {entry.name}
+                          </span>
+                          {isCurrentTeam && (
+                            <span className="text-xs font-semibold uppercase tracking-wide text-purple-200">
+                              You
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : leaderboard && leaderboard.length > 0 ? (
             <Card className="bg-slate-800/50 backdrop-blur-sm border-slate-700 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300" data-tutorial="leaderboard">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-3 text-xl text-white">
@@ -1586,7 +1679,7 @@ export const MultiUserApp: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
+          ) : null}
         </div>
 
         {/* Tutorial Tour */}
