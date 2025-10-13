@@ -125,6 +125,7 @@ Covered scenarios:
 - Logit choice with attention (`push_level`, tools) and anti-collusion penalties.
 - Fixed-before-pooling: sell from `fixed_left` first, then draw from the airline remainder (`C_remain`) at `P_airline(t)`.
 - Pooling is automatically suspended for a team whenever the next pooling sale would push its cumulative loss beyond the insolvency threshold (default −€20 000). Sales resume once the team’s retail price matches or exceeds the live pooling price (or the airline price drops).
+- Profit is always reported as `revenue - costs (fixed + pooling + ops)` and is capped at a minimum of −€20 000 to reflect the insolvency guard used across the UI, leaderboard, and point system.
 - Airline repricing: `P_airline(t-1) = clamp(P_airline(t) * (1 + gamma * tanh(delta/kappa)))`.
 - Tools (`hedge`, `spotlight`, `commit`) cost cash and observe `rules.tool_cooldown_ticks` update cooldowns.
 - Win condition: highest profit **and** `avg_sell_price >= avg_buy_price` (otherwise next best).

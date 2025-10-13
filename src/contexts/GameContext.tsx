@@ -3,6 +3,9 @@ import { io, Socket } from 'socket.io-client';
 import { resolveServerUrl } from '@/lib/env';
 import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
+const MIN_PROFIT_LIMIT = -20000;
+
+
 interface Team {
   id: string;
   name: string;
@@ -1091,6 +1094,10 @@ const perTeamBudget = irnd(15000, 40000);
             data.revenue[i] = Math.max(0, (data.revenue[i] ?? 0) + seatsSold * price);
             data.cost[i] = Math.max(0, (data.cost[i] ?? 0) + servePool * newPrice);
 
+            if ((data.revenue[i] ?? 0) - (data.cost[i] ?? 0) < MIN_PROFIT_LIMIT) {
+              data.cost[i] = (data.revenue[i] ?? 0) - MIN_PROFIT_LIMIT;
+            }
+
             if (budget > 0) {
               const profitForecast = (data.revenue[i] ?? 0) - (data.cost[i] ?? 0);
               if (profitForecast < 0 && Math.abs(profitForecast) > budget) {
@@ -1153,8 +1160,12 @@ const perTeamBudget = irnd(15000, 40000);
               const revenue = Math.round(sim.revenue ?? data.revenue[index] ?? sold * price);
               const trackedCost = sim.cost ?? data.cost[index];
               const fallbackCost = (initialFix * clearing) + (poolUsed * avgPoolingUnit);
-              const cost = Math.round(Number.isFinite(Number(trackedCost)) ? Number(trackedCost) : fallbackCost);
-              const profit = Math.round(revenue - cost);
+              let cost = Math.round(Number.isFinite(Number(trackedCost)) ? Number(trackedCost) : fallbackCost);
+              let profit = Math.round(revenue - cost);
+              if (profit < MIN_PROFIT_LIMIT) {
+                profit = MIN_PROFIT_LIMIT;
+                cost = Math.round(revenue - profit);
+              }
               const unsold = Math.max(0, demandTotal - sold);
               const insolventFlag = sim.insolvent ?? (budget > 0 && profit < 0 && Math.abs(profit) > budget);
               return {

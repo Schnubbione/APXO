@@ -17,6 +17,7 @@ const SIMULATION_DEFAULT_DAYS = 365;
 const SIMULATION_SECONDS_PER_DAY = 1;
 
 const AGENT_BASE_CAPACITY = 180;
+const MIN_PROFIT_LIMIT = -20000;
 
 const AGENT_V1_DEFAULTS = Object.freeze({
   ticksTotal: SIMULATION_DEFAULT_DAYS,
@@ -745,8 +746,13 @@ export class GameService {
         const fixSeatCost = initialFix * clearingPrice;
         const poolingUsageCost = poolUsed * avgPoolingUnit;
         const operationalCost = sold * 15;
-        const totalCost = st.cost || (fixSeatCost + poolingUsageCost + operationalCost);
-        const profit = Math.round(passengerRevenue - totalCost);
+        let totalCost = st.cost || (fixSeatCost + poolingUsageCost + operationalCost);
+        totalCost = Math.max(0, Math.round(totalCost));
+        let profit = Math.round(passengerRevenue - totalCost);
+        if (profit < MIN_PROFIT_LIMIT) {
+          profit = MIN_PROFIT_LIMIT;
+          totalCost = Math.round(passengerRevenue - profit);
+        }
         const demand = Math.max(0, Math.round(st.demand || 0));
         const unsold = Math.max(0, demand - sold);
         const budget = Number(settings.perTeamBudget || 0);
@@ -757,7 +763,7 @@ export class GameService {
           teamId: team.id,
           sold,
           revenue: Math.round(passengerRevenue),
-          cost: Math.round(totalCost),
+          cost: totalCost,
           profit,
           unsold,
           marketShare: 0,
@@ -1179,8 +1185,12 @@ export class GameService {
       const revenueAdd = (sellFix + poolSold) * price;
       const costAdd = poolSold * currentPoolingPrice;
 
-      const newRevenue = Math.max(0, (state.revenue || 0) + revenueAdd);
-      const newCost = Math.max(0, (state.cost || 0) + costAdd);
+      const newRevenueRaw = Math.max(0, (state.revenue || 0) + revenueAdd);
+      let newCost = Math.max(0, (state.cost || 0) + costAdd);
+      if (newRevenueRaw - newCost < MIN_PROFIT_LIMIT) {
+        newCost = newRevenueRaw - MIN_PROFIT_LIMIT;
+      }
+      const newRevenue = newRevenueRaw;
       const accumulatedDemand = Math.max(0, (state.demand || 0) + demandForTeam);
       const accumulatedSold = Math.max(0, (state.sold || 0) + sellFix + poolSold);
       const accumulatedPool = Math.max(0, (state.poolUsed || 0) + poolSold);
@@ -1208,6 +1218,9 @@ export class GameService {
       const st = newPerTeam[team.id];
       if (!st) continue;
       const profitForecast = (st.revenue || 0) - (st.cost || 0);
+      if (profitForecast < MIN_PROFIT_LIMIT) {
+        newPerTeam[team.id].cost = (st.revenue || 0) - MIN_PROFIT_LIMIT;
+      }
       if (profitForecast < 0 && Math.abs(profitForecast) > budget) {
         newPerTeam[team.id].insolvent = true;
       }
