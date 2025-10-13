@@ -346,6 +346,7 @@ export const MultiUserApp: React.FC = () => {
   const effectiveMinimumBid = allocationSummary?.minimumBidPrice
     ? Math.max(fixSeatMinBid, allocationSummary.minimumBidPrice)
     : fixSeatMinBid;
+  const fixSeatShareValue = Math.max(0.05, Math.min(0.95, gameState.fixSeatShare ?? (defaultConfig?.fixSeatShare ?? 0.2)));
 
   const liveTeamsWithScore = React.useMemo(() => {
     const teams = gameState.teams ?? [];
@@ -562,6 +563,8 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
+          fixSeatShare={fixSeatShareValue}
+          setFixSeatShare={(v) => updateGameSettings({ fixSeatShare: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}
@@ -883,6 +886,8 @@ export const MultiUserApp: React.FC = () => {
           setSimulatedWeeksPerUpdate={(v) => updateGameSettings({ simulatedWeeksPerUpdate: v })}
           totalAircraftSeats={gameState.totalAircraftSeats || 1000}
           setTotalAircraftSeats={(v) => updateGameSettings({ totalAircraftSeats: v })}
+          fixSeatShare={fixSeatShareValue}
+          setFixSeatShare={(v) => updateGameSettings({ fixSeatShare: v })}
           fixSeatPrice={gameState.fixSeatPrice}
           setFixSeatPrice={(v) => updateGameSettings({ fixSeatPrice: v })}
           poolingCost={(gameState as any).poolingCost}

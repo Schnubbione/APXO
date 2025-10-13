@@ -89,6 +89,7 @@ export const GameSession = sequelize.define('GameSession', {
       costVolatility: 0.05,
       demandVolatility: 0.1,
       marketConcentration: 0.7,
+      fixSeatShare: 0.2,
       fixSeatMinBid: 80,
       airlinePriceMin: 80,
       airlinePriceMax: 400

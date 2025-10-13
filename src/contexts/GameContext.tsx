@@ -207,14 +207,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phaseTime: 600, // 10 minutes for pre-purchase phase
     totalCapacity: 1000,
     totalAircraftSeats: 1000,
-    totalFixSeats: 500,
-    availableFixSeats: 500,
+    fixSeatShare: defaultConfig?.fixSeatShare ?? 0.2,
+    totalFixSeats: Math.round(1000 * (defaultConfig?.fixSeatShare ?? 0.2)),
+    availableFixSeats: Math.round(1000 * (defaultConfig?.fixSeatShare ?? 0.2)),
     fixSeatPrice: 60,
     fixSeatMinBid: defaultConfig?.airline?.P_min ?? 80,
     simulationMonths: 12,
     departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000), // 12 months from now
     fixSeatsAllocated: false,
-    poolingReserveCapacity: 300,
+    poolingReserveCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.2))),
     poolingMarketUpdateInterval: 1, // 1 second = 1 day
     simulatedWeeksPerUpdate: 1, // 1 day per update
     referencePrice: 199,
@@ -223,8 +224,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     airlinePriceMax: defaultConfig?.airline?.P_max ?? 400,
     poolingMarket: {
       currentPrice: 150,
-      totalPoolingCapacity: 300,
-      availablePoolingCapacity: 300,
+      totalPoolingCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.2))),
+      availablePoolingCapacity: Math.round(1000 * (1 - (defaultConfig?.fixSeatShare ?? 0.2))),
       offeredPoolingCapacity: 0,
       currentDemand: 100,
       lastUpdate: new Date().toISOString(),
@@ -669,6 +670,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const airlinePriceMin = defaultConfig?.airline?.P_min ?? 80;
   const airlinePriceMax = defaultConfig?.airline?.P_max ?? 400;
   const fixSeatMinBid = Math.max(fixSeatPrice, airlinePriceMin);
+  const fixSeatShare = 0.2;
   const poolingCost = irnd(70, 120);
 const perTeamBudget = irnd(15000, 40000);
   const departureDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -719,22 +721,24 @@ const perTeamBudget = irnd(15000, 40000);
       phaseTime: 60,
       totalCapacity: totalAircraftSeats,
       totalAircraftSeats,
-  totalFixSeats: Math.floor(totalAircraftSeats * 0.7),
-  availableFixSeats: Math.floor(totalAircraftSeats * 0.7),
+  totalFixSeats: Math.floor(totalAircraftSeats * fixSeatShare),
+  availableFixSeats: Math.floor(totalAircraftSeats * fixSeatShare),
       fixSeatPrice,
+  fixSeatShare,
   fixSeatMinBid,
   perTeamBudget,
       airlinePriceMin,
       airlinePriceMax,
-      poolingMarketUpdateInterval: 1,
-      simulatedWeeksPerUpdate: 1,
-      departureDate,
-      remainingTime: 0,
-      simulatedDaysUntilDeparture: Math.ceil((departureDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
-      poolingMarket: {
+  poolingMarketUpdateInterval: 1,
+  simulatedWeeksPerUpdate: 1,
+  departureDate,
+  remainingTime: 0,
+  simulatedDaysUntilDeparture: Math.ceil((departureDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+  poolingReserveCapacity: Math.floor(totalAircraftSeats * (1 - fixSeatShare)),
+  poolingMarket: {
         currentPrice: irnd(100, 220),
-        totalPoolingCapacity: Math.floor(totalAircraftSeats * 0.3),
-        availablePoolingCapacity: Math.floor(totalAircraftSeats * 0.3),
+        totalPoolingCapacity: Math.floor(totalAircraftSeats * (1 - fixSeatShare)),
+        availablePoolingCapacity: Math.floor(totalAircraftSeats * (1 - fixSeatShare)),
         offeredPoolingCapacity: 0,
         currentDemand: 0,
         lastUpdate: new Date().toISOString(),
@@ -753,8 +757,8 @@ const perTeamBudget = irnd(15000, 40000);
         if (rt <= 0) {
           clearInterval(preTimerRef.current);
           // allocate fix seats via local auction logic
-          const poolingReserveRatio = 0.3;
-          const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - poolingReserveRatio));
+          const share = Math.max(0.05, Math.min(0.95, prev.fixSeatShare ?? fixSeatShare));
+          const maxFixCapacity = Math.floor((prev.totalAircraftSeats || 1000) * share);
           const budget = Number(prev.perTeamBudget || 0);
           const defaultBid = Number(prev.fixSeatPrice || 60) || 60;
           const minBidPrice = Math.max(
@@ -935,7 +939,7 @@ const perTeamBudget = irnd(15000, 40000);
           });
           const totalRequested = requests.reduce((sum, req) => sum + req.requestedOriginal, 0);
           const totalAllocated = allocationsForSummary.reduce((sum, entry) => sum + entry.allocated, 0);
-          const poolingReserveCapacity = Math.floor((prev.totalAircraftSeats || 1000) * poolingReserveRatio);
+          const poolingReserveCapacity = Math.floor((prev.totalAircraftSeats || 1000) * (1 - share));
           setAllocationSummary({
             allocations: allocationsForSummary,
             totalRequested,

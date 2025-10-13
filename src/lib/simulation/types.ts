@@ -7,6 +7,7 @@ export interface Config {
   ticks_total: number;
   seconds_per_tick: number;
   rng_seed: number;
+  fixSeatShare?: number;
   airline: {
     C_total: number;
     P_airline_start: number;

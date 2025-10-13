@@ -26,6 +26,7 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   logitBeta: 6.0,
   referencePrice: 150,
   baselineCapacity: AGENT_BASE_CAPACITY,
+  fixSeatShare: 0.2,
   airline: {
     startPrice: 120,
     minPrice: 80,
@@ -72,10 +73,14 @@ export class GameService {
             phaseTime: 600,
             totalCapacity: 1000,
             totalAircraftSeats: 1000,
-            totalFixSeats: 500,
-            availableFixSeats: 500,
+            fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
+            totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+            availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+            poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)),
             fixSeatPrice: 60,
             fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
+            airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
+            airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
             poolingCost: 90,
             simulationMonths: 12,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
@@ -83,8 +88,6 @@ export class GameService {
             simulatedWeeksPerUpdate: 1, // 1 day per update
             referencePrice: 199,
             marketPriceElasticity: -0.9,
-            airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
-            airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
             // Budget per team (equal for all teams)
             perTeamBudget: 20000
           }
@@ -311,9 +314,12 @@ export class GameService {
     const teams = await this.getActiveTeams();
     const settings = session.settings || {};
 
-    const totalCapacity = settings.totalAircraftSeats || 1000;
-    const poolingReserveRatio = 0.3; // Airline keeps 30% for pooling
-    const maxFixCapacity = Math.floor(totalCapacity * (1 - poolingReserveRatio));
+    const totalCapacity = settings.totalAircraftSeats || settings.totalCapacity || 1000;
+    const configuredShare = Number(settings.fixSeatShare);
+    const fixSeatShare = Number.isFinite(configuredShare)
+      ? Math.max(0.05, Math.min(0.95, configuredShare))
+      : AGENT_V1_DEFAULTS.fixSeatShare;
+    const maxFixCapacity = Math.floor(totalCapacity * fixSeatShare);
 
     // Collect all requests with bids (cap by budget in first round)
     const defaultUnitPrice = Number(settings.fixSeatPrice || 60) || 60;
@@ -451,7 +457,9 @@ export class GameService {
     const totalAllocated = allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
     const updatedSettings = {
       ...settings,
-      availableFixSeats: maxFixCapacity - totalAllocated,
+      fixSeatShare,
+      totalFixSeats: maxFixCapacity,
+      availableFixSeats: Math.max(0, maxFixCapacity - totalAllocated),
       poolingReserveCapacity: totalCapacity - totalAllocated,
       fixSeatsAllocated: true, // Mark that allocation has happened
       // Initialize pooling market
@@ -486,6 +494,11 @@ export class GameService {
     const currentSettings = session.settings || {};
     let updatedSettings = { ...currentSettings, ...settings };
 
+    const clampShare = (value) => {
+      if (!Number.isFinite(Number(value))) return null;
+      return Math.max(0.05, Math.min(0.95, Number(value)));
+    };
+
     if (Array.isArray(settings.demandCurve) && settings.demandCurve.length > 0) {
       updatedSettings.originalDemandCurve = settings.demandCurve.map(point => Number(point));
       updatedSettings.demandCurveCapacity = undefined;
@@ -498,34 +511,39 @@ export class GameService {
     }
 
     // If totalAircraftSeats is being updated, adjust related parameters dynamically
-    if (settings.totalAircraftSeats !== undefined) {
-      const newTotalSeats = settings.totalAircraftSeats;
-      const oldTotalSeats = currentSettings.totalAircraftSeats || 1000;
-
-      // Scale totalCapacity proportionally (keep same ratio)
-      const capacityRatio = (currentSettings.totalCapacity || 1000) / oldTotalSeats;
-      updatedSettings.totalCapacity = Math.round(newTotalSeats * capacityRatio);
-
-      // Scale totalFixSeats proportionally (keep same ratio)
-      const fixSeatsRatio = (currentSettings.totalFixSeats || 500) / oldTotalSeats;
-      updatedSettings.totalFixSeats = Math.round(newTotalSeats * fixSeatsRatio);
-      updatedSettings.availableFixSeats = Math.round(newTotalSeats * fixSeatsRatio);
-
-      // Scale pooling reserve capacity proportionally
-      const poolingRatio = (currentSettings.poolingReserveCapacity || 300) / oldTotalSeats;
-      updatedSettings.poolingReserveCapacity = Math.round(newTotalSeats * poolingRatio);
-
-      // Update pooling market if it exists
-      if (updatedSettings.poolingMarket) {
-        updatedSettings.poolingMarket = {
-          ...updatedSettings.poolingMarket,
-          totalPoolingCapacity: Math.round(newTotalSeats * poolingRatio),
-          availablePoolingCapacity: Math.round(newTotalSeats * poolingRatio)
-        };
+    if (settings.fixSeatShare !== undefined) {
+      const share = clampShare(settings.fixSeatShare);
+      if (share !== null) {
+        updatedSettings.fixSeatShare = share;
       }
+    }
 
-      console.log(`✈️ Total aircraft seats updated: ${oldTotalSeats} → ${newTotalSeats}`);
-      console.log(`📊 Adjusted parameters: totalCapacity=${updatedSettings.totalCapacity}, totalFixSeats=${updatedSettings.totalFixSeats}`);
+    if (settings.totalAircraftSeats !== undefined) {
+      const newTotalSeats = Math.max(1, Number(settings.totalAircraftSeats));
+      updatedSettings.totalAircraftSeats = newTotalSeats;
+      updatedSettings.totalCapacity = Math.max(1, Math.round(newTotalSeats));
+      console.log(`✈️ Total aircraft seats updated: ${currentSettings.totalAircraftSeats || 1000} → ${newTotalSeats}`);
+    }
+
+    const effectiveTotalSeats = Math.max(1, Number(updatedSettings.totalAircraftSeats || currentSettings.totalAircraftSeats || 1000));
+    const effectiveShare = clampShare(updatedSettings.fixSeatShare !== undefined ? updatedSettings.fixSeatShare : currentSettings.fixSeatShare);
+    const resolvedShare = effectiveShare ?? AGENT_V1_DEFAULTS.fixSeatShare;
+    updatedSettings.fixSeatShare = resolvedShare;
+
+    const recalculatedFixSeats = Math.round(effectiveTotalSeats * resolvedShare);
+    updatedSettings.totalFixSeats = recalculatedFixSeats;
+    updatedSettings.availableFixSeats = Math.max(0, Math.min(recalculatedFixSeats, updatedSettings.availableFixSeats ?? recalculatedFixSeats));
+
+    const totalCapacity = Math.max(1, Number(updatedSettings.totalCapacity || effectiveTotalSeats));
+    const newPoolingReserve = Math.max(0, totalCapacity - recalculatedFixSeats);
+    updatedSettings.poolingReserveCapacity = newPoolingReserve;
+
+    if (updatedSettings.poolingMarket) {
+      updatedSettings.poolingMarket = {
+        ...updatedSettings.poolingMarket,
+        totalPoolingCapacity: newPoolingReserve,
+        availablePoolingCapacity: newPoolingReserve
+      };
     }
 
     await session.update({ settings: updatedSettings });
@@ -1297,8 +1315,9 @@ export class GameService {
           phaseTime: 600,
           totalCapacity: 1000,
           totalAircraftSeats: 1000,
-          totalFixSeats: 500,
-          availableFixSeats: 500,
+          fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
+          totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+          availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
           fixSeatPrice: 60,
           fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
           airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
@@ -1307,7 +1326,7 @@ export class GameService {
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: 300, // 30% of total capacity
+          poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
           poolingMarketUpdateInterval: 1, // 1 second = 1 day
           simulatedWeeksPerUpdate: 1 // 1 day per update
           ,
@@ -1368,8 +1387,9 @@ export class GameService {
           phaseTime: 600,
           totalCapacity: 1000,
           totalAircraftSeats: 1000,
-          totalFixSeats: 500,
-          availableFixSeats: 500,
+          fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
+          totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
+          availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
           fixSeatPrice: 60,
           fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
           airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
@@ -1378,7 +1398,7 @@ export class GameService {
           simulationMonths: 12,
           departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
           fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: 300, // 30% of total capacity
+          poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)), // remaining for pooling
           poolingMarketUpdateInterval: 1, // 1 second = 1 day
           simulatedWeeksPerUpdate: 1 // 1 day per update
           ,
