@@ -156,11 +156,31 @@ export const MultiUserApp: React.FC = () => {
 
   const liveLeaderboard = React.useMemo((): Array<{ name: string; profit: number; revenue: number }> => {
     const teams = Array.isArray(gameState.teams) ? gameState.teams : [];
+    const perTeamState = gameState.simState?.perTeam ?? {};
+    const simulationActive = gameState.currentPhase === 'simulation';
     return teams
       .map(team => ({
         name: team.name ?? 'Team',
-        profit: Number.isFinite(Number(team.totalProfit)) ? Number(team.totalProfit) : 0,
-        revenue: Number.isFinite(Number((team as any)?.totalRevenue)) ? Number((team as any)?.totalRevenue) : 0
+        profit: (() => {
+          if (simulationActive) {
+            const state = perTeamState[team.id];
+            if (state) {
+              const revenue = Number.isFinite(Number(state.revenue)) ? Number(state.revenue) : 0;
+              const cost = Number.isFinite(Number(state.cost)) ? Number(state.cost) : 0;
+              return revenue - cost;
+            }
+          }
+          return Number.isFinite(Number(team.totalProfit)) ? Number(team.totalProfit) : 0;
+        })(),
+        revenue: (() => {
+          if (simulationActive) {
+            const state = perTeamState[team.id];
+            if (state) {
+              return Number.isFinite(Number(state.revenue)) ? Number(state.revenue) : 0;
+            }
+          }
+          return Number.isFinite(Number((team as any)?.totalRevenue)) ? Number((team as any)?.totalRevenue) : 0;
+        })()
       }))
       .sort((a, b) => {
         if (b.profit !== a.profit) return b.profit - a.profit;
