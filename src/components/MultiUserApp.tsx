@@ -273,8 +273,7 @@ export const MultiUserApp: React.FC = () => {
   const currentProfit = Math.round((mySimState?.revenue ?? 0) - (mySimState?.cost ?? 0));
   const seatsSoldSoFar = Math.max(0, mySimState?.sold ?? 0);
   const poolingPrice = Math.round(gameState.poolingMarket?.currentPrice ?? 0);
-  const daysToDeparture = Math.max(0, Number(gameState.simulatedDaysUntilDeparture ?? 0));
-  const remainingFixSeats = Math.max(
+    const remainingFixSeats = Math.max(
     0,
     mySimState?.fixRemaining
       ?? currentTeam?.decisions?.fixSeatsAllocated
@@ -1000,11 +999,11 @@ export const MultiUserApp: React.FC = () => {
                     <div className="p-3 bg-slate-700/40 rounded-lg border border-slate-600/60">
                       <div className="text-xs uppercase tracking-wide text-slate-400 mb-2">Airline Pooling Outlook</div>
                       <p className="text-slate-300">
-                        Recent pooling updates ranged between €{currencyFormatter.format(poolingRangeMin)} and €{currencyFormatter.format(poolingRangeMax)} per seat.
-                        The current live price sits at €{currencyFormatter.format(poolingPrice || derivedPoolingBaseline)}.
+                        The airline typically reprices between €{currencyFormatter.format(airlinePriceMin)} and €{currencyFormatter.format(airlinePriceMax)}.
+                        Use your opening price to stay ahead of the live pooling cost.
                       </p>
                       <p className="text-xs text-slate-400 mt-2">
-                        Expect the airline to adjust within this window as demand shifts during the countdown.
+                        Expect adjustments within this band as demand shifts during the countdown.
                       </p>
                     </div>
 
@@ -1333,6 +1332,9 @@ export const MultiUserApp: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/50 text-sm text-slate-200">
+                      Airline minimum accepted bid: €{currencyFormatter.format(Math.round(fixSeatMinBid))}. Bids below this price receive no fixed seats.
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label className="text-slate-300 text-sm font-medium">Bid per Fixed Seat (€)</Label>
@@ -1507,8 +1509,8 @@ export const MultiUserApp: React.FC = () => {
                       <div className="text-2xl font-semibold text-white tabular-nums">€{Number.isFinite(poolingPrice) ? poolingPrice.toLocaleString('de-DE') : '0'}</div>
                     </div>
                     <div className="rounded-xl border border-slate-600/60 bg-slate-700/40 p-4">
-                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Days to departure</div>
-                      <div className="text-2xl font-semibold text-white tabular-nums">{daysToDeparture.toLocaleString('de-DE')}</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400/80">Market demand</div>
+                      <div className="text-2xl font-semibold text-white tabular-nums">{demandPerTeam?.reduce?.((sum: number, d: number) => sum + (Number.isFinite(d) ? d : 0), 0)?.toLocaleString('de-DE') ?? 0}</div>
                     </div>
                   </div>
 
