@@ -21,6 +21,7 @@ export interface Config {
     alpha: number;
     beta: number;
     P_ref: number;
+    price_priority_boost?: number;
   };
   teams: {
     id: TeamId;

@@ -20,6 +20,7 @@ describe('Agent v1 simulation engine', () => {
     alpha: 1.1,
     beta: 6,
     P_ref: 150,
+    price_priority_boost: 2,
   },
   teams: [
     { id: 'A', P_start: 500, P_floor: 99, P_ceil: 500 },
@@ -50,6 +51,35 @@ describe('Agent v1 simulation engine', () => {
     expect(second.teamId).toBe(config.teams[2].id);
     expect(third.teamId).toBe(config.teams[0].id);
     expect(first.awarded_fixed + second.awarded_fixed + third.awarded_fixed).toBeLessThanOrEqual(config.airline.C_total);
+  });
+
+  it('routes the majority of demand to the lowest-priced team', () => {
+    const config = cloneConfig();
+    config.market.price_priority_boost = 3;
+    config.market.D_base = Array(config.ticks_total).fill(60);
+    config.airline.C_total = 600;
+
+    const bids: AuctionBid[] = config.teams.map((team) => ({
+      teamId: team.id,
+      bid_price_per_seat: 0,
+      bid_quantity: 0,
+    }));
+    const auction = runAuction(config, bids);
+    const runtime = initRuntime(config, auction);
+
+    const decisions: Decision[] = [
+      { teamId: config.teams[0].id, price: 100, push_level: 0, fix_hold_pct: 0, tool: 'none' },
+      { teamId: config.teams[1].id, price: 150, push_level: 0, fix_hold_pct: 0, tool: 'none' },
+      { teamId: config.teams[2].id, price: 160, push_level: 0, fix_hold_pct: 0, tool: 'none' },
+    ];
+
+    const { results } = runTick(config, runtime, decisions);
+    const soldByTeam = Object.fromEntries(results.sales.map((entry) => ([
+      entry.teamId,
+      entry.sold_fix + entry.sold_pool,
+    ])));
+
+    expect(soldByTeam[config.teams[0].id]).toBeGreaterThan(soldByTeam[config.teams[1].id] + soldByTeam[config.teams[2].id]);
   });
 
   it('sells fix inventory before resorting to pooling seats', () => {

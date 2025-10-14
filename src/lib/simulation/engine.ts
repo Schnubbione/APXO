@@ -174,13 +174,18 @@ function computeLogitWeights(
   attention: Record<TeamId, number>,
 ): Map<TeamId, number> {
   const { beta } = config.market;
+  const priorityBoost = Math.max(1, config.market.price_priority_boost ?? 1);
+  const baseline = Math.max(minPrice, 1);
   const weights = new Map<TeamId, number>();
   for (const decision of decisions) {
     const team = runtime.team[decision.teamId];
     if (!team) continue;
     const effectivePrice = Math.max(decision.price, 1);
-    const base = Math.exp(-beta * (effectivePrice / Math.max(minPrice, 1)));
-    weights.set(decision.teamId, base * (attention[decision.teamId] ?? 1));
+    const gapRatio = Math.max(0, (effectivePrice - baseline) / baseline);
+    const penalty = gapRatio * priorityBoost;
+    const base = Math.exp(-beta * penalty);
+    const weighted = Math.max(base, 1e-6) * (attention[decision.teamId] ?? 1);
+    weights.set(decision.teamId, weighted);
   }
   return weights;
 }

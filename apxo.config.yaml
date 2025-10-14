@@ -19,6 +19,7 @@ market:
   D_base: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79]
   alpha: 1.1               # Price sensitivity
   beta: 6.0                # Price loyalty in the logit model
+  price_priority_boost: 2.0 # Multiplier to skew demand toward the cheapest offer
   P_ref: 150               # Reference price for price response
 
 teams:

@@ -34,6 +34,7 @@ const AGENT_V1_DEFAULTS = Object.freeze({
   demandCurve: [6, 7, 8, 10, 12, 16, 20, 26, 34, 44, 58, 79],
   demandAlpha: 1.1,
   logitBeta: 6.0,
+  pricePriorityBoost: 2.0,
   referencePrice: 150,
   baselineCapacity: AGENT_BASE_CAPACITY,
   fixSeatShare: DEFAULT_FIX_SHARE,
@@ -144,6 +145,7 @@ export class GameService {
             airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
             poolingCost: 90,
             simulationMonths: 12,
+            pricePriorityBoost: AGENT_V1_DEFAULTS.pricePriorityBoost,
             departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
             poolingMarketUpdateInterval: 1, // 1 second = 7 days
             simulatedWeeksPerUpdate: 7, // 7 days per update
@@ -723,6 +725,7 @@ export class GameService {
       originalBaseDemand,
       priceAlpha: currentSettings.priceAlpha ?? AGENT_V1_DEFAULTS.demandAlpha,
       priceBeta: currentSettings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta,
+      pricePriorityBoost: currentSettings.pricePriorityBoost ?? AGENT_V1_DEFAULTS.pricePriorityBoost,
       referencePrice: currentSettings.referencePrice ?? AGENT_V1_DEFAULTS.referencePrice,
       airlinePriceGamma: currentSettings.airlinePriceGamma ?? AGENT_V1_DEFAULTS.airline.gamma,
       airlinePriceKappa: currentSettings.airlinePriceKappa ?? AGENT_V1_DEFAULTS.airline.kappa,
@@ -1187,10 +1190,13 @@ export class GameService {
     const totalDemand = Math.max(demandMin, Math.min(demandMax, totalDemandRaw));
 
     const priceBeta = Math.abs(settings.priceBeta ?? AGENT_V1_DEFAULTS.logitBeta);
+    const pricePriorityBoost = Math.max(1, Number(settings.pricePriorityBoost ?? AGENT_V1_DEFAULTS.pricePriorityBoost ?? 1));
     const priceWeights = aliveTeams.map(team => {
       const price = Math.max(1, typeof team.decisions?.price === 'number' ? team.decisions.price : 500);
       const relative = price / Math.max(1, minPrice);
-      return Math.max(Math.exp(-priceBeta * (relative - 1)), 0.0001);
+      const diff = Math.max(0, relative - 1);
+      const penalty = diff * pricePriorityBoost;
+      return Math.max(Math.exp(-priceBeta * penalty), 0.0001);
     });
     const totalWeight = priceWeights.reduce((sum, w) => sum + w, 0) || aliveTeams.length;
     const desiredDemand = aliveTeams.map((_, idx) => (totalDemand * priceWeights[idx]) / totalWeight);
