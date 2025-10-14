@@ -246,7 +246,7 @@ export const MultiUserApp: React.FC = () => {
 
       return {
         index: localIndex,
-        label: `${remainingDays} dBD`,
+        label: `${remainingDays} dbd`,
         price: entry.price,
         demand: rawDemand,
         rawDemand
