@@ -1436,31 +1436,23 @@ export const MultiUserApp: React.FC = () => {
                         <Input
                           type="number"
                           min={0}
-                          max={(() => {
-                            const capSeats = gameState.totalFixSeats || 500;
-                            const budget = (gameState as any).perTeamBudget || 0;
-                            const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
-                            const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                            return Math.max(0, Math.min(capSeats, capByBudget));
-                          })()}
                           value={bidQuantityInput}
                           placeholder="0"
                           onChange={(e) => {
                             const value = e.target.value;
-                            setBidQuantityInput(value);
                             if (value === '') {
+                              setBidQuantityInput(value);
                               updateTeamDecision({ fixSeatsPurchased: 0 });
                               return;
                             }
                             const parsed = Number(value);
-                            if (!Number.isFinite(parsed)) return;
-                            const capSeats = gameState.totalFixSeats || 500;
-                            const budget = (gameState as any).perTeamBudget || 0;
-                            const unit = currentTeam.decisions.fixSeatBidPrice && currentTeam.decisions.fixSeatBidPrice > 0 ? currentTeam.decisions.fixSeatBidPrice : (gameState.fixSeatPrice || 60);
-                            const capByBudget = unit > 0 ? Math.floor(budget / unit) : capSeats;
-                            const cap = Math.max(0, Math.min(capSeats, capByBudget));
-                            const numValue = Math.max(0, Math.min(cap, parsed));
-                            updateTeamDecision({ fixSeatsPurchased: numValue });
+                            if (!Number.isFinite(parsed)) {
+                              setBidQuantityInput(value);
+                              return;
+                            }
+                            const sanitized = Math.max(0, Math.floor(Math.min(parsed, Number.MAX_SAFE_INTEGER)));
+                            setBidQuantityInput(value);
+                            updateTeamDecision({ fixSeatsPurchased: sanitized });
                           }}
                           disabled={!gameState.isActive || gameState.currentPhase !== 'prePurchase'}
                           className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg font-mono min-h-[48px] rounded-xl"
@@ -1472,7 +1464,7 @@ export const MultiUserApp: React.FC = () => {
                       {showBudgetTile && budgetRemaining !== null ? ` | Remaining budget: €${budgetRemaining.toLocaleString('de-DE')}` : ''}
                     </div>
                     <div className="text-xs text-slate-400">
-                      Allocations are revealed once Phase 1 ends. Adjust your bid and quantity in the panel above to secure capacity.
+                      You can request any number of fixed seats; the airline still awards at most the published allotment to the highest bids. Allocations are revealed once Phase 1 ends—adjust your bid and quantity in the panel above to secure capacity.
                     </div>
                   </CardContent>
                 </Card>
