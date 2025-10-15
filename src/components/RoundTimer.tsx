@@ -158,7 +158,7 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
         type="button"
         onClick={() => setIsCollapsed(false)}
         className="fixed bottom-4 left-1/2 z-40 flex items-center gap-2 -translate-x-1/2 transform rounded-full border border-slate-600 bg-slate-900/90 px-4 py-2 text-sm font-medium text-slate-200 shadow-lg backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1 focus:ring-offset-slate-900"
-        aria-label="Timer öffnen"
+        aria-label="Open timer"
       >
         <Clock className="w-4 h-4 text-slate-300" />
         <span className="font-mono text-base text-white">
@@ -183,7 +183,7 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
             type="button"
             onClick={() => setIsCollapsed(true)}
             className="absolute right-2 top-2 rounded-full p-1 text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            aria-label="Timer minimieren"
+            aria-label="Minimize timer"
           >
             <ChevronDown className="w-4 h-4" />
           </button>

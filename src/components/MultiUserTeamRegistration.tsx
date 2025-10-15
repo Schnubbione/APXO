@@ -58,7 +58,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
     e.preventDefault();
     setSessionError(null);
     if (!selectedSessionId) {
-      setSessionError('Bitte wähle eine Session aus.');
+      setSessionError('Please choose a session.');
       return;
     }
     if (teamName.trim()) {
@@ -71,7 +71,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
     setSessionError(null);
     const trimmed = newSessionName.trim();
     if (!trimmed) {
-      setSessionError('Bitte gib einen Namen für die Session ein.');
+      setSessionError('Please enter a session name.');
       return;
     }
     createSession(trimmed, (result) => {
@@ -130,10 +130,10 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6" data-tutorial="team-registration">
             <div className="space-y-3">
-              <Label className="text-slate-300 text-sm font-medium">Session auswählen</Label>
+              <Label className="text-slate-300 text-sm font-medium">Select session</Label>
               {sessions.length === 0 ? (
                 <div className="text-sm text-slate-400 bg-slate-700/40 border border-slate-600/50 rounded-lg p-3">
-                  Noch keine Session vorhanden. Lege unten eine neue an.
+                  No sessions available yet. Create one below.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
@@ -157,11 +157,11 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                         <div className="flex items-center justify-between text-sm font-semibold">
                           <span>{session.name}</span>
                           <span className="text-xs text-slate-400">
-                            {session.teamCount} Team{session.teamCount === 1 ? '' : 's'}
+                            {session.teamCount} team{session.teamCount === 1 ? '' : 's'}
                           </span>
                         </div>
                         {session.isActive && (
-                          <div className="text-xs text-emerald-300 mt-1">Phase aktiv</div>
+                          <div className="text-xs text-emerald-300 mt-1">Phase active</div>
                         )}
                       </button>
                     );
@@ -175,18 +175,18 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                   onClick={refreshSessions}
                   className="px-3 py-2 text-sm bg-slate-800/70 border-slate-600 text-slate-200 hover:bg-slate-700/70"
                 >
-                  Sessions aktualisieren
+                  Refresh sessions
                 </Button>
               </div>
             </div>
 
             <div className="space-y-3">
-              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Neue Session erstellen</Label>
+              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Create new session</Label>
               <div className="flex gap-2">
                 <Input
                   id="new-session"
                   type="text"
-                  placeholder="Session-Name"
+                  placeholder="Session name"
                   value={newSessionName}
                   onChange={(e) => setNewSessionName(e.target.value)}
                   className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[48px] rounded-xl"
@@ -197,11 +197,11 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                   variant="outline"
                   className="bg-indigo-500/20 border-indigo-500/60 text-indigo-200 hover:bg-indigo-500/30 hover:text-white min-h-[48px] rounded-xl"
                 >
-                  Erstellen
+                  Create
                 </Button>
               </div>
               <p className="text-xs text-slate-400">
-                Session-Ersteller können den Multiplayer jederzeit starten.
+                Session creators can start multiplayer at any time.
               </p>
             </div>
 
@@ -239,7 +239,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
               disabled={!canJoin}
               data-tutorial="join-button"
             >
-              {isRoundActive ? 'Session läuft – bitte warten' : 'Session beitreten'}
+              {isRoundActive ? 'Session in progress - please wait' : 'Join session'}
             </Button>
 
             <div className="flex gap-3">
@@ -266,10 +266,10 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
 
           <div className="mt-8 pt-6 border-t border-slate-600">
             <div className="text-slate-300 text-sm font-medium mb-4">
-              {selectedSession ? `Teams in “${selectedSession.name}”` : 'Teams in ausgewählter Session'}
+              {selectedSession ? `Teams in "${selectedSession.name}"` : 'Teams in selected session'}
             </div>
             {!selectedSessionId ? (
-              <div className="text-slate-500 text-center py-4">Wähle eine Session, um registrierte Teams zu sehen.</div>
+              <div className="text-slate-500 text-center py-4">Select a session to view registered teams.</div>
             ) : isViewingSelectedSession ? (
               <div className="space-y-3 max-h-40 overflow-y-auto">
                 {gameState.teams.map((team) => (
@@ -284,7 +284,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
               </div>
             ) : (
               <div className="text-slate-500 text-center py-4">
-                {selectedSession ? `${selectedSession.teamCount} Teams registriert` : 'Keine Teams verfügbar'}
+                {selectedSession ? `${selectedSession.teamCount} team${selectedSession.teamCount === 1 ? '' : 's'} registered` : 'No teams available'}
               </div>
             )}
           </div>
