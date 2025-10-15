@@ -236,7 +236,7 @@ describe('GameService', () => {
       const teams = await GameService.getActiveTeams();
 
       expect(Team.findAll).toHaveBeenCalledWith({
-        where: { isActive: true },
+        where: { isActive: true, gameSessionId: 1 },
         include: [{
           model: RoundResult,
           where: { gameSessionId: 1 },
@@ -302,7 +302,7 @@ describe('GameService', () => {
   describe('deactivateInactiveTeams', () => {
     test('logs out teams that exceeded inactivity threshold', async () => {
       const now = new Date('2025-01-01T12:00:00Z');
-      const staleTeam = { id: 'team-1', name: 'Stale', socketId: 'socket-1' };
+      const staleTeam = { id: 'team-1', name: 'Stale', socketId: 'socket-1', gameSessionId: 'session-1' };
 
       Team.findAll
         .mockResolvedValueOnce([staleTeam])
@@ -317,7 +317,7 @@ describe('GameService', () => {
 
       const result = await GameService.deactivateInactiveTeams({ now });
 
-      expect(result.deactivated).toEqual([{ id: 'team-1', name: 'Stale', socketId: 'socket-1' }]);
+      expect(result.deactivated).toEqual([{ id: 'team-1', name: 'Stale', socketId: 'socket-1', gameSessionId: 'session-1' }]);
       expect(Team.update).toHaveBeenCalledWith({
         isActive: false,
         socketId: null,
@@ -325,7 +325,7 @@ describe('GameService', () => {
         resumeUntil: null,
         lastActiveAt: null
       }, { where: { id: ['team-1'] } });
-      expect(updateFixSpy).toHaveBeenCalledWith(session, { teamCount: 0, resetAvailable: true });
+      expect(updateFixSpy).toHaveBeenCalledWith(expect.objectContaining({ id: 'session-1' }), { teamCount: 0, resetAvailable: true });
 
       updateFixSpy.mockRestore();
     });

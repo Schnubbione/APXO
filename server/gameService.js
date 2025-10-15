@@ -28,6 +28,7 @@ const computeTeamBasedFixSeatShare = (teamCount) => clampShareValue((teamCount |
 const DEFAULT_TEAM_COUNT = 3;
 const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
 const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
+const DEFAULT_SESSION_SLUG = 'default-session';
 
 const slugify = (value = '') => {
   return value
@@ -94,6 +95,162 @@ const buildSettingsWithShare = (settings = {}, share, options = {}) => {
 export class GameService {
   static currentGameSession = null;
   static sessionCache = new Map();
+  static slugMigrationPromise = null;
+  static slugSchemaEnsured = false;
+  static slugLookupEnabled = true;
+
+  static async applySessionUpdates(session, values = {}) {
+    if (!session || !values || Object.keys(values).length === 0) {
+      return session;
+    }
+    if (typeof session.update === 'function') {
+      await session.update(values);
+      Object.assign(session, values);
+      return session;
+    }
+    if (typeof GameSessionModel.update === 'function') {
+      await GameSessionModel.update(values, { where: { id: session.id } });
+      Object.assign(session, values);
+      return session;
+    }
+    Object.assign(session, values);
+    return session;
+  }
+
+  static async ensureSessionSlugSupport() {
+    if (this.slugSchemaEnsured) return;
+    if (this.slugMigrationPromise) return this.slugMigrationPromise;
+    const sequelize = GameSessionModel?.sequelize;
+    if (!sequelize) {
+      this.slugSchemaEnsured = true;
+      this.slugLookupEnabled = false;
+      return;
+    }
+    if (typeof sequelize.getQueryInterface !== 'function') {
+      this.slugSchemaEnsured = true;
+      this.slugLookupEnabled = false;
+      return;
+    }
+    const queryInterface = sequelize.getQueryInterface();
+    const rawTable = GameSessionModel.getTableName();
+    const tableDetails = typeof rawTable === 'string'
+      ? { tableName: rawTable, schema: undefined }
+      : rawTable;
+    const tableName = tableDetails.tableName;
+    const schema = tableDetails.schema;
+    const tableRef = schema ? { tableName, schema } : tableName;
+
+    this.slugMigrationPromise = (async () => {
+      let definition;
+      try {
+        definition = schema
+          ? await queryInterface.describeTable(tableName, { schema })
+          : await queryInterface.describeTable(tableName);
+      } catch (error) {
+        console.warn('Unable to inspect GameSessions table while ensuring slug support:', error?.message || error);
+        this.slugSchemaEnsured = true;
+        this.slugLookupEnabled = false;
+        return;
+      }
+
+      if (definition?.slug) {
+        this.slugSchemaEnsured = true;
+        this.slugLookupEnabled = true;
+        return;
+      }
+
+      console.log('🔧 Detected legacy GameSessions table without slug column. Applying in-place migration.');
+      const slugAttribute = GameSessionModel.rawAttributes?.slug;
+
+      if (!slugAttribute) {
+        console.warn('Unable to locate slug attribute metadata; skipping slug migration.');
+        this.slugSchemaEnsured = true;
+        this.slugLookupEnabled = false;
+        return;
+      }
+
+      const columnDefinition = {
+        type: slugAttribute.type,
+        allowNull: true,
+        defaultValue: null
+      };
+
+      try {
+        await queryInterface.addColumn(tableRef, 'slug', columnDefinition);
+      } catch (error) {
+        // If the column already exists, mark as ensured and bail.
+        if (error?.message && /duplicate|exists/i.test(error.message)) {
+          this.slugSchemaEnsured = true;
+          this.slugLookupEnabled = true;
+          return;
+        }
+        console.error('Failed to add slug column to GameSessions table:', error);
+        this.slugSchemaEnsured = true;
+        this.slugLookupEnabled = false;
+        return;
+      }
+
+      const sessions = await GameSessionModel.findAll({
+        attributes: ['id', 'name'],
+        order: [['createdAt', 'ASC']]
+      });
+
+      const takenSlugs = new Set();
+      for (const session of sessions) {
+        const baseSlug = slugify(session.name) || `session-${session.id?.slice(0, 8) || Date.now().toString(36)}`;
+        let candidate = baseSlug || DEFAULT_SESSION_SLUG;
+        let counter = 1;
+        while (!candidate || takenSlugs.has(candidate)) {
+          candidate = `${baseSlug}-${counter++}`;
+        }
+        takenSlugs.add(candidate);
+        await this.applySessionUpdates(session, { slug: candidate });
+      }
+
+      // Ensure the default session slug exists for the first session if none assigned.
+      if (!takenSlugs.has(DEFAULT_SESSION_SLUG) && sessions.length > 0) {
+        const [firstSession] = sessions;
+        if (firstSession) {
+          await this.applySessionUpdates(firstSession, { slug: DEFAULT_SESSION_SLUG });
+          takenSlugs.add(DEFAULT_SESSION_SLUG);
+        }
+      }
+
+      try {
+        await queryInterface.changeColumn(tableRef, 'slug', {
+          type: slugAttribute.type,
+          allowNull: false,
+          defaultValue: DEFAULT_SESSION_SLUG
+        });
+      } catch (error) {
+        console.warn('Unable to enforce NOT NULL/default on slug column:', error?.message || error);
+      }
+
+      try {
+        await queryInterface.addIndex(tableRef, {
+          fields: ['slug'],
+          unique: true,
+          name: 'game_sessions_slug_unique'
+        });
+      } catch (error) {
+        if (!(error?.message && /exists|duplicate/i.test(error.message))) {
+          console.warn('Unable to create unique index for GameSession slug column:', error?.message || error);
+        }
+      }
+
+      this.slugSchemaEnsured = true;
+      this.slugLookupEnabled = true;
+      console.log('✅ GameSessions slug column migration completed.');
+    })().catch(error => {
+      console.error('Error while ensuring GameSession slug support:', error);
+      this.slugSchemaEnsured = true;
+      this.slugLookupEnabled = false;
+    }).finally(() => {
+      this.slugMigrationPromise = null;
+    });
+
+    return this.slugMigrationPromise;
+  }
 
   static buildDefaultSessionSettings(overrides = {}) {
     const totalSeats = Math.max(1, Math.round(Number(overrides.totalAircraftSeats ?? 1000)));
@@ -231,10 +388,15 @@ export class GameService {
    * @returns {Promise<GameSession>} The current active game session
    */
   static async getCurrentGameSession(sessionId = null) {
+    await this.ensureSessionSlugSupport();
     if (sessionId) {
       let session = this.sessionCache.get(sessionId);
       if (!session) {
-        session = await GameSessionModel.findByPk(sessionId);
+        if (typeof GameSessionModel.findByPk === 'function') {
+          session = await GameSessionModel.findByPk(sessionId);
+        } else if (this.currentGameSession?.id === sessionId) {
+          session = this.currentGameSession;
+        }
         if (!session) {
           throw new Error('Game session not found.');
         }
@@ -255,9 +417,13 @@ export class GameService {
       return this.currentGameSession;
     }
 
-    let session = await GameSessionModel.findOne({
-      where: { slug: 'default-session' }
-    });
+    let session = null;
+
+    if (this.slugLookupEnabled) {
+      session = await GameSessionModel.findOne({
+        where: { slug: DEFAULT_SESSION_SLUG }
+      });
+    }
 
     if (!session) {
       session = await GameSessionModel.findOne({
@@ -273,19 +439,22 @@ export class GameService {
     }
 
     if (!session) {
-      session = await GameSessionModel.create({
+      const defaultPayload = {
         name: 'Default Session',
-        slug: 'default-session',
         currentRound: 0,
         isActive: false,
         settings: this.buildDefaultSessionSettings()
-      });
+      };
+      if (this.slugLookupEnabled) {
+        defaultPayload.slug = DEFAULT_SESSION_SLUG;
+      }
+      session = await GameSessionModel.create(defaultPayload);
       await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
     } else {
       // Ensure slug + settings exist for legacy rows
       const updates = {};
-      if (!session.slug) {
-        updates.slug = 'default-session';
+      if (this.slugLookupEnabled && !session.slug) {
+        updates.slug = DEFAULT_SESSION_SLUG;
       }
       if (!session.name) {
         updates.name = 'Default Session';
@@ -294,8 +463,13 @@ export class GameService {
         updates.settings = this.buildDefaultSessionSettings();
       }
       if (Object.keys(updates).length > 0) {
-        await session.update(updates);
-        session = await GameSessionModel.findByPk(session.id); // refetch with updates
+        await this.applySessionUpdates(session, updates);
+        if (typeof GameSessionModel.findByPk === 'function') {
+          const refreshed = await GameSessionModel.findByPk(session.id);
+          if (refreshed) {
+            session = refreshed;
+          }
+        }
       }
     }
 
@@ -310,6 +484,7 @@ export class GameService {
   }
 
   static async listSessions() {
+    await this.ensureSessionSlugSupport();
     const sessions = await GameSessionModel.findAll({
       order: [['updatedAt', 'DESC']]
     });
@@ -332,6 +507,7 @@ export class GameService {
   }
 
   static async createSession({ name }) {
+    await this.ensureSessionSlugSupport();
     const inputName = (name || '').trim();
     if (!inputName) {
       throw new Error('Session name is required.');
@@ -340,25 +516,35 @@ export class GameService {
       throw new Error('Session name is too long (max 80 characters).');
     }
 
-    const baseSlug = slugify(inputName) || `session-${Date.now()}`;
-    let slug = baseSlug;
-    let suffix = 1;
-    // Ensure slug uniqueness
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const existing = await GameSessionModel.findOne({ where: { slug } });
-      if (!existing) break;
-      slug = `${baseSlug}-${suffix}`;
-      suffix += 1;
+    let slugPayload = null;
+
+    if (this.slugLookupEnabled) {
+      const baseSlug = slugify(inputName) || `session-${Date.now()}`;
+      let slug = baseSlug;
+      let suffix = 1;
+      // Ensure slug uniqueness
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const existing = await GameSessionModel.findOne({ where: { slug } });
+        if (!existing) break;
+        slug = `${baseSlug}-${suffix}`;
+        suffix += 1;
+      }
+      slugPayload = slug;
     }
 
-    const session = await GameSessionModel.create({
+    const creationPayload = {
       name: inputName,
-      slug,
       currentRound: 0,
       isActive: false,
       settings: this.buildDefaultSessionSettings()
-    });
+    };
+
+    if (slugPayload) {
+      creationPayload.slug = slugPayload;
+    }
+
+    const session = await GameSessionModel.create(creationPayload);
     await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
     this.sessionCache.set(session.id, session);
     return session;
