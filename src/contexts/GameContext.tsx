@@ -429,18 +429,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     practiceRef.current = practice;
   }, [practice]);
 
-  useEffect(() => {
-    if (!socket) {
-      hasInitialSessionSyncRef.current = false;
-      return;
-    }
-    if (hasInitialSessionSyncRef.current) return;
-    const initialSessionId = currentSessionId || sessions[0]?.id;
-    if (!initialSessionId) return;
-    hasInitialSessionSyncRef.current = true;
-    selectSession(initialSessionId);
-  }, [socket, currentSessionId, sessions, selectSession]);
-
   const extractRoundKey = (entry: any) => {
     const value = Number(entry?.roundNumber ?? entry?.round ?? entry?.id);
     return Number.isFinite(value) ? value : null;
@@ -965,6 +953,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentSessionId(sessionId);
     });
   }, [socket]);
+
+  useEffect(() => {
+    if (!socket) {
+      hasInitialSessionSyncRef.current = false;
+      return;
+    }
+    if (hasInitialSessionSyncRef.current) return;
+    const initialSessionId = currentSessionId || sessions[0]?.id;
+    if (!initialSessionId) return;
+    hasInitialSessionSyncRef.current = true;
+    selectSession(initialSessionId);
+  }, [socket, currentSessionId, sessions, selectSession]);
 
   const getActiveSessionId = useCallback(() => {
     if (currentSessionId) return currentSessionId;
