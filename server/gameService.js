@@ -27,6 +27,7 @@ const clampShareValue = (value) => {
 const computeTeamBasedFixSeatShare = (teamCount) => clampShareValue((teamCount || 0) * FIX_SHARE_PER_TEAM);
 const DEFAULT_TEAM_COUNT = 3;
 const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
+const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 
 const AGENT_V1_DEFAULTS = Object.freeze({
   ticksTotal: SIMULATION_DEFAULT_DAYS,
@@ -82,6 +83,70 @@ const buildSettingsWithShare = (settings = {}, share, options = {}) => {
 // Game Service - Handles all game-related database operations
 export class GameService {
   static currentGameSession = null;
+
+  static getInactivityTimeoutMs() {
+    const configured = Number(process.env.TEAM_INACTIVITY_TIMEOUT_MINUTES);
+    const minutes = Number.isFinite(configured) && configured > 0
+      ? configured
+      : DEFAULT_INACTIVITY_TIMEOUT_MINUTES;
+    return minutes * 60 * 1000;
+  }
+
+  static async deactivateInactiveTeams({ now = new Date() } = {}) {
+    const timeoutMs = this.getInactivityTimeoutMs();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return { cutoff: null, deactivated: [] };
+    }
+    const cutoff = new Date(now.getTime() - timeoutMs);
+    const staleTeams = await TeamModel.findAll({
+      where: {
+        isActive: true,
+        [Op.or]: [
+          { lastActiveAt: { [Op.lt]: cutoff } },
+          {
+            [Op.and]: [
+              { lastActiveAt: { [Op.is]: null } },
+              { createdAt: { [Op.lt]: cutoff } }
+            ]
+          }
+        ]
+      }
+    });
+    if (!staleTeams.length) {
+      return { cutoff, deactivated: [] };
+    }
+
+    const toDeactivate = staleTeams.map(team => ({
+      id: team.id,
+      name: team.name,
+      socketId: team.socketId
+    }));
+
+    const teamIds = toDeactivate.map(team => team.id);
+    await TeamModel.update(
+      {
+        isActive: false,
+        socketId: null,
+        resumeToken: null,
+        resumeUntil: null,
+        lastActiveAt: null
+      },
+      { where: { id: teamIds } }
+    );
+
+    try {
+      const session = await this.getCurrentGameSession();
+      const activeTeams = await this.getActiveTeams();
+      await this.updateFixSeatShare(session, {
+        teamCount: activeTeams.length,
+        resetAvailable: true
+      });
+    } catch (e) {
+      console.warn('Warning while updating fix seat share after inactivity cleanup:', e?.message || e);
+    }
+
+    return { cutoff, deactivated: toDeactivate };
+  }
 
   static async updateFixSeatShare(session = null, { teamCount, resetAvailable = false, availableFixSeatsOverride } = {}) {
     const targetSession = session ?? await this.getCurrentGameSession();
@@ -240,7 +305,7 @@ export class GameService {
       next.fixSeatsAllocated = team.decisions.fixSeatsAllocated;
     }
 
-    await team.update({ decisions: next });
+    await team.update({ decisions: next, lastActiveAt: new Date() });
     return team;
   }
 
@@ -319,6 +384,7 @@ export class GameService {
           isActive: true,
           resumeToken: token,
           resumeUntil,
+          lastActiveAt: new Date(),
           decisions: defaultDecisions,
           totalProfit: 0,
           totalRevenue: 0
@@ -338,6 +404,7 @@ export class GameService {
         name: normalizedName,
         resumeToken: token,
         resumeUntil,
+        lastActiveAt: new Date(),
         decisions: {
           price: 500,
           fixSeatsPurchased: 0,
@@ -366,7 +433,7 @@ export class GameService {
     const team = await TeamModel.findOne({ where: { resumeToken: token } });
     if (!team) return null;
   const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
-  await team.update({ socketId, isActive: true, resumeUntil });
+  await team.update({ socketId, isActive: true, resumeUntil, lastActiveAt: new Date() });
     const session = await this.getCurrentGameSession();
     const activeTeams = await this.getActiveTeams();
     await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
@@ -377,7 +444,7 @@ export class GameService {
   static async logoutTeam(socketId) {
     const team = await TeamModel.findOne({ where: { socketId } });
     if (!team) return null;
-    await team.update({ isActive: false, socketId: null, resumeToken: null });
+    await team.update({ isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null });
     const session = await this.getCurrentGameSession();
     const activeTeams = await this.getActiveTeams();
     await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
@@ -1417,7 +1484,7 @@ export class GameService {
   static async removeTeam(socketId) {
     const team = await TeamModel.findOne({ where: { socketId } });
     if (team) {
-      await team.update({ isActive: false });
+      await team.update({ isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null });
       console.log(`Team ${team.name} deactivated due to disconnect`);
       const session = await this.getCurrentGameSession();
       const activeTeams = await this.getActiveTeams();
@@ -1430,7 +1497,7 @@ export class GameService {
     try {
       // Deactivate all teams
       await TeamModel.update(
-        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null },
+        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
         { where: {} }
       );
 
@@ -1504,7 +1571,7 @@ export class GameService {
     try {
       // Deactivate all current teams (but keep them in database for potential high scores)
       await TeamModel.update(
-        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null },
+        { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
         { where: {} }
       );
 

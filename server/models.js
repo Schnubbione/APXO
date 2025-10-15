@@ -26,6 +26,11 @@ export const Team = sequelize.define('Team', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  lastActiveAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    defaultValue: DataTypes.NOW
+  },
   decisions: {
     type: DataTypes.JSON,
     defaultValue: {

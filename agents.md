@@ -22,6 +22,7 @@ This document compresses the current project context and outlines sensible next 
   - `VITE_SERVER_URL` (e.g. `http://localhost:3001`)
 - Backend `server/.env`:
   - `PORT`, `NODE_ENV`, `FRONTEND_URL`, optional local `ADMIN_PASSWORD`
+  - Optional `TEAM_INACTIVITY_TIMEOUT_MINUTES` to override the 15 minute idle logout
 - Root `package.json` (selection):
   - `dev`, `build`, `preview` (frontend)
   - `server`, `server:dev` (start backend from root)
@@ -39,6 +40,7 @@ This document compresses the current project context and outlines sensible next 
 - Airline guardrails in place: Phase 1 releases 8 % of seats per active team by default (auto-calculated), the auction enforces a minimum bid tied to the airline floor, pooling sales pause before breaching the insolvency limit, and profit is clamped at −€20 000 everywhere it is displayed. Live repricing now uses a headroom-weighted gamma step so the airline reaches €400 only after sustained overflow demand.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.
+- Active teams are automatically logged out after 15 minutes of inactivity (configurable).
 
 ## Known Gaps & Risks
 - **Engine Integration**: Backend still executes legacy calculations. Socket events must migrate to the new engine.

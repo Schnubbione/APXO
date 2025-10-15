@@ -731,6 +731,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRegistrationError(error);
     });
 
+    newSocket.on('teamAutoLogout', (payload: { message?: string; timeoutMinutes?: number; teamId?: string; teamName?: string }) => {
+      console.log('Team auto-logged out by server:', payload);
+      localStorage.removeItem('apxo_resume_token');
+      setCurrentTeam(null);
+      setRegistrationError(payload?.message ?? 'You were logged out due to inactivity. Please register again to continue.');
+      setGameState(prev => {
+        if (!prev?.teams?.length) return prev;
+        const filteredTeams = prev.teams.filter(team => team.id !== payload?.teamId);
+        if (filteredTeams.length === prev.teams.length) return prev;
+        return { ...prev, teams: filteredTeams };
+      });
+    });
+
     // Listen for admin login
     newSocket.on('adminLoginSuccess', () => {
       console.log('Admin login successful');

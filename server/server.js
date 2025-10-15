@@ -9,6 +9,7 @@ import GameService from './gameService.js';
 import { calculateRoundResults, calculateMarketShares } from './calc.js';
 
 const FIX_SHARE_PER_TEAM = 0.08;
+const TEAM_INACTIVITY_CHECK_INTERVAL_MS = 60_000;
 
 // Load environment variables
 if (process.env.NODE_ENV === 'production') {
@@ -97,6 +98,16 @@ async function initializeServer() {
     // Sync database models
     await syncDatabase();
 
+    // Ensure active teams without timestamps get current activity marker
+    try {
+      await Team.update(
+        { lastActiveAt: new Date() },
+        { where: { isActive: true, lastActiveAt: null } }
+      );
+    } catch (e) {
+      console.warn('Warning while normalizing lastActiveAt values:', e?.message || e);
+    }
+
     // Sanitize any persisted settings that might contain legacy secrets
     try {
       const session = await GameService.getCurrentGameSession();
@@ -114,10 +125,22 @@ async function initializeServer() {
     // Start the server
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, () => {
+      const timeoutMs = GameService.getInactivityTimeoutMs();
+      if (timeoutMs > 0) {
+        if (teamInactivityInterval) clearInterval(teamInactivityInterval);
+        teamInactivityInterval = setInterval(
+          enforceTeamInactivityTimeout,
+          TEAM_INACTIVITY_CHECK_INTERVAL_MS
+        );
+        const timeoutMinutes = Math.max(1, Math.round(timeoutMs / 60000));
+        console.log(`⏱️ Team inactivity timeout enabled (${timeoutMinutes} min; checks every ${Math.round(TEAM_INACTIVITY_CHECK_INTERVAL_MS / 1000)}s)`);
+      }
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5175'}`);
     });
+    // Run initial cleanup once on boot
+    await enforceTeamInactivityTimeout();
 
   } catch (error) {
     console.error('Failed to initialize server:', error);
@@ -131,6 +154,7 @@ let adminSocket = null;
 let poolingMarketInterval = null; // For periodic pooling market updates
 let roundTimerInterval = null; // For round timer countdown
 let remainingTime = 0; // Remaining time in seconds
+let teamInactivityInterval = null; // Background cleanup for inactive teams
 
 // Start periodic pooling market updates
 function startPoolingMarketUpdates() {
@@ -402,6 +426,36 @@ async function broadcastGameState() {
   }
 }
 
+async function enforceTeamInactivityTimeout() {
+  try {
+    const { deactivated } = await GameService.deactivateInactiveTeams();
+    if (!deactivated?.length) return;
+
+    const timeoutMs = GameService.getInactivityTimeoutMs();
+    const timeoutMinutes = Math.max(1, Math.round(timeoutMs / 60000));
+    const message = `You were logged out after ${timeoutMinutes} minutes of inactivity. Please register again to continue playing.`;
+
+    for (const team of deactivated) {
+      if (team.socketId) {
+        io.to(team.socketId).emit('teamAutoLogout', {
+          reason: 'inactiveTimeout',
+          message,
+          teamId: team.id,
+          teamName: team.name,
+          timeoutMinutes
+        });
+      }
+    }
+
+    const names = deactivated.map(team => team.name).join(', ');
+    console.log(`👋 Logged out inactive teams (${deactivated.length}): ${names || 'n/a'}`);
+
+    await broadcastGameState();
+  } catch (error) {
+    console.error('Error enforcing team inactivity timeout:', error);
+  }
+}
+
 // Socket.io connection handling
 io.on('connection', async (socket) => {
   console.log('User connected:', socket.id);
@@ -630,6 +684,12 @@ io.on('connection', async (socket) => {
       if (!humanTeam) {
         socket.emit('practiceError', 'Please register your team before starting practice mode.');
         return;
+      }
+
+      try {
+        await humanTeam.update({ lastActiveAt: new Date() });
+      } catch (e) {
+        console.warn('Unable to refresh lastActiveAt for practice mode:', e?.message || e);
       }
 
       // Helpers for randomness
@@ -1223,7 +1283,7 @@ io.on('connection', async (socket) => {
       const teams = await GameService.getActiveTeams();
       const t = teams.find(t => t.socketId === socket.id);
       if (t) {
-        await t.update({ socketId: null });
+        await t.update({ socketId: null, lastActiveAt: new Date() });
       }
 
       // Clear admin socket if admin disconnects

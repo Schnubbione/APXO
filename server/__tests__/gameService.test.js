@@ -168,6 +168,7 @@ describe('GameService', () => {
           fixSeatsPurchased: 0,
           poolingAllocation: 0
         }),
+        lastActiveAt: expect.any(Date),
         totalProfit: 0,
         totalRevenue: 0
       }));
@@ -208,15 +209,16 @@ describe('GameService', () => {
         fixSeatBidPrice: 120
       });
 
-      expect(mockTeam.update).toHaveBeenCalledWith({
+      expect(mockTeam.update).toHaveBeenCalledWith(expect.objectContaining({
         decisions: expect.objectContaining({
           price: 205,
           fixSeatsPurchased: 2,
           fixSeatsRequested: 2,
           poolingAllocation: 25,
           fixSeatBidPrice: 60
-        })
-      });
+        }),
+        lastActiveAt: expect.any(Date)
+      }));
     });
   });
 
@@ -280,7 +282,13 @@ describe('GameService', () => {
       await GameService.removeTeam('socket123');
 
       expect(Team.findOne).toHaveBeenCalledWith({ where: { socketId: 'socket123' } });
-      expect(mockTeam.update).toHaveBeenCalledWith({ isActive: false });
+      expect(mockTeam.update).toHaveBeenCalledWith({
+        isActive: false,
+        socketId: null,
+        resumeToken: null,
+        resumeUntil: null,
+        lastActiveAt: null
+      });
     });
 
     test('should handle team not found gracefully', async () => {
@@ -288,6 +296,47 @@ describe('GameService', () => {
 
       // Should not throw error
       await expect(GameService.removeTeam('socket123')).resolves.not.toThrow();
+    });
+  });
+
+  describe('deactivateInactiveTeams', () => {
+    test('logs out teams that exceeded inactivity threshold', async () => {
+      const now = new Date('2025-01-01T12:00:00Z');
+      const staleTeam = { id: 'team-1', name: 'Stale', socketId: 'socket-1' };
+
+      Team.findAll
+        .mockResolvedValueOnce([staleTeam])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([]);
+      Team.update.mockResolvedValue([1]);
+
+      const session = { id: 'session-1', settings: {}, update: jest.fn().mockResolvedValue(undefined) };
+      GameService.currentGameSession = session;
+
+      const updateFixSpy = jest.spyOn(GameService, 'updateFixSeatShare').mockResolvedValue({});
+
+      const result = await GameService.deactivateInactiveTeams({ now });
+
+      expect(result.deactivated).toEqual([{ id: 'team-1', name: 'Stale', socketId: 'socket-1' }]);
+      expect(Team.update).toHaveBeenCalledWith({
+        isActive: false,
+        socketId: null,
+        resumeToken: null,
+        resumeUntil: null,
+        lastActiveAt: null
+      }, { where: { id: ['team-1'] } });
+      expect(updateFixSpy).toHaveBeenCalledWith(session, { teamCount: 0, resetAvailable: true });
+
+      updateFixSpy.mockRestore();
+    });
+
+    test('returns empty result when no teams are inactive', async () => {
+      Team.findAll.mockResolvedValueOnce([]).mockResolvedValue([]);
+
+      const result = await GameService.deactivateInactiveTeams();
+
+      expect(result.deactivated).toEqual([]);
+      expect(Team.update).not.toHaveBeenCalled();
     });
   });
 
