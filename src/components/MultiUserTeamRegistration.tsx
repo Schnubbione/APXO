@@ -130,7 +130,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6" data-tutorial="team-registration">
             <div className="space-y-3">
-              <Label className="text-slate-300 text-sm font-medium">Select session</Label>
+              <Label className="text-slate-300 text-sm font-medium">Select a session</Label>
               {sessions.length === 0 ? (
                 <div className="text-sm text-slate-400 bg-slate-700/40 border border-slate-600/50 rounded-lg p-3">
                   No sessions available yet. Create one below.
@@ -181,7 +181,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
             </div>
 
             <div className="space-y-3">
-              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Create new session</Label>
+              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Create a new session</Label>
               <div className="flex gap-2">
                 <Input
                   id="new-session"
@@ -201,7 +201,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 </Button>
               </div>
               <p className="text-xs text-slate-400">
-                Session creators can start multiplayer at any time.
+                Session creators can launch multiplayer at any time.
               </p>
             </div>
 
@@ -266,7 +266,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
 
           <div className="mt-8 pt-6 border-t border-slate-600">
             <div className="text-slate-300 text-sm font-medium mb-4">
-              {selectedSession ? `Teams in "${selectedSession.name}"` : 'Teams in selected session'}
+              {selectedSession ? `Teams in "${selectedSession.name}"` : 'Teams in the selected session'}
             </div>
             {!selectedSessionId ? (
               <div className="text-slate-500 text-center py-4">Select a session to view registered teams.</div>
