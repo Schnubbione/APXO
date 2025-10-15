@@ -7,10 +7,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node server.js",
-  "test": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "jest --testPathPattern=integration"
+    "test:integration": "jest --testPathPattern=integration",
+    "migrate:sessions": "node scripts/migrateSessions.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

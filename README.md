@@ -10,9 +10,10 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Round Evaluation View** - Post-round recap for teams that distills Phase 1 allocations plus Phase 2 market performance while hiding live controls.
-- **Streamlined Admin Controls** - Phase control card on the admin dashboard now bundles Start/End Phase buttons with a guarded “Reset Current Game” action for quick recoveries.
+- **Multi-Session Lobby** - Sessions have names, owners, and isolated timers; the first player becomes session owner and can launch a multiplayer round with standard timings. Admins can hop between sessions from the dashboard.
+- **Streamlined Admin Controls** - Session banner + phase control card bundle Start/End buttons with guarded reset actions for quick recoveries.
 - **Airline Guardrails** - Admin-only controls for an auto-calculated fixed-seat share (8 % of aircraft seats per active team), a hard minimum bid aligned with the airline floor, and automatic pooling safety to prevent forced insolvency.
-- **Multi-User Lobby** - Socket.IO keeps team registration, admin controls, snapshots, and the leaderboard in sync.
+- **Migration Script** - `npm run migrate:sessions` upgrades existing databases (adds session columns, assigns defaults, enforces slug uniqueness).
 - **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
 - **CI-Ready Tooling** - Jest/Vitest, Playwright, ESLint. Engine-specific tests safeguard the core domain.
 
@@ -46,6 +47,18 @@ cd APXO
 npm install
 cd server && npm install && cd ..
 ```
+
+### Database Migration (once per environment)
+
+Add the session columns and defaults to your local database:
+
+```bash
+cd server
+npm run migrate:sessions
+cd ..
+```
+
+> The script is idempotent. It will create a default session (if missing), assign legacy teams to it, and ensure unique slugs.
 
 ### Environment Variables
 
@@ -149,19 +162,19 @@ When a round ends the UI switches into an evaluation state:
 
 ### Teams
 
-1. Open the browser and register the team.
-2. Phase 1: submit the bid and wait for the auction result.
-3. Phase 2: throughout the countdown choose price, push level, fixed hold %, and optional tool when needed.
-4. Monitor live snapshots and debriefs to stay ahead of rivals; once the round ends, review the evaluation recap before the next phase.
-5. Use practice mode to explore strategies without a live session.
+1. Join or create a session in the lobby, then register your team name.
+2. In Phase 1 submit a sealed bid and wait for the allocation summary.
+3. In Phase 2 adjust price, push level, fixed hold %, and optional tool each tick to maximise profit.
+4. Monitor the live snapshots and the evaluation recap after the round ends; prepare for the next launch.
+5. Use practice mode to test strategies without affecting live sessions.
 
 ### Admins
 
-1. Sign in via "Admin Login" (password from the environment file).
-2. Manage the lobby, approve teams, start the fixed-seat auction.
-3. Close the auction to display the allocation summary.
-4. Start the live market: countdown, decisions, and debrief run automatically; the admin can reset anytime via the phase control card.
-5. Practice mode is useful for onboarding new teams.
+1. Sign in via “Admin Login” (password from the environment file).
+2. Use the session banner to switch between sessions; the first team in a session becomes owner and can launch rounds.
+3. Start/stop phases with the control card; resets now operate per session (global resets still exist if required).
+4. Run analytics from the current session to review demand curves, profit trends, and round history.
+5. Practice mode remains a quick way to onboard new teams.
 
 ---
 
@@ -179,6 +192,9 @@ npm run test:e2e
 
 # Storybook for UI components
 npm run storybook
+
+# Session migration helper
+cd server && npm run migrate:sessions
 ```
 
 ESLint (`npm run lint`) and Vitest (via the Vite setup) are available; add Chromatic/CI workflows as needed.

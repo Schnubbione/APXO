@@ -29,6 +29,16 @@ const DEFAULT_TEAM_COUNT = 3;
 const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
 const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 
+const slugify = (value = '') => {
+  return value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+};
+
 const AGENT_V1_DEFAULTS = Object.freeze({
   ticksTotal: SIMULATION_DEFAULT_DAYS,
   secondsPerTick: SIMULATION_SECONDS_PER_DAY,
@@ -83,6 +93,49 @@ const buildSettingsWithShare = (settings = {}, share, options = {}) => {
 // Game Service - Handles all game-related database operations
 export class GameService {
   static currentGameSession = null;
+  static sessionCache = new Map();
+
+  static buildDefaultSessionSettings(overrides = {}) {
+    const totalSeats = Math.max(1, Math.round(Number(overrides.totalAircraftSeats ?? 1000)));
+    const share = clampShareValue(overrides.fixSeatShare ?? AGENT_V1_DEFAULTS.fixSeatShare);
+    const totalFixSeats = Math.round(totalSeats * share);
+    const poolingReserveCapacity = Math.max(0, totalSeats - totalFixSeats);
+    return {
+      baseDemand: 100,
+      spread: 50,
+      shock: 0.1,
+      sharedMarket: true,
+      seed: 42,
+      roundTime: 180,
+      priceElasticity: -1.5,
+      crossElasticity: 0.3,
+      costVolatility: 0.05,
+      demandVolatility: 0.1,
+      marketConcentration: 0.7,
+      currentPhase: 'prePurchase',
+      phaseTime: 600,
+      totalCapacity: totalSeats,
+      totalAircraftSeats: totalSeats,
+      fixSeatShare: share,
+      totalFixSeats,
+      availableFixSeats: totalFixSeats,
+      poolingReserveCapacity,
+      fixSeatPrice: 60,
+      fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
+      airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
+      airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
+      poolingCost: 90,
+      simulationMonths: 12,
+      pricePriorityBoost: AGENT_V1_DEFAULTS.pricePriorityBoost,
+      departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
+      poolingMarketUpdateInterval: 1,
+      simulatedWeeksPerUpdate: 7,
+      referencePrice: 199,
+      marketPriceElasticity: -0.9,
+      perTeamBudget: 10000,
+      ...overrides
+    };
+  }
 
   static getInactivityTimeoutMs() {
     const configured = Number(process.env.TEAM_INACTIVITY_TIMEOUT_MINUTES);
@@ -119,7 +172,8 @@ export class GameService {
     const toDeactivate = staleTeams.map(team => ({
       id: team.id,
       name: team.name,
-      socketId: team.socketId
+      socketId: team.socketId,
+      gameSessionId: team.gameSessionId
     }));
 
     const teamIds = toDeactivate.map(team => team.id);
@@ -134,15 +188,18 @@ export class GameService {
       { where: { id: teamIds } }
     );
 
-    try {
-      const session = await this.getCurrentGameSession();
-      const activeTeams = await this.getActiveTeams();
-      await this.updateFixSeatShare(session, {
-        teamCount: activeTeams.length,
-        resetAvailable: true
-      });
-    } catch (e) {
-      console.warn('Warning while updating fix seat share after inactivity cleanup:', e?.message || e);
+    const impactedSessionIds = [...new Set(toDeactivate.map(team => team.gameSessionId).filter(Boolean))];
+    for (const sid of impactedSessionIds) {
+      try {
+        const session = await this.getCurrentGameSession(sid);
+        const activeTeams = await this.getActiveTeams(session.id);
+        await this.updateFixSeatShare(session, {
+          teamCount: activeTeams.length,
+          resetAvailable: true
+        });
+      } catch (e) {
+        console.warn('Warning while updating fix seat share after inactivity cleanup:', e?.message || e);
+      }
     }
 
     return { cutoff, deactivated: toDeactivate };
@@ -150,9 +207,10 @@ export class GameService {
 
   static async updateFixSeatShare(session = null, { teamCount, resetAvailable = false, availableFixSeatsOverride } = {}) {
     const targetSession = session ?? await this.getCurrentGameSession();
+    const targetSessionId = targetSession?.id ?? null;
     let resolvedTeamCount = typeof teamCount === 'number' ? teamCount : null;
     if (resolvedTeamCount === null) {
-      const teams = await this.getActiveTeams();
+      const teams = await this.getActiveTeams(targetSessionId);
       resolvedTeamCount = teams.length;
     }
     const share = computeTeamBasedFixSeatShare(resolvedTeamCount);
@@ -169,64 +227,152 @@ export class GameService {
 
   /**
    * Initialize or get current game session
+   * @param {string|null} sessionId - Optional explicit session ID
    * @returns {Promise<GameSession>} The current active game session
    */
-  static async getCurrentGameSession() {
-    if (!this.currentGameSession) {
-      // Try to find an active session
-      let session = await GameSessionModel.findOne({
+  static async getCurrentGameSession(sessionId = null) {
+    if (sessionId) {
+      let session = this.sessionCache.get(sessionId);
+      if (!session) {
+        session = await GameSessionModel.findByPk(sessionId);
+        if (!session) {
+          throw new Error('Game session not found.');
+        }
+        this.sessionCache.set(session.id, session);
+      }
+      // Ensure settings exist
+      if (!session.settings) {
+        const defaults = this.buildDefaultSessionSettings();
+        await session.update({ settings: defaults });
+        session.settings = defaults;
+      }
+      this.currentGameSession = session;
+      return session;
+    }
+
+    if (this.currentGameSession) {
+      this.sessionCache.set(this.currentGameSession.id, this.currentGameSession);
+      return this.currentGameSession;
+    }
+
+    let session = await GameSessionModel.findOne({
+      where: { slug: 'default-session' }
+    });
+
+    if (!session) {
+      session = await GameSessionModel.findOne({
         where: { isActive: true },
         order: [['updatedAt', 'DESC']]
       });
-
-      if (!session) {
-        // Create new session if none exists
-        session = await GameSessionModel.create({
-          currentRound: 0,
-          isActive: false,
-          settings: {
-            baseDemand: 100,
-            spread: 50,
-            shock: 0.1,
-            sharedMarket: true,
-            seed: 42,
-            roundTime: 180,
-            priceElasticity: -1.5,
-            crossElasticity: 0.3,
-            costVolatility: 0.05,
-            demandVolatility: 0.1,
-            marketConcentration: 0.7,
-            currentPhase: 'prePurchase',
-            phaseTime: 600,
-            totalCapacity: 1000,
-            totalAircraftSeats: 1000,
-            fixSeatShare: AGENT_V1_DEFAULTS.fixSeatShare,
-            totalFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
-            availableFixSeats: Math.round(1000 * AGENT_V1_DEFAULTS.fixSeatShare),
-            poolingReserveCapacity: Math.round(1000 * (1 - AGENT_V1_DEFAULTS.fixSeatShare)),
-            fixSeatPrice: 60,
-            fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
-            airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
-            airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
-            poolingCost: 90,
-            simulationMonths: 12,
-            pricePriorityBoost: AGENT_V1_DEFAULTS.pricePriorityBoost,
-            departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
-            poolingMarketUpdateInterval: 1, // 1 second = 7 days
-            simulatedWeeksPerUpdate: 7, // 7 days per update
-            referencePrice: 199,
-            marketPriceElasticity: -0.9,
-            // Budget per team (equal for all teams)
-            perTeamBudget: 10000
-          }
-        });
-        await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
-      }
-
-      this.currentGameSession = session;
     }
 
-    return this.currentGameSession;
+    if (!session) {
+      session = await GameSessionModel.findOne({
+        order: [['updatedAt', 'DESC']]
+      });
+    }
+
+    if (!session) {
+      session = await GameSessionModel.create({
+        name: 'Default Session',
+        slug: 'default-session',
+        currentRound: 0,
+        isActive: false,
+        settings: this.buildDefaultSessionSettings()
+      });
+      await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
+    } else {
+      // Ensure slug + settings exist for legacy rows
+      const updates = {};
+      if (!session.slug) {
+        updates.slug = 'default-session';
+      }
+      if (!session.name) {
+        updates.name = 'Default Session';
+      }
+      if (!session.settings) {
+        updates.settings = this.buildDefaultSessionSettings();
+      }
+      if (Object.keys(updates).length > 0) {
+        await session.update(updates);
+        session = await GameSessionModel.findByPk(session.id); // refetch with updates
+      }
+    }
+
+    this.currentGameSession = session;
+    if (!session.settings) {
+      const defaults = this.buildDefaultSessionSettings();
+      await session.update({ settings: defaults });
+      session.settings = defaults;
+    }
+    this.sessionCache.set(session.id, session);
+    return session;
+  }
+
+  static async listSessions() {
+    const sessions = await GameSessionModel.findAll({
+      order: [['updatedAt', 'DESC']]
+    });
+
+    const summaries = [];
+    for (const session of sessions) {
+      const teamCount = await TeamModel.count({
+        where: { gameSessionId: session.id, isActive: true }
+      });
+      summaries.push({
+        id: session.id,
+        name: session.name,
+        slug: session.slug,
+        isActive: session.isActive,
+        ownerTeamId: session.ownerTeamId,
+        teamCount
+      });
+    }
+    return summaries;
+  }
+
+  static async createSession({ name }) {
+    const inputName = (name || '').trim();
+    if (!inputName) {
+      throw new Error('Session name is required.');
+    }
+    if (inputName.length > 80) {
+      throw new Error('Session name is too long (max 80 characters).');
+    }
+
+    const baseSlug = slugify(inputName) || `session-${Date.now()}`;
+    let slug = baseSlug;
+    let suffix = 1;
+    // Ensure slug uniqueness
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const existing = await GameSessionModel.findOne({ where: { slug } });
+      if (!existing) break;
+      slug = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+
+    const session = await GameSessionModel.create({
+      name: inputName,
+      slug,
+      currentRound: 0,
+      isActive: false,
+      settings: this.buildDefaultSessionSettings()
+    });
+    await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
+    this.sessionCache.set(session.id, session);
+    return session;
+  }
+
+  static async updateSessionOwner(sessionId, ownerTeamId) {
+    const session = await this.getCurrentGameSession(sessionId);
+    if (!session) {
+      throw new Error('Session not found.');
+    }
+    await session.update({ ownerTeamId });
+    session.ownerTeamId = ownerTeamId;
+    this.sessionCache.set(session.id, session);
+    return session;
   }
 
   /**
@@ -242,7 +388,7 @@ export class GameService {
     const team = await TeamModel.findOne({ where: { socketId, isActive: true } });
     if (!team) return null;
 
-    const session = await this.getCurrentGameSession();
+    const session = await this.getCurrentGameSession(team.gameSessionId);
     const settings = session.settings || {};
 
     // Build sanitized update
@@ -313,10 +459,10 @@ export class GameService {
    * Get all active teams for current session
    * @returns {Promise<Team[]>} Array of active teams
    */
-  static async getActiveTeams() {
-    const session = await this.getCurrentGameSession();
+  static async getActiveTeams(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
     return await TeamModel.findAll({
-      where: { isActive: true },
+      where: { isActive: true, gameSessionId: session.id },
       include: [{
         model: RoundResultModel,
         where: { gameSessionId: session.id },
@@ -332,7 +478,7 @@ export class GameService {
    * @returns {Promise<Team>} The registered team
    * @throws {Error} If team name is invalid or already exists
    */
-  static async registerTeam(socketId, teamName) {
+  static async registerTeam(socketId, teamName, sessionId) {
     try {
       // Normalize and validate input
       const normalizedName = (teamName || '').trim();
@@ -344,13 +490,13 @@ export class GameService {
       }
 
       // Check if a round is currently active
-      const session = await this.getCurrentGameSession();
+      const session = await this.getCurrentGameSession(sessionId);
       if (session.isActive) {
         throw new Error('Cannot join the game while a round is in progress. Please wait for the current round to end.');
       }
 
       // Check if any team with this name exists (active or inactive)
-      const anyTeamWithName = await TeamModel.findOne({ where: { name: normalizedName } });
+      const anyTeamWithName = await TeamModel.findOne({ where: { name: normalizedName, gameSessionId: session.id } });
 
       if (anyTeamWithName) {
         if (anyTeamWithName.isActive) {
@@ -368,7 +514,6 @@ export class GameService {
 
         // Optionally wipe current-session round results for this team to avoid leftovers
         try {
-          const session = await this.getCurrentGameSession();
           await RoundResultModel.destroy({ where: { teamId: anyTeamWithName.id, gameSessionId: session.id } });
         } catch (e) {
           // Non-fatal: continue even if cleanup fails
@@ -387,11 +532,16 @@ export class GameService {
           lastActiveAt: new Date(),
           decisions: defaultDecisions,
           totalProfit: 0,
-          totalRevenue: 0
+          totalRevenue: 0,
+          gameSessionId: session.id
         });
 
-        const activeTeams = await this.getActiveTeams();
+        const activeTeams = await this.getActiveTeams(session.id);
         await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
+
+        if (!session.ownerTeamId) {
+          await this.updateSessionOwner(session.id, anyTeamWithName.id);
+        }
 
         return anyTeamWithName;
       }
@@ -411,11 +561,16 @@ export class GameService {
           poolingAllocation: 0
         },
         totalProfit: 0,
-        totalRevenue: 0
+        totalRevenue: 0,
+        gameSessionId: session.id
       });
 
-      const activeTeams = await this.getActiveTeams();
+      const activeTeams = await this.getActiveTeams(session.id);
       await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
+
+      if (!session.ownerTeamId) {
+        await this.updateSessionOwner(session.id, team.id);
+      }
 
       return team;
     } catch (error) {
@@ -433,9 +588,9 @@ export class GameService {
     const team = await TeamModel.findOne({ where: { resumeToken: token } });
     if (!team) return null;
   const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
-  await team.update({ socketId, isActive: true, resumeUntil, lastActiveAt: new Date() });
-    const session = await this.getCurrentGameSession();
-    const activeTeams = await this.getActiveTeams();
+    await team.update({ socketId, isActive: true, resumeUntil, lastActiveAt: new Date() });
+    const session = await this.getCurrentGameSession(team.gameSessionId);
+    const activeTeams = await this.getActiveTeams(session.id);
     await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     return team;
   }
@@ -445,16 +600,16 @@ export class GameService {
     const team = await TeamModel.findOne({ where: { socketId } });
     if (!team) return null;
     await team.update({ isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null });
-    const session = await this.getCurrentGameSession();
-    const activeTeams = await this.getActiveTeams();
+    const session = await this.getCurrentGameSession(team.gameSessionId);
+    const activeTeams = await this.getActiveTeams(session.id);
     await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     return team;
   }
 
     // Allocate fix seats at end of first round
-  static async allocateFixSeats() {
-    const session = await this.getCurrentGameSession();
-    const teams = await this.getActiveTeams();
+  static async allocateFixSeats(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
+    const teams = await this.getActiveTeams(session.id);
     const settings = session.settings || {};
 
     const totalCapacity = settings.totalAircraftSeats || settings.totalCapacity || 1000;
@@ -630,8 +785,8 @@ export class GameService {
   }
 
   // Update game settings
-  static async updateGameSettings(settings) {
-    const session = await this.getCurrentGameSession();
+  static async updateGameSettings(settings, sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
     const currentSettings = session.settings || {};
     let updatedSettings = { ...currentSettings, ...settings };
 
@@ -657,7 +812,7 @@ export class GameService {
     updatedSettings.totalAircraftSeats = effectiveTotalSeats;
     updatedSettings.totalCapacity = Math.max(1, Number(updatedSettings.totalCapacity || effectiveTotalSeats));
 
-    const activeTeams = await this.getActiveTeams();
+    const activeTeams = await this.getActiveTeams(session.id);
     const resolvedShare = computeTeamBasedFixSeatShare(activeTeams.length);
     updatedSettings = buildSettingsWithShare(updatedSettings, resolvedShare, { resetAvailableToFull: true });
 
@@ -675,8 +830,8 @@ export class GameService {
   }
 
   // Start pre-purchase phase
-  static async startPrePurchasePhase() {
-    const session = await this.getCurrentGameSession();
+  static async startPrePurchasePhase(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
     const currentSettings = session.settings || {};
     const updatedSettings = {
       ...currentSettings,
@@ -692,8 +847,8 @@ export class GameService {
   }
 
   // Start simulation phase
-  static async startSimulationPhase() {
-    const session = await this.getCurrentGameSession();
+  static async startSimulationPhase(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
     const currentSettings = session.settings || {};
 
     const configuredTicks = Number.isFinite(Number(currentSettings.simulationTicksTotal))
@@ -705,7 +860,7 @@ export class GameService {
     const secondsPerTick = secondsPerDay;
     const dayStep = 1;
 
-    const teams = await this.getActiveTeams();
+    const teams = await this.getActiveTeams(session.id);
     const totalSeats = currentSettings.totalAircraftSeats || 1000;
     const baselineCapacity = Number.isFinite(Number(currentSettings.demandCurveBaselineCapacity))
       ? Math.max(1, Number(currentSettings.demandCurveBaselineCapacity))
@@ -818,8 +973,8 @@ export class GameService {
   }
 
   // End current phase
-  static async endPhase() {
-    const session = await this.getCurrentGameSession();
+  static async endPhase(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
     const currentSettings = session.settings || {};
     const currentPhase = currentSettings.currentPhase;
     let nextPhase = currentPhase;
@@ -843,9 +998,9 @@ export class GameService {
   }
 
   // End current round and calculate results
-  static async endRound(calculateRoundResults) {
-    const session = await this.getCurrentGameSession();
-    const teams = await this.getActiveTeams();
+  static async endRound(calculateRoundResults, sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
+    const teams = await this.getActiveTeams(session.id);
     const settings = session.settings || {};
     const simState = settings.simState && settings.simState.perTeam ? settings.simState.perTeam : null;
     let roundResults;
@@ -971,9 +1126,9 @@ export class GameService {
   }
 
   // Get analytics data
-  static async getAnalyticsData() {
-    const session = await this.getCurrentGameSession();
-    const teams = await this.getActiveTeams();
+  static async getAnalyticsData(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
+    const teams = await this.getActiveTeams(session.id);
     const sessionPayload = this.sanitizeSessionForClient(session) || {};
 
     // Get round history
@@ -1105,9 +1260,9 @@ export class GameService {
   }
 
   // Get current game state (for broadcasting)
-  static async getCurrentGameState(socketId = null) {
-    const session = await this.getCurrentGameSession();
-    const activeTeams = await this.getActiveTeams();
+  static async getCurrentGameState(socketId = null, sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
+    const activeTeams = await this.getActiveTeams(session.id);
 
     // Sanitize settings to avoid leaking sensitive keys like adminPassword
     const sanitizeSettings = (settings) => {
@@ -1162,9 +1317,9 @@ export class GameService {
   }
 
   // Update pooling market prices and availability
-  static async updatePoolingMarket() {
-    const session = await this.getCurrentGameSession();
-    const teams = await this.getActiveTeams();
+  static async updatePoolingMarket(sessionId = null) {
+    const session = await this.getCurrentGameSession(sessionId);
+    const teams = await this.getActiveTeams(session.id);
     const settings = session.settings || {};
     const poolingMarket = settings.poolingMarket || {};
     const simState = settings.simState || { perTeam: {}, returnedDemandRemaining: 0 };
@@ -1486,15 +1641,50 @@ export class GameService {
     if (team) {
       await team.update({ isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null });
       console.log(`Team ${team.name} deactivated due to disconnect`);
-      const session = await this.getCurrentGameSession();
-      const activeTeams = await this.getActiveTeams();
+      const session = await this.getCurrentGameSession(team.gameSessionId);
+      const activeTeams = await this.getActiveTeams(session.id);
       await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
     }
   }
 
   // Reset all game data (admin only)
-  static async resetAllData() {
+  static async resetAllData(sessionId = null) {
     try {
+      if (sessionId) {
+        const session = await this.getCurrentGameSession(sessionId);
+
+        await TeamModel.update(
+          { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
+          { where: { gameSessionId: session.id } }
+        );
+
+        await RoundResultModel.destroy({ where: { gameSessionId: session.id } });
+        await HighScoreModel.destroy({ where: { gameSessionId: session.id } });
+
+        const defaultSettings = this.buildDefaultSessionSettings();
+        await session.update({
+          currentRound: 0,
+          isActive: false,
+          settings: defaultSettings
+        });
+        session.currentRound = 0;
+        session.isActive = false;
+        session.settings = defaultSettings;
+
+        await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
+        this.sessionCache.set(session.id, session);
+        if (this.currentGameSession?.id === session.id) {
+          this.currentGameSession = session;
+        }
+
+        console.log(`✅ Session reset successfully: ${session.name}`);
+        return {
+          success: true,
+          message: `Session "${session.name}" has been reset successfully.`,
+          session
+        };
+      }
+
       // Deactivate all teams
       await TeamModel.update(
         { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
@@ -1502,44 +1692,11 @@ export class GameService {
       );
 
       // Reset all game sessions
+      const defaultSettings = this.buildDefaultSessionSettings();
       await GameSessionModel.update({
         currentRound: 0,
         isActive: false,
-        settings: {
-          baseDemand: 100,
-          spread: 50,
-          shock: 0.1,
-          sharedMarket: true,
-          seed: 42,
-          roundTime: 180,
-          priceElasticity: -1.5,
-          crossElasticity: 0.3,
-          costVolatility: 0.05,
-          demandVolatility: 0.1,
-          marketConcentration: 0.7,
-          currentPhase: 'prePurchase',
-          phaseTime: 600,
-          totalCapacity: 1000,
-          totalAircraftSeats: 1000,
-          fixSeatShare: 0,
-          totalFixSeats: 0,
-          availableFixSeats: 0,
-          fixSeatPrice: 60,
-          fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
-          airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
-          airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
-          poolingCost: 90,
-          simulationMonths: 12,
-          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
-          fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: 1000, // remaining for pooling
-          poolingMarketUpdateInterval: 1, // 1 second = 7 days
-          simulatedWeeksPerUpdate: 7 // 7 days per update
-          ,
-          // Hotel defaults
-          // Budget
-          perTeamBudget: 10000
-        }
+        settings: defaultSettings
       }, { where: {} });
 
       // Delete all round results
@@ -1549,10 +1706,12 @@ export class GameService {
       await HighScoreModel.destroy({ where: {} });
 
       // Reset current session cache
+      this.sessionCache.clear();
       this.currentGameSession = null;
 
       // Create a fresh game session
       const freshSession = await this.getCurrentGameSession();
+      await this.updateFixSeatShare(freshSession, { teamCount: 0, resetAvailable: true });
 
       console.log('✅ All game data has been reset successfully');
       return {
@@ -1567,63 +1726,54 @@ export class GameService {
   }
 
   // Reset current game session and teams (keep high scores)
-  static async resetCurrentGame() {
+  static async resetCurrentGame(sessionId = null) {
     try {
-      // Deactivate all current teams (but keep them in database for potential high scores)
+      if (sessionId) {
+        const session = await this.getCurrentGameSession(sessionId);
+        await TeamModel.update(
+          { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
+          { where: { gameSessionId: session.id } }
+        );
+
+        const defaultSettings = this.buildDefaultSessionSettings();
+        await session.update({
+          currentRound: 0,
+          isActive: false,
+          settings: defaultSettings
+        });
+        session.currentRound = 0;
+        session.isActive = false;
+        session.settings = defaultSettings;
+        await this.updateFixSeatShare(session, { teamCount: 0, resetAvailable: true });
+        this.sessionCache.set(session.id, session);
+        if (this.currentGameSession?.id === session.id) {
+          this.currentGameSession = session;
+        }
+
+        console.log(`✅ Session reset (current game) successfully: ${session.name}`);
+        return {
+          success: true,
+          message: `Session "${session.name}" has been reset successfully.`,
+          session
+        };
+      }
+
       await TeamModel.update(
         { isActive: false, socketId: null, resumeToken: null, resumeUntil: null, lastActiveAt: null },
         { where: {} }
       );
 
-      // Reset current game session
       const session = await this.getCurrentGameSession();
+      const defaultSettings = this.buildDefaultSessionSettings();
       await session.update({
         currentRound: 0,
         isActive: false,
-        settings: {
-          baseDemand: 100,
-          spread: 50,
-          shock: 0.1,
-          sharedMarket: true,
-          seed: 42,
-          roundTime: 180,
-          priceElasticity: -1.5,
-          crossElasticity: 0.3,
-          costVolatility: 0.05,
-          demandVolatility: 0.1,
-          marketConcentration: 0.7,
-          currentPhase: 'prePurchase',
-          phaseTime: 600,
-          totalCapacity: 1000,
-          totalAircraftSeats: 1000,
-          fixSeatShare: 0,
-          totalFixSeats: 0,
-          availableFixSeats: 0,
-          fixSeatPrice: 60,
-          fixSeatMinBid: AGENT_V1_DEFAULTS.airline.minPrice,
-          airlinePriceMin: AGENT_V1_DEFAULTS.airline.minPrice,
-          airlinePriceMax: AGENT_V1_DEFAULTS.airline.maxPrice,
-          poolingCost: 90,
-          simulationMonths: 12,
-          departureDate: new Date(Date.now() + 12 * 30 * 24 * 60 * 60 * 1000),
-          fixSeatsAllocated: false, // Reset allocation flag
-          poolingReserveCapacity: 1000, // remaining for pooling
-          poolingMarketUpdateInterval: 1, // 1 second = 7 days
-          simulatedWeeksPerUpdate: 7 // 7 days per update
-          ,
-          // Hotel defaults
-          // Budget
-          perTeamBudget: 10000
-        }
+        settings: defaultSettings
       });
 
-      // Keep existing round results so analytics remain available
-
-      // Reset current session cache
       this.currentGameSession = null;
-
-      // Create a fresh game session
       const freshSession = await this.getCurrentGameSession();
+      await this.updateFixSeatShare(freshSession, { teamCount: 0, resetAvailable: true });
 
       console.log('✅ Current game reset successfully (high scores preserved)');
       return {

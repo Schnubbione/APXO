@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -11,15 +11,82 @@ type TeamRegistrationProps = {
 };
 
 export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutorial }) => {
-  const { registerTeam, gameState, registrationError, startTutorial } = useGame();
+  const {
+    registerTeam,
+    gameState,
+    registrationError,
+    startTutorial,
+    sessions,
+    refreshSessions,
+    createSession,
+    currentSessionId,
+    selectSession,
+    socket
+  } = useGame();
   const [teamName, setTeamName] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+  const [newSessionName, setNewSessionName] = useState('');
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const selectedSession = sessions.find(session => session.id === selectedSessionId) || null;
+  const isViewingSelectedSession = Boolean(selectedSessionId && gameState.sessionId && gameState.sessionId === selectedSessionId);
+
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
+
+  useEffect(() => {
+    if (currentSessionId) {
+      setSelectedSessionId(currentSessionId);
+      return;
+    }
+    if (sessions.length > 0 && !selectedSessionId) {
+      const firstId = sessions[0].id;
+      setSelectedSessionId(firstId);
+      if (socket) {
+        selectSession(firstId);
+      }
+    } else if (selectedSessionId && sessions.length > 0 && !sessions.some(session => session.id === selectedSessionId)) {
+      const fallback = sessions[0].id;
+      setSelectedSessionId(fallback);
+      if (socket) {
+        selectSession(fallback);
+      }
+    }
+  }, [sessions, selectedSessionId, currentSessionId, selectSession, socket]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSessionError(null);
+    if (!selectedSessionId) {
+      setSessionError('Bitte wähle eine Session aus.');
+      return;
+    }
     if (teamName.trim()) {
-      registerTeam(teamName.trim());
+      registerTeam(teamName.trim(), selectedSessionId);
       setTeamName('');
     }
+  };
+
+  const handleCreateSession = () => {
+    setSessionError(null);
+    const trimmed = newSessionName.trim();
+    if (!trimmed) {
+      setSessionError('Bitte gib einen Namen für die Session ein.');
+      return;
+    }
+    createSession(trimmed, (result) => {
+      if (result.ok && result.session) {
+        setNewSessionName('');
+        setSelectedSessionId(result.session.id);
+        setSessionError(null);
+        if (socket) {
+          selectSession(result.session.id);
+        }
+        refreshSessions();
+      } else if (result.error) {
+        setSessionError(result.error);
+      }
+    });
   };
 
   const handleShowTutorial = () => {
@@ -35,8 +102,8 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
     startTutorial();
   };
 
-  const isRoundActive = gameState.isActive;
-  const canJoin = !isRoundActive;
+  const isRoundActive = selectedSession ? selectedSession.isActive : gameState.isActive;
+  const canJoin = !isRoundActive && Boolean(selectedSessionId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -63,6 +130,82 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6" data-tutorial="team-registration">
             <div className="space-y-3">
+              <Label className="text-slate-300 text-sm font-medium">Session auswählen</Label>
+              {sessions.length === 0 ? (
+                <div className="text-sm text-slate-400 bg-slate-700/40 border border-slate-600/50 rounded-lg p-3">
+                  Noch keine Session vorhanden. Lege unten eine neue an.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                  {sessions.map((session) => {
+                    const isSelected = session.id === selectedSessionId;
+                    return (
+                      <button
+                        type="button"
+                        key={session.id}
+                        onClick={() => {
+                          setSelectedSessionId(session.id);
+                          selectSession(session.id);
+                          setSessionError(null);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg border transition-all duration-200 ${
+                          isSelected
+                            ? 'border-indigo-400/70 bg-indigo-500/20 text-white shadow-lg'
+                            : 'border-slate-600/50 bg-slate-700/40 text-slate-200 hover:bg-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-sm font-semibold">
+                          <span>{session.name}</span>
+                          <span className="text-xs text-slate-400">
+                            {session.teamCount} Team{session.teamCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        {session.isActive && (
+                          <div className="text-xs text-emerald-300 mt-1">Phase aktiv</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={refreshSessions}
+                  className="px-3 py-2 text-sm bg-slate-800/70 border-slate-600 text-slate-200 hover:bg-slate-700/70"
+                >
+                  Sessions aktualisieren
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Neue Session erstellen</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-session"
+                  type="text"
+                  placeholder="Session-Name"
+                  value={newSessionName}
+                  onChange={(e) => setNewSessionName(e.target.value)}
+                  className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[48px] rounded-xl"
+                />
+                <Button
+                  type="button"
+                  onClick={handleCreateSession}
+                  variant="outline"
+                  className="bg-indigo-500/20 border-indigo-500/60 text-indigo-200 hover:bg-indigo-500/30 hover:text-white min-h-[48px] rounded-xl"
+                >
+                  Erstellen
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400">
+                Session-Ersteller können den Multiplayer jederzeit starten.
+              </p>
+            </div>
+
+            <div className="space-y-3">
               <Label htmlFor="teamName" className="text-slate-300 text-sm font-medium">Team Name</Label>
               <Input
                 id="teamName"
@@ -74,9 +217,18 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 disabled={isRoundActive}
                 className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[52px] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              {registrationError && (
-                <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                  {registrationError}
+              {(sessionError || registrationError) && (
+                <div className="space-y-2">
+                  {sessionError && (
+                    <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                      {sessionError}
+                    </div>
+                  )}
+                  {registrationError && (
+                    <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                      {registrationError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -87,7 +239,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
               disabled={!canJoin}
               data-tutorial="join-button"
             >
-              {isRoundActive ? "Round in Progress - Please Wait" : "Join Game"}
+              {isRoundActive ? 'Session läuft – bitte warten' : 'Session beitreten'}
             </Button>
 
             <div className="flex gap-3">
@@ -113,10 +265,12 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
           </form>
 
           <div className="mt-8 pt-6 border-t border-slate-600">
-            <div className="text-slate-300 text-sm font-medium mb-4">Current Teams:</div>
-            {gameState.teams.length === 0 ? (
-              <div className="text-slate-500 text-center py-4">No teams registered yet</div>
-            ) : (
+            <div className="text-slate-300 text-sm font-medium mb-4">
+              {selectedSession ? `Teams in “${selectedSession.name}”` : 'Teams in ausgewählter Session'}
+            </div>
+            {!selectedSessionId ? (
+              <div className="text-slate-500 text-center py-4">Wähle eine Session, um registrierte Teams zu sehen.</div>
+            ) : isViewingSelectedSession ? (
               <div className="space-y-3 max-h-40 overflow-y-auto">
                 {gameState.teams.map((team) => (
                   <div
@@ -127,6 +281,10 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                     <span className="text-white font-medium">{team.name}</span>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="text-slate-500 text-center py-4">
+                {selectedSession ? `${selectedSession.teamCount} Teams registriert` : 'Keine Teams verfügbar'}
               </div>
             )}
           </div>

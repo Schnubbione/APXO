@@ -78,6 +78,10 @@ export const MultiUserApp: React.FC = () => {
     getAnalytics,
     resetAllData,
     resetCurrentGame,
+    sessions,
+    currentSessionId,
+    launchSession,
+    selectSession,
     tutorialActive,
     tutorialStep,
     startTutorial,
@@ -103,7 +107,63 @@ export const MultiUserApp: React.FC = () => {
       toast({ variant: 'destructive', title: 'Action failed', description: lastError });
       clearLastError();
     }
-  }, [lastError]);
+  }, [lastError, toast, clearLastError]);
+  const activeSessionId = gameState.sessionId ?? currentSessionId ?? currentTeam?.sessionId ?? sessions[0]?.id ?? null;
+  const activeSession = React.useMemo(() => {
+    if (!activeSessionId) return null;
+    return sessions.find(session => session.id === activeSessionId) || null;
+  }, [sessions, activeSessionId]);
+  const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
+  const handleSessionChange = React.useCallback((sessionId: string) => {
+    if (!sessionId || sessionId === activeSessionId) return;
+    selectSession(sessionId);
+  }, [selectSession, activeSessionId]);
+
+  const sessionBanner = (
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div>
+        <div className="text-xs uppercase tracking-wide text-slate-400">Session</div>
+        <div className="text-lg font-semibold text-white">
+          {activeSession?.name ?? 'Keine Session'}
+        </div>
+        <div className="text-xs text-slate-400">
+          {activeSession
+            ? `${activeSession.teamCount} Teams · ${activeSession.isActive ? 'Phase aktiv' : 'Bereit'}`
+            : 'Sessioninformationen werden geladen.'}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:items-end">
+        {isAdmin && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs sm:text-sm text-slate-300">
+            <span className="font-medium">Session wählen</span>
+            <select
+              className="min-w-[160px] rounded-lg border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
+              value={activeSessionId ?? ''}
+              onChange={(event) => handleSessionChange(event.target.value)}
+            >
+              {sessions.length === 0 ? (
+                <option value="" disabled>Keine Sessions verfügbar</option>
+              ) : null}
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.name} · {session.teamCount} Teams
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isSessionOwner && (
+          <Button
+            onClick={() => launchSession(activeSessionId || undefined)}
+            disabled={gameState.isActive}
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold px-5 py-2 rounded-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {gameState.isActive ? 'Session läuft' : 'Multiplayer starten'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
   React.useEffect(() => {
     if (!allocationSummary || !currentTeam) {
@@ -675,6 +735,8 @@ export const MultiUserApp: React.FC = () => {
             </div>
           </header>
 
+          {sessionBanner}
+
           {/* Phase Control */}
           <Card
             className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300"
@@ -1060,7 +1122,7 @@ export const MultiUserApp: React.FC = () => {
           onResetAllData={resetAllData}
         />
 
-  <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           <header className="text-center mb-8">
             <div className="mb-4">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
@@ -1078,10 +1140,12 @@ export const MultiUserApp: React.FC = () => {
                     })()}
                   </div>
                 )}
-                <span className="font-medium">Team: {currentTeam.name}</span>
+                <span className="font-medium">Team: {currentTeam ? currentTeam.name : 'Admin'}</span>
               </div>
             </div>
           </header>
+
+          {sessionBanner}
 
           {mobileMetrics.length > 0 && (
             <section className="-mx-4 block sm:hidden" aria-label="Team quick metrics">

@@ -112,6 +112,7 @@ interface Team {
     tool?: 'none' | 'hedge' | 'spotlight' | 'commit';
   };
   totalProfit: number;
+  sessionId?: string | null;
 }
 
 interface Fare {
@@ -188,7 +189,19 @@ interface GameState {
     }>;
     returnedDemandRemaining?: number;
   };
+  sessionId?: string;
+  sessionName?: string;
+  ownerTeamId?: string;
 }
+
+type SessionSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  teamCount: number;
+  isActive: boolean;
+  ownerTeamId?: string | null;
+};
 
 interface RoundResult {
   teamId: string;
@@ -256,6 +269,9 @@ interface GameContextType {
   adminLoginError: string | null;
   allocationSummary: AllocationSummary | null;
   clearAllocationSummary: () => void;
+  sessions: SessionSummary[];
+  currentSessionId: string | null;
+  selectSession: (sessionId: string) => void;
 
   // Tutorial state
   tutorialActive: boolean;
@@ -268,7 +284,10 @@ interface GameContextType {
   completeTutorial: () => void;
 
   // Actions
-  registerTeam: (name: string) => void;
+  registerTeam: (name: string, sessionId: string) => void;
+  createSession: (name: string, ack?: (result: { ok: boolean; error?: string | null; session?: SessionSummary }) => void) => void;
+  refreshSessions: () => void;
+  launchSession: (sessionId?: string) => void;
   loginAsAdmin: (password: string) => void;
   logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
@@ -349,6 +368,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   remainingTime: 0,
   countdownSeconds: 0
   });
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const isAdminRef = React.useRef(isAdmin);
@@ -388,6 +409,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     airlinePoolRemaining: number;
     airlinePoolTotal: number;
   } | null>(null);
+  const hasInitialSessionSyncRef = React.useRef(false);
 
   useEffect(() => {
     isAdminRef.current = isAdmin;
@@ -406,6 +428,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     practiceRef.current = practice;
   }, [practice]);
+
+  useEffect(() => {
+    if (!socket) {
+      hasInitialSessionSyncRef.current = false;
+      return;
+    }
+    if (hasInitialSessionSyncRef.current) return;
+    const initialSessionId = currentSessionId || sessions[0]?.id;
+    if (!initialSessionId) return;
+    hasInitialSessionSyncRef.current = true;
+    selectSession(initialSessionId);
+  }, [socket, currentSessionId, sessions, selectSession]);
 
   const extractRoundKey = (entry: any) => {
     const value = Number(entry?.roundNumber ?? entry?.round ?? entry?.id);
@@ -552,6 +586,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fareCodes = (state.fares || []).map(f => f.code);
     const normalizedTeams = (state.teams || []).map(team => ({
       ...team,
+      sessionId: team.sessionId ?? state.sessionId ?? null,
       decisions: {
         price: team.decisions?.price ?? 500,
         buy: fareCodes.reduce((acc, code) => ({ ...acc, [code]: team.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
@@ -565,12 +600,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }));
     const normalizedState: GameState = { ...state, teams: normalizedTeams };
     setGameState(normalizedState);
+    setCurrentSessionId(state.sessionId ?? null);
 
     const sid = socketIdRef.current;
     if (sid) {
       const myTeam = normalizedTeams.find(team => team.id === sid);
       if (myTeam) {
         setCurrentTeam(myTeam);
+        if (myTeam.sessionId) {
+          setCurrentSessionId(myTeam.sessionId);
+        }
       }
     }
   }, [setGameState, setCurrentTeam]);
@@ -637,6 +676,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsReconnecting(false);
       socketIdRef.current = newSocket.id;
       console.log('Connected to server');
+      newSocket.emit('session:list', (response?: { ok?: boolean; sessions?: SessionSummary[] }) => {
+        if (response?.ok && Array.isArray(response.sessions)) {
+          setSessions(response.sessions);
+        }
+      });
 
       // Try to resume existing session using stored token
       const token = localStorage.getItem('apxo_resume_token');
@@ -644,6 +688,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         newSocket.emit('resumeTeam', token, (res: any) => {
           if (res?.ok && res.team) {
             setCurrentTeam(res.team);
+            if (res.team.sessionId) {
+              setCurrentSessionId(res.team.sessionId);
+            }
           }
         });
       }
@@ -713,10 +760,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     newSocket.on('fixSeatsAllocated', handleFixSeatsAllocated);
 
+    const handleSessionList = (list: SessionSummary[]) => {
+      if (Array.isArray(list)) {
+        setSessions(list);
+      } else {
+        setSessions([]);
+      }
+    };
+    newSocket.on('sessionList', handleSessionList);
+
+    const handleSessionLaunchError = (error: string) => {
+      if (error) {
+        setLastError(error);
+      }
+    };
+    newSocket.on('sessionLaunchError', handleSessionLaunchError);
+
     // Listen for registration success
     newSocket.on('registrationSuccess', (team: Team) => {
       console.log('Team registered:', team);
       setCurrentTeam(team);
+      if (team.sessionId) {
+        setCurrentSessionId(team.sessionId);
+      }
       setRegistrationError(null); // Clear any previous error
     });
 
@@ -735,6 +801,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Team auto-logged out by server:', payload);
       localStorage.removeItem('apxo_resume_token');
       setCurrentTeam(null);
+      setCurrentSessionId(null);
       setRegistrationError(payload?.message ?? 'You were logged out due to inactivity. Please register again to continue.');
       setGameState(prev => {
         if (!prev?.teams?.length) return prev;
@@ -868,14 +935,91 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       newSocket.off('phaseStarted', handlePhaseStarted);
       newSocket.off('fixSeatsAllocated', handleFixSeatsAllocated);
+      newSocket.off('sessionList', handleSessionList);
+      newSocket.off('sessionLaunchError', handleSessionLaunchError);
       newSocket.close();
     };
   }, [applyServerSnapshot, processRoundEnded, processRoundStarted]);
 
-  const registerTeam = (name: string) => {
+  const registerTeam = (name: string, sessionId: string) => {
     setRegistrationError(null); // Clear any previous error
-    socket?.emit('registerTeam', name);
+    if (!sessionId) {
+      setRegistrationError('Please choose a session.');
+      return;
+    }
+    socket?.emit('registerTeam', { teamName: name, sessionId });
+    setCurrentSessionId(sessionId);
   };
+
+  const selectSession = useCallback((sessionId: string) => {
+    if (!sessionId) return;
+    if (!socket) {
+      setCurrentSessionId(sessionId);
+      return;
+    }
+    socket.emit('session:select', { sessionId }, (response?: { ok?: boolean; error?: string }) => {
+      if (response?.ok === false && response.error) {
+        setLastError(response.error);
+        return;
+      }
+      setCurrentSessionId(sessionId);
+    });
+  }, [socket]);
+
+  const getActiveSessionId = useCallback(() => {
+    if (currentSessionId) return currentSessionId;
+    if (currentTeam?.sessionId) return currentTeam.sessionId;
+    if (gameState.sessionId) return gameState.sessionId;
+    if (sessions.length > 0) return sessions[0].id;
+    return null;
+  }, [currentSessionId, currentTeam, gameState.sessionId, sessions]);
+
+  const requireSessionId = useCallback(() => {
+    const sessionId = getActiveSessionId();
+    if (!sessionId) {
+      setLastError('No session selected.');
+    }
+    return sessionId;
+  }, [getActiveSessionId]);
+
+  const refreshSessions = useCallback(() => {
+    if (!socket) return;
+    socket.emit('session:list', (response?: { ok?: boolean; sessions?: SessionSummary[] }) => {
+      if (response?.ok && Array.isArray(response.sessions)) {
+        setSessions(response.sessions);
+      }
+    });
+  }, [socket]);
+
+  const createSession = useCallback((name: string, ack?: (result: { ok: boolean; error?: string | null; session?: SessionSummary }) => void) => {
+    if (!socket) {
+      ack?.({ ok: false, error: 'Not connected.' });
+      return;
+    }
+    socket.emit('session:create', { name }, (response?: { ok?: boolean; error?: string; session?: SessionSummary }) => {
+      if (response?.ok && response.session) {
+        setSessions(prev => {
+          const exists = prev.some(session => session.id === response.session!.id);
+          return exists ? prev : [response.session!, ...prev];
+        });
+      }
+      ack?.({ ok: !!response?.ok, error: response?.error ?? null, session: response?.session });
+    });
+  }, [socket]);
+
+  const launchSession = useCallback((sessionId?: string) => {
+    const targetSession = sessionId || getActiveSessionId();
+    if (!socket || !targetSession) {
+      setLastError('No session selected to launch.');
+      return;
+    }
+    setCurrentSessionId(targetSession);
+    socket.emit('session:launch', { sessionId: targetSession }, (response?: { ok?: boolean; error?: string }) => {
+      if (response?.ok === false && response.error) {
+        setLastError(response.error);
+      }
+    });
+  }, [socket, getActiveSessionId, setLastError]);
 
   const loginAsAdmin = (password: string) => {
     setAdminLoginError(null); // Clear any previous error
@@ -901,7 +1045,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateGameSettings = (settings: Partial<GameState>) => {
-    socket?.emit('updateGameSettings', settings);
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('updateGameSettings', { ...settings, sessionId });
   };
 
   const updateTeamDecision = (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number; push_level?: 0 | 1 | 2; fix_hold_pct?: number; tool?: 'none' | 'hedge' | 'spotlight' | 'commit' }) => {
@@ -1689,15 +1835,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startPrePurchasePhase = () => {
-    socket?.emit('startPrePurchasePhase');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('startPrePurchasePhase', { sessionId });
   };
 
   const startSimulationPhase = () => {
-    socket?.emit('startSimulationPhase');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('startSimulationPhase', { sessionId });
   };
 
   const endRound = () => {
-    socket?.emit('endRound');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('endRound', { sessionId });
   };
 
   const getLeaderboard = () => {
@@ -1709,16 +1861,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Analytics request blocked: admin access required');
       return;
     }
-    socket?.emit('getAnalytics');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('getAnalytics', { sessionId });
   };
 
   const resetAllData = () => {
-    socket?.emit('resetAllData');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('resetAllData', { sessionId });
   };
 
   const resetCurrentGame = () => {
     console.log('resetCurrentGame function called');
-    socket?.emit('resetCurrentGame');
+    const sessionId = requireSessionId();
+    if (!sessionId) return;
+    socket?.emit('resetCurrentGame', { sessionId });
   };
 
   // Tutorial functions
@@ -1769,15 +1927,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value: GameContextType = {
     socket,
-  isConnected,
-  isReconnecting,
+    isConnected,
+    isReconnecting,
     gameState,
     currentTeam,
     isAdmin,
     roundResults,
-  lastError,
-  clearLastError: () => setLastError(null),
-  practice,
+    lastError,
+    clearLastError: () => setLastError(null),
+    practice,
     leaderboard,
     roundHistory,
     analyticsData,
@@ -1785,6 +1943,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     adminLoginError,
     allocationSummary,
     clearAllocationSummary,
+    sessions,
+    currentSessionId,
+    selectSession,
     tutorialActive,
     tutorialStep,
     startTutorial,
@@ -1794,20 +1955,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTutorialStep: setTutorialStepDirect,
     completeTutorial,
     registerTeam,
+    createSession,
+    refreshSessions,
+    launchSession,
     loginAsAdmin,
     logoutAsAdmin,
     updateGameSettings,
     updateTeamDecision,
-  startPracticeMode,
-  stopPracticeMode,
+    startPracticeMode,
+    stopPracticeMode,
     startPrePurchasePhase,
     startSimulationPhase,
     endRound,
     getLeaderboard,
     getAnalytics,
     resetAllData,
-  resetCurrentGame,
-  logoutTeam
+    resetCurrentGame,
+    logoutTeam
   };
 
   return (

@@ -149,25 +149,111 @@ async function initializeServer() {
 }
 
 // Global variables for current session state (cached for performance)
-let currentGameState = null;
 let adminSocket = null;
-let poolingMarketInterval = null; // For periodic pooling market updates
-let roundTimerInterval = null; // For round timer countdown
-let remainingTime = 0; // Remaining time in seconds
+const sessionRuntimes = new Map(); // sessionId -> { remainingTime, roundTimerInterval, poolingMarketInterval }
 let teamInactivityInterval = null; // Background cleanup for inactive teams
 
-// Start periodic pooling market updates
-function startPoolingMarketUpdates() {
-  // Clear any existing interval
-  if (poolingMarketInterval) {
-    clearInterval(poolingMarketInterval);
+const getSessionRoom = (sessionId) => `session:${sessionId}`;
+
+function getSessionRuntime(sessionId) {
+  if (!sessionId) return null;
+  let runtime = sessionRuntimes.get(sessionId);
+  if (!runtime) {
+    runtime = {
+      remainingTime: 0,
+      roundTimerInterval: null,
+      poolingMarketInterval: null
+    };
+    sessionRuntimes.set(sessionId, runtime);
+  }
+  return runtime;
+}
+
+function clearSessionRuntime(sessionId) {
+  const runtime = sessionRuntimes.get(sessionId);
+  if (!runtime) return;
+  if (runtime.roundTimerInterval) {
+    clearInterval(runtime.roundTimerInterval);
+  }
+  if (runtime.poolingMarketInterval) {
+    clearInterval(runtime.poolingMarketInterval);
+  }
+  sessionRuntimes.delete(sessionId);
+}
+
+function attachSocketToSession(socket, sessionId, teamId = null) {
+  if (!sessionId) return;
+  if (socket.data?.sessionId && socket.data.sessionId !== sessionId) {
+    socket.leave(getSessionRoom(socket.data.sessionId));
+  }
+  socket.data.sessionId = sessionId;
+  if (teamId) {
+    socket.data.teamId = teamId;
+  }
+  socket.join(getSessionRoom(sessionId));
+}
+
+async function broadcastSessionList() {
+  try {
+    const sessions = await GameService.listSessions();
+    io.emit('sessionList', sessions);
+  } catch (error) {
+    console.error('Error broadcasting session list:', error);
+  }
+}
+
+async function emitSessionList(socket) {
+  try {
+    const sessions = await GameService.listSessions();
+    socket.emit('sessionList', sessions);
+  } catch (error) {
+    console.error(`Error sending session list to socket ${socket.id}:`, error);
+  }
+}
+
+const randBetween = (min, max) => Math.random() * (max - min) + min;
+const randIntBetween = (min, max) => Math.floor(randBetween(min, max + 1));
+
+function buildRandomMultiplayerSettings() {
+  const totalSeats = randIntBetween(600, 1400);
+  return {
+    baseDemand: randIntBetween(80, 240),
+    demandVolatility: Number(randBetween(0.05, 0.2).toFixed(3)),
+    priceElasticity: -Number(randBetween(0.9, 2.7).toFixed(2)),
+    marketPriceElasticity: -Number(randBetween(0.5, 1.8).toFixed(2)),
+    referencePrice: randIntBetween(170, 230),
+    crossElasticity: Number(randBetween(0.0, 1.0).toFixed(2)),
+    marketConcentration: Number(randBetween(0.5, 0.9).toFixed(2)),
+    totalAircraftSeats: totalSeats,
+    totalCapacity: totalSeats,
+    fixSeatPrice: randIntBetween(50, 80),
+    poolingCost: randIntBetween(70, 120),
+    costVolatility: Number(randBetween(0.03, 0.1).toFixed(3)),
+    poolingMarketUpdateInterval: 1,
+    simulatedWeeksPerUpdate: 7,
+    secondsPerDay: 1,
+    autoAdvance: true,
+    simulationTicksTotal: 365,
+    roundTime: 180,
+    perTeamBudget: 10000
+  };
+}
+
+// Start periodic pooling market updates for a given session
+function startPoolingMarketUpdates(sessionId) {
+  const runtime = getSessionRuntime(sessionId);
+  if (!runtime) return;
+
+  if (runtime.poolingMarketInterval) {
+    clearInterval(runtime.poolingMarketInterval);
   }
 
-  // Get current settings for update interval (default to 1 second if not set)
-  let updateInterval = 1000; // default: 1s per update
+  let updateInterval = 1000;
   let secondsPerDay = 1;
   try {
-    const session = GameService.currentGameSession; // fast path if cached
+    const session = GameService.currentGameSession && GameService.currentGameSession.id === sessionId
+      ? GameService.currentGameSession
+      : GameService.sessionCache?.get(sessionId);
     const intervalSec = session?.settings?.secondsPerDay ?? session?.settings?.poolingMarketUpdateInterval ?? 1;
     const parsed = Number(intervalSec);
     secondsPerDay = (Number.isFinite(parsed) && parsed > 0) ? parsed : 1;
@@ -177,252 +263,207 @@ function startPoolingMarketUpdates() {
     updateInterval = 1000;
   }
 
-  // Update pooling market every configured interval during simulation
-  poolingMarketInterval = setInterval(async () => {
+  runtime.poolingMarketInterval = setInterval(async () => {
     try {
-      const session = await GameService.getCurrentGameSession();
+      const session = await GameService.getCurrentGameSession(sessionId);
       if (session.settings?.currentPhase === 'simulation' && session.isActive) {
-        const update = await GameService.updatePoolingMarket();
-        await broadcastGameState();
+        const update = await GameService.updatePoolingMarket(sessionId);
+        await broadcastGameState(sessionId);
         if (update?.phaseCompleted) {
-          await autoEndCurrentPhase();
-          return;
+          await autoEndCurrentPhase(sessionId);
         }
       } else {
-        // Stop updates if simulation is no longer active
-        stopPoolingMarketUpdates();
+        stopPoolingMarketUpdates(sessionId);
       }
     } catch (error) {
-      console.error('Error updating pooling market:', error);
+      console.error(`Error updating pooling market for session ${sessionId}:`, error);
     }
   }, updateInterval);
 
-  const sessionForLog = GameService.currentGameSession;
-  const dayStepForLog = Number(sessionForLog?.settings?.simulatedWeeksPerUpdate ?? 7);
-  console.log(`🏊 Pooling market updates started (every ${secondsPerDay}s; days per update = ${dayStepForLog})`);
+  console.log(`🏊 Pooling market updates started for session ${sessionId} (every ${secondsPerDay}s)`);
 }
 
 // Stop pooling market updates
-function stopPoolingMarketUpdates() {
-  if (poolingMarketInterval) {
-    clearInterval(poolingMarketInterval);
-    poolingMarketInterval = null;
-    console.log('🏊 Pooling market updates stopped');
+function stopPoolingMarketUpdates(sessionId) {
+  const runtime = getSessionRuntime(sessionId);
+  if (!runtime) return;
+  if (runtime.poolingMarketInterval) {
+    clearInterval(runtime.poolingMarketInterval);
+    runtime.poolingMarketInterval = null;
+    console.log(`🏊 Pooling market updates stopped for session ${sessionId}`);
   }
 }
 
-// Start round timer countdown
-function startRoundTimer() {
-  // Clear any existing timer
-  if (roundTimerInterval) {
-    clearInterval(roundTimerInterval);
+// Start round timer countdown for a session
+async function startRoundTimer(sessionId, overrideSeconds = null) {
+  const runtime = getSessionRuntime(sessionId);
+  if (!runtime) return;
+
+  if (runtime.roundTimerInterval) {
+    clearInterval(runtime.roundTimerInterval);
   }
 
-  // Get current session and settings
-  const session = GameService.currentGameSession;
+  const session = await GameService.getCurrentGameSession(sessionId);
   if (!session) {
-    console.error('No active session found for timer');
+    console.error(`No active session found for timer (${sessionId})`);
     return;
   }
 
   const settings = session.settings || {};
   const currentPhase = settings.currentPhase;
 
-  // Get phase time from settings (Pre-Purchase uses roundTime, Simulation has no timer)
-  let roundTime;
-  if (currentPhase === 'prePurchase') {
-    roundTime = settings.roundTime || 180; // Use roundTime for pre-purchase phase
-  } else if (currentPhase === 'simulation') {
-    // Simulation phase has no timer - controlled by Pooling Market Update Interval and Simulated Days per Update
-    roundTime = null;
-  } else {
-    roundTime = 180; // Fallback
+  let roundTime = overrideSeconds;
+  if (roundTime === null || roundTime === undefined) {
+    if (currentPhase === 'prePurchase') {
+      roundTime = settings.roundTime || 180;
+    } else if (currentPhase === 'simulation') {
+      roundTime = null;
+    } else {
+      roundTime = 180;
+    }
   }
 
-  remainingTime = roundTime;
+  runtime.remainingTime = Number.isFinite(roundTime) ? Math.max(0, Math.round(roundTime)) : 0;
 
-  // Only start timer if roundTime is set (Pre-Purchase phase)
-  if (roundTime !== null) {
-    // Update timer every second
-    roundTimerInterval = setInterval(async () => {
-      try {
-        remainingTime = Math.max(0, remainingTime - 1);
+  if (roundTime === null || runtime.remainingTime <= 0) {
+    console.log(`⏰ ${currentPhase} phase has no active timer for session ${sessionId}`);
+    return;
+  }
 
-        // Broadcast updated time to all clients
-        await broadcastGameState();
-
-        // If time is up, automatically end the phase
-        if (remainingTime <= 0) {
-          console.log(`⏰ ${currentPhase} phase time is up! Auto-ending phase...`);
-          await autoEndCurrentPhase();
-        }
-      } catch (error) {
-        console.error('Error updating round timer:', error);
+  runtime.roundTimerInterval = setInterval(async () => {
+    try {
+      runtime.remainingTime = Math.max(0, runtime.remainingTime - 1);
+      await broadcastGameState(sessionId);
+      if (runtime.remainingTime <= 0) {
+        console.log(`⏰ ${currentPhase} phase time is up for session ${sessionId}! Auto-ending phase...`);
+        await autoEndCurrentPhase(sessionId);
       }
-    }, 1000);
+    } catch (error) {
+      console.error(`Error updating round timer for session ${sessionId}:`, error);
+    }
+  }, 1000);
 
-    console.log(`⏰ ${currentPhase} phase timer started (${roundTime} seconds)`);
-  } else {
-    console.log(`⏰ ${currentPhase} phase has no timer - controlled by Pooling Market settings`);
+  console.log(`⏰ ${currentPhase} phase timer started for session ${sessionId} (${runtime.remainingTime} seconds)`);
+}
+
+// Stop round timer for a session
+function stopRoundTimer(sessionId) {
+  const runtime = getSessionRuntime(sessionId);
+  if (!runtime) return;
+  if (runtime.roundTimerInterval) {
+    clearInterval(runtime.roundTimerInterval);
+    runtime.roundTimerInterval = null;
+    console.log(`⏰ Round timer stopped for session ${sessionId}`);
   }
 }
 
-// Stop round timer
-function stopRoundTimer() {
-  if (roundTimerInterval) {
-    clearInterval(roundTimerInterval);
-    roundTimerInterval = null;
-    console.log('⏰ Round timer stopped');
-  }
-}
-
-// Auto-end current phase when timer runs out
-async function autoEndCurrentPhase() {
+// Auto-end current phase when timer runs out for a session
+async function autoEndCurrentPhase(sessionId) {
   try {
-    const session = await GameService.getCurrentGameSession();
-
-    // Validate that a phase is actually running
-    if (!session.isActive) {
-      console.log('No active phase to auto-end');
-      stopRoundTimer();
+    const session = await GameService.getCurrentGameSession(sessionId);
+    if (!session?.isActive) {
+      console.log(`No active phase to auto-end for session ${sessionId}`);
+      stopRoundTimer(sessionId);
       return;
     }
 
     const currentPhase = session.settings?.currentPhase;
-    console.log(`🔄 Auto-ending ${currentPhase} phase...`);
+    console.log(`🔄 Auto-ending ${currentPhase} phase for session ${sessionId}...`);
 
-    // Handle different phase endings
     if (currentPhase === 'prePurchase') {
-      // End of Pre-Purchase Phase: Allocate fix seats
       console.log('🎯 Auto-allocating fix seats at end of pre-purchase phase...');
-      const allocationResult = await GameService.allocateFixSeats();
-
-      // Broadcast allocation results to all clients
-      io.emit('fixSeatsAllocated', allocationResult);
+      const allocationResult = await GameService.allocateFixSeats(sessionId);
+      io.to(getSessionRoom(sessionId)).emit('fixSeatsAllocated', allocationResult);
       console.log('✅ Fix seats auto-allocation completed');
     } else if (currentPhase === 'simulation') {
-      // End of Simulation Phase: Final evaluation and achievements
       console.log('🏆 Auto-ending simulation phase - evaluating final results and achievements...');
-
-      // Broadcast final phase completion
-      io.emit('finalPhaseCompleted', {
+      io.to(getSessionRoom(sessionId)).emit('finalPhaseCompleted', {
         message: 'Simulation phase completed! Achievements will be evaluated.',
         phaseNumber: 2
       });
     }
 
-    // End the current phase
-    await GameService.endPhase();
+    const autoAdvance = currentPhase === 'prePurchase' && !!session.settings?.autoAdvance;
 
-    // Calculate and save results if this is the simulation phase
+    await GameService.endPhase(sessionId);
+
     if (currentPhase === 'simulation') {
-      const endRes = await GameService.endRound(calculateRoundResults);
-      const updatedSession = await GameService.getCurrentGameSession();
-
-      io.emit('roundEnded', {
+      const endRes = await GameService.endRound(calculateRoundResults, sessionId);
+      io.to(getSessionRoom(sessionId)).emit('roundEnded', {
         roundResults: endRes.results,
         phaseNumber: 2,
         isFinalPhase: true,
         currentRound: endRes.currentRound,
         isGameComplete: endRes.isGameComplete
       });
-
-      console.log(`Simulation phase auto-ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales`);
+      console.log(`Simulation phase auto-ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales (session ${sessionId})`);
     } else {
-      // For pre-purchase phase, just broadcast phase ended
-      io.emit('phaseEnded', {
+      io.to(getSessionRoom(sessionId)).emit('phaseEnded', {
         phaseNumber: 1,
         isFinalPhase: false
       });
+
+      if (autoAdvance) {
+        const nextSession = await GameService.startSimulationPhase(sessionId);
+        startPoolingMarketUpdates(sessionId);
+        const runtime = getSessionRuntime(sessionId);
+        if (runtime) runtime.remainingTime = nextSession.settings?.countdownSeconds ?? 0;
+        await broadcastGameState(sessionId);
+        stopRoundTimer(sessionId);
+        console.log(`🚀 Simulation phase started automatically for session ${sessionId}`);
+        return;
+      }
     }
 
-    await broadcastGameState();
+    await broadcastGameState(sessionId);
+    stopPoolingMarketUpdates(sessionId);
+    stopRoundTimer(sessionId);
 
-    // Stop pooling market updates when phase ends
-    stopPoolingMarketUpdates();
-
-    // Stop round timer
-    stopRoundTimer();
-
-    // Additional logging for phase completion
     if (currentPhase === 'simulation') {
-      console.log('🎉 Game auto-completed! All phases finished.');
+      console.log(`🎉 Game auto-completed for session ${sessionId}! All phases finished.`);
     }
-
   } catch (error) {
-    console.error('Error auto-ending phase:', error);
-    stopRoundTimer();
+    console.error(`Error auto-ending phase for session ${sessionId}:`, error);
+    stopRoundTimer(sessionId);
   }
 }
 
 // Broadcast game state helper function
-async function broadcastGameState() {
+async function broadcastGameState(sessionId = null) {
   try {
-    const gameSession = await GameService.getCurrentGameSession();
-    const activeTeams = await GameService.getActiveTeams();
+    if (!sessionId) {
+      const knownSessionIds = sessionRuntimes.size
+        ? [...sessionRuntimes.keys()]
+        : (await GameService.listSessions()).map((session) => session.id);
+      await Promise.all(knownSessionIds.map(id => broadcastGameState(id)));
+      return;
+    }
 
-    // Ensure sensitive settings never leak to clients and hide availability before allocation
-    const sanitizeSettings = (settings) => {
-      if (!settings || typeof settings !== 'object') return {};
-      const { adminPassword, ...rest } = settings; // drop any legacy leak
-      const allocationDone = !!rest.fixSeatsAllocated;
-      // Before allocation, do not reveal exact remaining availability
-      if (!allocationDone) {
-        const { availableFixSeats, ...safe } = rest;
-        return safe;
-      }
-      return rest;
-    };
+    const session = await GameService.getCurrentGameSession(sessionId);
+    const activeTeams = await GameService.getActiveTeams(session.id);
+    const runtime = getSessionRuntime(sessionId) || { remainingTime: 0 };
 
-    // Get list of all connected sockets
     const connectedSockets = await io.fetchSockets();
 
-    // Send personalized game state to each client
     for (const socket of connectedSockets) {
-  const gameState = {
-        teams: activeTeams.map(team => {
-          if (team.socketId !== socket.id) {
-            // Hide fix seat purchases from other teams
-            return {
-              id: team.id,
-              name: team.name,
-              decisions: {
-                ...team.decisions,
-                fixSeatsPurchased: undefined, // Hide from other teams
-                fixSeatsRequested: undefined,
-                fixSeatBidPrice: undefined,
-                fixSeatClearingPrice: undefined,
-                // Before allocation, also hide any allocated amounts
-                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-              },
-              totalProfit: team.totalProfit,
-              totalRevenue: team.totalRevenue
-            };
-          } else {
-            // Show full data for own team
-            return {
-              id: team.id,
-              name: team.name,
-              decisions: {
-                ...team.decisions,
-                // Before allocation, ensure allocated is not prematurely inferred
-                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-              },
-              totalProfit: team.totalProfit,
-              totalRevenue: team.totalRevenue
-            };
-          }
-        }),
-        currentRound: gameSession.currentRound,
-  isActive: gameSession.isActive,
-  remainingTime: remainingTime,
-  ...sanitizeSettings(gameSession.settings)
-      };
-
+      if (socket.data?.sessionId !== sessionId) continue;
+      const gameState = createGameStatePayload(session, activeTeams, runtime, socket.id);
       socket.emit('gameStateUpdate', gameState);
     }
   } catch (error) {
-    console.error('Error broadcasting game state:', error);
+    console.error(`Error broadcasting game state for session ${sessionId}:`, error);
+  }
+}
+
+async function emitGameStateToSocket(sessionId, socket, eventName = 'gameState') {
+  try {
+    const session = await GameService.getCurrentGameSession(sessionId);
+    const teams = await GameService.getActiveTeams(session.id);
+    const runtime = getSessionRuntime(sessionId) || { remainingTime: 0 };
+    const payload = createGameStatePayload(session, teams, runtime, socket.id);
+    socket.emit(eventName, payload);
+  } catch (error) {
+    console.error(`Error emitting game state to socket ${socket.id} for session ${sessionId}:`, error);
   }
 }
 
@@ -465,91 +506,52 @@ io.on('connection', async (socket) => {
   const MAX_TRIES = 5;
   const WINDOW_MS = 60_000; // 1 minute
 
-  try {
-    // Get current game state from database with privacy filtering
-    const gameSession = await GameService.getCurrentGameSession();
-    const activeTeams = await GameService.getActiveTeams();
+  socket.data = socket.data || {};
+  socket.data.sessionId = null;
+  socket.data.teamId = null;
+  socket.data.isAdmin = false;
 
-    // Ensure sensitive settings never leak to clients and hide availability before allocation
-    const sanitizeSettings = (settings) => {
-      if (!settings || typeof settings !== 'object') return {};
-      const { adminPassword, ...rest } = settings; // drop any legacy leak
-      const allocationDone = !!rest.fixSeatsAllocated;
-      // Before allocation, do not reveal exact remaining availability
-      if (!allocationDone) {
-        const { availableFixSeats, ...safe } = rest;
-        return safe;
-      }
-      return rest;
-    };
+  await emitSessionList(socket);
 
-    // Prepare game state for this specific client
-  const gameState = {
-      teams: activeTeams.map(team => {
-        if (team.socketId !== socket.id) {
-          // Hide fix seat purchases from other teams
-            return {
-              id: team.id,
-              name: team.name,
-              decisions: {
-                ...team.decisions,
-                fixSeatsPurchased: undefined, // Hide from other teams
-                fixSeatsRequested: undefined,
-                fixSeatBidPrice: undefined,
-                fixSeatClearingPrice: undefined,
-                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-              },
-              totalProfit: team.totalProfit,
-              totalRevenue: team.totalRevenue
-            };
-          } else {
-            // Show full data for own team
-            return {
-              id: team.id,
-              name: team.name,
-              decisions: {
-                ...team.decisions,
-                fixSeatsAllocated: (gameSession.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
-              },
-              totalProfit: team.totalProfit,
-              totalRevenue: team.totalRevenue
-            };
-          }
-        }),
-      currentRound: gameSession.currentRound,
-  isActive: gameSession.isActive,
-  remainingTime: remainingTime,
-  ...sanitizeSettings(gameSession.settings)
-    };
-
-    // Send current game state to new connection
-    socket.emit('gameState', gameState);
-
-  } catch (error) {
-    console.error('Error loading game state:', error);
-    socket.emit('error', 'Failed to load game state');
-  }
+  socket.emit('gameState', {
+    teams: [],
+    currentRound: 0,
+    isActive: false,
+    remainingTime: 0,
+    sessionId: null
+  });
 
   // Team registration
-  socket.on('registerTeam', async (teamName) => {
-    try {
-      const team = await GameService.registerTeam(socket.id, teamName);
+  socket.on('registerTeam', async (payload) => {
+    const { teamName, sessionId } = typeof payload === 'string'
+      ? { teamName: payload, sessionId: socket.data?.sessionId }
+      : (payload || {});
 
-  socket.emit('registrationSuccess', {
+    if (!sessionId) {
+      socket.emit('registrationError', 'Please select a session before joining.');
+      return;
+    }
+
+    try {
+      const team = await GameService.registerTeam(socket.id, teamName, sessionId);
+      attachSocketToSession(socket, sessionId, team.id);
+
+      socket.emit('registrationSuccess', {
         id: team.id,
         name: team.name,
         decisions: team.decisions,
         totalProfit: team.totalProfit,
-        totalRevenue: team.totalRevenue
+        totalRevenue: team.totalRevenue,
+        sessionId
       });
 
-  // Share resume token privately
-  socket.emit('resumeToken', team.resumeToken);
+      socket.emit('resumeToken', team.resumeToken);
 
-      // Broadcast updated game state to all clients
-      await broadcastGameState();
+      await emitGameStateToSocket(sessionId, socket, 'gameState');
+      await broadcastGameState(sessionId);
+      await broadcastSessionList();
 
-      console.log(`Team registered: ${teamName}`);
+      console.log(`Team registered: ${teamName} (session ${sessionId})`);
     } catch (error) {
       socket.emit('registrationError', error.message);
     }
@@ -564,8 +566,24 @@ io.on('connection', async (socket) => {
         return;
       }
       // On successful resume, send current personalized game state
-      await broadcastGameState();
-      if (typeof ack === 'function') ack({ ok: true, team: { id: team.id, name: team.name, decisions: team.decisions, totalProfit: team.totalProfit, totalRevenue: team.totalRevenue } });
+      const sessionId = team.gameSessionId;
+      attachSocketToSession(socket, sessionId, team.id);
+      await emitGameStateToSocket(sessionId, socket, 'gameState');
+      await broadcastGameState(sessionId);
+      await broadcastSessionList();
+      if (typeof ack === 'function') {
+        ack({
+          ok: true,
+          team: {
+            id: team.id,
+            name: team.name,
+            decisions: team.decisions,
+            totalProfit: team.totalProfit,
+            totalRevenue: team.totalRevenue,
+            sessionId
+          }
+        });
+      }
     } catch (e) {
       console.error('Error resuming team:', e);
       if (typeof ack === 'function') ack({ ok: false, error: 'Failed to resume team' });
@@ -576,9 +594,117 @@ io.on('connection', async (socket) => {
   socket.on('logoutTeam', async (ack) => {
     try {
       const team = await GameService.logoutTeam(socket.id);
+      if (team?.gameSessionId) {
+        const sessionId = team.gameSessionId;
+        socket.leave(getSessionRoom(sessionId));
+        socket.data.sessionId = null;
+        socket.data.teamId = null;
+        await broadcastGameState(sessionId);
+        await broadcastSessionList();
+      }
       if (typeof ack === 'function') ack({ ok: true });
     } catch (e) {
       if (typeof ack === 'function') ack({ ok: false });
+    }
+  });
+
+  socket.on('session:list', async (ack) => {
+    try {
+      const sessions = await GameService.listSessions();
+      if (typeof ack === 'function') {
+        ack({ ok: true, sessions });
+      } else {
+        socket.emit('sessionList', sessions);
+      }
+    } catch (error) {
+      console.error('Error listing sessions:', error);
+      if (typeof ack === 'function') ack({ ok: false, error: 'Failed to fetch sessions' });
+    }
+  });
+
+  socket.on('session:select', async ({ sessionId } = {}, ack) => {
+    if (!sessionId) {
+      const message = 'No session selected.';
+      if (typeof ack === 'function') ack({ ok: false, error: message });
+      else socket.emit('sessionLaunchError', message);
+      return;
+    }
+    try {
+      const session = await GameService.getCurrentGameSession(sessionId);
+      attachSocketToSession(socket, session.id, socket.data?.teamId || null);
+      await emitGameStateToSocket(session.id, socket, 'gameState');
+      if (typeof ack === 'function') {
+        ack({ ok: true, session: GameService.sanitizeSessionForClient(session) });
+      }
+    } catch (error) {
+      console.error('Error selecting session:', error);
+      const message = error?.message || 'Failed to select session';
+      if (typeof ack === 'function') ack({ ok: false, error: message });
+      else socket.emit('sessionLaunchError', message);
+    }
+  });
+
+  socket.on('session:create', async ({ name } = {}, ack) => {
+    try {
+      const session = await GameService.createSession({ name });
+      await broadcastSessionList();
+      if (typeof ack === 'function') {
+        ack({ ok: true, session });
+      } else {
+        socket.emit('sessionCreated', session);
+      }
+    } catch (error) {
+      console.error('Error creating session:', error);
+      const message = error?.message || 'Failed to create session';
+      if (typeof ack === 'function') {
+        ack({ ok: false, error: message });
+      } else {
+        socket.emit('sessionCreateError', message);
+      }
+    }
+  });
+
+  socket.on('session:launch', async ({ sessionId } = {}, ack) => {
+    const targetSessionId = sessionId || socket.data?.sessionId;
+    if (!targetSessionId) {
+      const errorMessage = 'No session selected.';
+      if (typeof ack === 'function') ack({ ok: false, error: errorMessage });
+      else socket.emit('sessionLaunchError', errorMessage);
+      return;
+    }
+
+    try {
+      const session = await GameService.getCurrentGameSession(targetSessionId);
+      const ownerTeamId = session.ownerTeamId;
+      if (ownerTeamId && socket.data?.teamId && ownerTeamId !== socket.data.teamId) {
+        const message = 'Only the session owner can launch the multiplayer mode.';
+        if (typeof ack === 'function') ack({ ok: false, error: message });
+        else socket.emit('sessionLaunchError', message);
+        return;
+      }
+
+      const randomSettings = buildRandomMultiplayerSettings();
+      await GameService.updateGameSettings(randomSettings, targetSessionId);
+
+      stopPoolingMarketUpdates(targetSessionId);
+      await GameService.startPrePurchasePhase(targetSessionId);
+
+      const runtime = getSessionRuntime(targetSessionId);
+      if (runtime) {
+        runtime.remainingTime = randomSettings.roundTime || 180;
+      }
+      await startRoundTimer(targetSessionId, randomSettings.roundTime || 180);
+      await broadcastGameState(targetSessionId);
+
+      console.log(`🎮 Session ${targetSessionId} launched by socket ${socket.id}`);
+      if (typeof ack === 'function') {
+        ack({ ok: true, settings: randomSettings });
+      }
+    } catch (error) {
+      console.error('Error launching session:', error);
+      const message = error?.message || 'Failed to start multiplayer mode';
+      if (typeof ack === 'function') ack({ ok: false, error: message });
+      else socket.emit('sessionLaunchError', message);
     }
   });
 
@@ -638,15 +764,17 @@ io.on('connection', async (socket) => {
   socket.on('updateGameSettings', async (settings) => {
     if (socket.id === adminSocket) {
       try {
-        await GameService.updateGameSettings(settings);
-        await broadcastGameState();
+        const targetSessionId = settings?.sessionId || socket.data?.sessionId || null;
+        const { sessionId: _ignored, ...nextSettings } = settings || {};
+        await GameService.updateGameSettings(nextSettings, targetSessionId || undefined);
+        await broadcastGameState(targetSessionId || undefined);
         console.log('Game settings updated');
 
         // If simulation is running, apply timing changes immediately
         try {
-          const session = await GameService.getCurrentGameSession();
+          const session = await GameService.getCurrentGameSession(targetSessionId || undefined);
           if (session.settings?.currentPhase === 'simulation' && session.isActive) {
-            startPoolingMarketUpdates();
+            startPoolingMarketUpdates(session.id);
           }
         } catch (e) {
           console.warn('Failed to apply live pooling interval update:', e?.message || e);
@@ -663,7 +791,12 @@ io.on('connection', async (socket) => {
     try {
       const team = await GameService.updateTeamDecision(socket.id, decision);
       if (team) {
-        await broadcastGameState();
+        const sessionId = team.gameSessionId || socket.data?.sessionId;
+        if (sessionId) {
+          await broadcastGameState(sessionId);
+        } else {
+          await broadcastGameState();
+        }
 
         if (typeof ack === 'function') ack({ ok: true });
       } else {
@@ -1040,78 +1173,13 @@ io.on('connection', async (socket) => {
   socket.on('endRound', async () => {
     if (socket.id === adminSocket) {
       try {
-        const session = await GameService.getCurrentGameSession();
-
-        // Validate that a phase is actually running
-        if (!session.isActive) {
-          socket.emit('error', 'No active phase to end');
+        const targetSessionId = socket.data?.sessionId || GameService.currentGameSession?.id;
+        if (!targetSessionId) {
+          socket.emit('error', 'No active session to end');
           return;
         }
-
-        const currentPhase = session.settings?.currentPhase;
-
-        // Handle different phase endings
-        if (currentPhase === 'prePurchase') {
-          // End of Pre-Purchase Phase: Allocate fix seats
-          console.log('🎯 Allocating fix seats at end of pre-purchase phase...');
-          const allocationResult = await GameService.allocateFixSeats();
-
-          // Broadcast allocation results to all clients
-          io.emit('fixSeatsAllocated', allocationResult);
-          console.log('✅ Fix seats allocation completed');
-        } else if (currentPhase === 'simulation') {
-          // End of Simulation Phase: Final evaluation and achievements
-          console.log('🏆 Simulation phase ended - evaluating final results and achievements...');
-
-          // Broadcast final phase completion
-          io.emit('finalPhaseCompleted', {
-            message: 'Simulation phase completed! Achievements will be evaluated.',
-            phaseNumber: 2
-          });
-        }
-
-        // End the current phase
-        await GameService.endPhase();
-
-        // Calculate and save results if this is the simulation phase
-        if (currentPhase === 'simulation') {
-          const endRes = await GameService.endRound(calculateRoundResults);
-          const updatedSession = await GameService.getCurrentGameSession();
-
-          io.emit('roundEnded', {
-            roundResults: endRes.results,
-            phaseNumber: 2,
-            isFinalPhase: true,
-            currentRound: endRes.currentRound,
-            isGameComplete: endRes.isGameComplete
-          });
-
-          console.log(`Simulation phase ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales`);
-          if (endRes.isGameComplete) {
-            console.log(`🎉 Game completed! All rounds finished.`);
-          } else {
-            console.log(`Round ${endRes.currentRound - 1} completed.`);
-          }
-        } else {
-          // For pre-purchase phase, just broadcast phase ended
-          io.emit('phaseEnded', {
-            phaseNumber: 1,
-            isFinalPhase: false
-          });
-        }
-
-        await broadcastGameState();
-
-        // Stop pooling market updates when phase ends
-        stopPoolingMarketUpdates();
-
-        // Stop round timer when phase ends
-        stopRoundTimer();
-
-    // Additional logging for phase completion
-    if (currentPhase === 'simulation') {
-      console.log('🎉 Game round completed! Admin can start next round.');
-    }      } catch (error) {
+        await autoEndCurrentPhase(targetSessionId);
+      } catch (error) {
         console.error('Error ending phase:', error);
         socket.emit('error', `Failed to end phase: ${error.message}`);
       }
@@ -1124,13 +1192,13 @@ io.on('connection', async (socket) => {
   socket.on('startPrePurchasePhase', async () => {
     if (socket.id === adminSocket) {
       try {
-        await GameService.startPrePurchasePhase();
-        io.emit('phaseStarted', 'prePurchase');
-        await broadcastGameState();
+        const session = await GameService.startPrePurchasePhase(socket.data?.sessionId || undefined);
+        io.to(getSessionRoom(session.id)).emit('phaseStarted', 'prePurchase');
+        await broadcastGameState(session.id);
         console.log('Pre-purchase phase started');
 
         // Start round timer
-        startRoundTimer();
+        await startRoundTimer(session.id);
       } catch (error) {
         console.error('Error starting pre-purchase phase:', error);
         socket.emit('error', 'Failed to start pre-purchase phase');
@@ -1142,16 +1210,16 @@ io.on('connection', async (socket) => {
   socket.on('startSimulationPhase', async () => {
     if (socket.id === adminSocket) {
       try {
-        await GameService.startSimulationPhase();
-        io.emit('phaseStarted', 'simulation');
-        await broadcastGameState();
+        const session = await GameService.startSimulationPhase(socket.data?.sessionId || undefined);
+        io.to(getSessionRoom(session.id)).emit('phaseStarted', 'simulation');
+        await broadcastGameState(session.id);
         console.log('Simulation phase started');
 
         // Start pooling market updates
-        startPoolingMarketUpdates();
+        startPoolingMarketUpdates(session.id);
 
         // Start round timer
-        startRoundTimer();
+        await startRoundTimer(session.id);
       } catch (error) {
         console.error('Error starting simulation phase:', error);
         socket.emit('error', 'Failed to start simulation phase');
@@ -1163,16 +1231,16 @@ io.on('connection', async (socket) => {
   socket.on('endPhase', async () => {
     if (socket.id === adminSocket) {
       try {
-        await GameService.endPhase();
-        io.emit('phaseEnded');
-        await broadcastGameState();
+        const session = await GameService.endPhase(socket.data?.sessionId || undefined);
+        io.to(getSessionRoom(session.id)).emit('phaseEnded');
+        await broadcastGameState(session.id);
         console.log('Current phase ended');
 
         // Stop pooling market updates when phase ends
-        stopPoolingMarketUpdates();
+        stopPoolingMarketUpdates(session.id);
 
         // Stop round timer when phase ends
-        stopRoundTimer();
+        stopRoundTimer(session.id);
       } catch (error) {
         console.error('Error ending phase:', error);
         socket.emit('error', 'Failed to end phase');
@@ -1181,12 +1249,18 @@ io.on('connection', async (socket) => {
   });
 
   // Run simulation (admin only)
-  socket.on('runSimulation', async () => {
+  socket.on('runSimulation', async ({ sessionId } = {}) => {
     if (socket.id === adminSocket) {
       try {
-        const simulationResults = await runMonthlySimulation();
-        io.emit('simulationResults', simulationResults);
-        await broadcastGameState();
+        const targetSessionId = sessionId || socket.data?.sessionId || null;
+        const simulationResults = await runMonthlySimulation(targetSessionId || undefined);
+        if (targetSessionId) {
+          io.to(getSessionRoom(targetSessionId)).emit('simulationResults', simulationResults);
+          await broadcastGameState(targetSessionId);
+        } else {
+          io.emit('simulationResults', simulationResults);
+          await broadcastGameState();
+        }
         console.log('Simulation completed');
       } catch (error) {
         console.error('Error running simulation:', error);
@@ -1196,20 +1270,37 @@ io.on('connection', async (socket) => {
   });
 
   // Reset all game data (admin only)
-  socket.on('resetAllData', async () => {
+  socket.on('resetAllData', async ({ sessionId } = {}) => {
     if (socket.id === adminSocket) {
       try {
         console.log('🔄 Admin resetting all game data...');
-        const result = await GameService.resetAllData();
+        const targetSessionId = sessionId || socket.data?.sessionId || null;
+        const result = await GameService.resetAllData(targetSessionId);
 
-        // Broadcast reset confirmation to all clients
-        io.emit('dataReset', {
-          message: 'All game data has been reset by admin',
-          timestamp: new Date().toISOString()
-        });
+        if (targetSessionId) {
+          stopPoolingMarketUpdates(targetSessionId);
+          stopRoundTimer(targetSessionId);
+          clearSessionRuntime(targetSessionId);
+          await broadcastGameState(targetSessionId);
+          await broadcastSessionList();
+          io.to(getSessionRoom(targetSessionId)).emit('dataReset', {
+            message: 'Session data has been reset by admin',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          io.emit('dataReset', {
+            message: 'All game data has been reset by admin',
+            timestamp: new Date().toISOString()
+          });
 
-        // Broadcast fresh game state
-        await broadcastGameState();
+          for (const runtimeSessionId of [...sessionRuntimes.keys()]) {
+            stopPoolingMarketUpdates(runtimeSessionId);
+            stopRoundTimer(runtimeSessionId);
+            clearSessionRuntime(runtimeSessionId);
+          }
+          await broadcastGameState();
+          await broadcastSessionList();
+        }
 
         socket.emit('resetComplete', result);
         console.log('✅ All game data reset successfully');
@@ -1223,20 +1314,37 @@ io.on('connection', async (socket) => {
   });
 
   // Reset current game (keep high scores)
-  socket.on('resetCurrentGame', async () => {
+  socket.on('resetCurrentGame', async ({ sessionId } = {}) => {
     if (socket.id === adminSocket) {
       try {
         console.log('🔄 Admin resetting current game (keeping high scores)...');
-        const result = await GameService.resetCurrentGame();
+        const targetSessionId = sessionId || socket.data?.sessionId || null;
+        const result = await GameService.resetCurrentGame(targetSessionId);
 
-        // Broadcast reset confirmation to all clients
-        io.emit('currentGameReset', {
-          message: 'Current game has been reset by admin. High scores are preserved.',
-          timestamp: new Date().toISOString()
-        });
+        if (targetSessionId) {
+          stopPoolingMarketUpdates(targetSessionId);
+          stopRoundTimer(targetSessionId);
+          clearSessionRuntime(targetSessionId);
+          await broadcastGameState(targetSessionId);
+          await broadcastSessionList();
+          io.to(getSessionRoom(targetSessionId)).emit('currentGameReset', {
+            message: 'Session has been reset by admin. High scores are preserved.',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          io.emit('currentGameReset', {
+            message: 'Current game has been reset by admin. High scores are preserved.',
+            timestamp: new Date().toISOString()
+          });
 
-        // Broadcast fresh game state
-        await broadcastGameState();
+          for (const runtimeSessionId of [...sessionRuntimes.keys()]) {
+            stopPoolingMarketUpdates(runtimeSessionId);
+            stopRoundTimer(runtimeSessionId);
+            clearSessionRuntime(runtimeSessionId);
+          }
+          await broadcastGameState();
+          await broadcastSessionList();
+        }
 
         socket.emit('resetComplete', result);
         console.log('✅ Current game reset successfully (high scores preserved)');
@@ -1250,13 +1358,14 @@ io.on('connection', async (socket) => {
   });
 
   // Get analytics data
-  socket.on('getAnalytics', async () => {
+  socket.on('getAnalytics', async ({ sessionId } = {}) => {
     if (socket.id !== adminSocket) {
       socket.emit('error', 'Unauthorized: Admin access required');
       return;
     }
     try {
-      const analyticsData = await GameService.getAnalyticsData();
+      const targetSessionId = sessionId || socket.data?.sessionId || null;
+      const analyticsData = await GameService.getAnalyticsData(targetSessionId || undefined);
       socket.emit('analyticsData', analyticsData);
     } catch (error) {
       console.error('Error getting analytics data:', error);
@@ -1265,10 +1374,14 @@ io.on('connection', async (socket) => {
   });
 
   // Broadcast game state to all clients
-  socket.on('broadcastGameState', async () => {
+  socket.on('broadcastGameState', async ({ sessionId } = {}) => {
     try {
-      const gameState = await GameService.getCurrentGameState();
-      io.emit('gameStateUpdate', gameState);
+      const targetSessionId = sessionId || socket.data?.sessionId || null;
+      if (targetSessionId) {
+        await broadcastGameState(targetSessionId);
+      } else {
+        await broadcastGameState();
+      }
     } catch (error) {
       console.error('Error broadcasting game state:', error);
     }
@@ -1278,12 +1391,12 @@ io.on('connection', async (socket) => {
     console.log('User disconnected:', socket.id);
 
     try {
-      // Do not delete or deactivate the team on disconnect; keep them resumable
-      // Just clear the socketId so the slot can be reused on resume
-      const teams = await GameService.getActiveTeams();
-      const t = teams.find(t => t.socketId === socket.id);
-      if (t) {
-        await t.update({ socketId: null, lastActiveAt: new Date() });
+      const team = await Team.findOne({ where: { socketId: socket.id, isActive: true } });
+      if (team) {
+        await team.update({ socketId: null, lastActiveAt: new Date() });
+        if (team.gameSessionId) {
+          await broadcastGameState(team.gameSessionId);
+        }
       }
 
       // Clear admin socket if admin disconnects
@@ -1293,8 +1406,7 @@ io.on('connection', async (socket) => {
         await session.update({ adminSocketId: null });
       }
 
-      // Broadcast updated game state
-      await broadcastGameState();
+      await broadcastSessionList();
     } catch (error) {
       console.error('Error handling disconnect:', error);
     }
@@ -1302,9 +1414,9 @@ io.on('connection', async (socket) => {
 });
 
 // Run monthly simulation for 12 months
-async function runMonthlySimulation() {
-  const session = await GameService.getCurrentGameSession();
-  const teams = await GameService.getActiveTeams();
+async function runMonthlySimulation(sessionId = null) {
+  const session = await GameService.getCurrentGameSession(sessionId || undefined);
+  const teams = await GameService.getActiveTeams(session.id);
   const settings = session.settings || {};
 
   const simulationMonths = settings.simulationMonths || 12;
@@ -1416,3 +1528,53 @@ const PORT = process.env.PORT || 3001;
 
 // Start the server with database initialization
 initializeServer();
+function createGameStatePayload(session, teams, runtime, socketId) {
+  const sanitizeSettings = (settings) => {
+    if (!settings || typeof settings !== 'object') return {};
+    const { adminPassword, ...rest } = settings;
+    const allocationDone = !!rest.fixSeatsAllocated;
+    if (!allocationDone) {
+      const { availableFixSeats, ...safe } = rest;
+      return safe;
+    }
+    return rest;
+  };
+
+  return {
+    teams: teams.map(team => {
+      if (team.socketId !== socketId) {
+        return {
+          id: team.id,
+          name: team.name,
+          decisions: {
+            ...team.decisions,
+            fixSeatsPurchased: undefined,
+            fixSeatsRequested: undefined,
+            fixSeatBidPrice: undefined,
+            fixSeatClearingPrice: undefined,
+            fixSeatsAllocated: (session.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+          },
+          totalProfit: team.totalProfit,
+          totalRevenue: team.totalRevenue
+        };
+      }
+      return {
+        id: team.id,
+        name: team.name,
+        decisions: {
+          ...team.decisions,
+          fixSeatsAllocated: (session.settings?.fixSeatsAllocated ? team.decisions?.fixSeatsAllocated : undefined)
+        },
+        totalProfit: team.totalProfit,
+        totalRevenue: team.totalRevenue
+      };
+    }),
+    currentRound: session.currentRound,
+    isActive: session.isActive,
+    remainingTime: runtime.remainingTime ?? session.settings?.remainingTime ?? 0,
+    sessionId: session.id,
+    sessionName: session.name,
+    ownerTeamId: session.ownerTeamId ?? null,
+    ...sanitizeSettings(session.settings)
+  };
+}

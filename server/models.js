@@ -15,7 +15,16 @@ export const Team = sequelize.define('Team', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true
+    unique: 'team_session_unique'
+  },
+  gameSessionId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'GameSessions',
+      key: 'id'
+    },
+    unique: 'team_session_unique'
   },
   resumeToken: {
     type: DataTypes.STRING,
@@ -71,6 +80,21 @@ export const GameSession = sequelize.define('GameSession', {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'Default Session'
+  },
+  slug: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    defaultValue: 'default-session'
+  },
+  ownerTeamId: {
+    type: DataTypes.UUID,
+    allowNull: true
   },
   currentRound: {
     type: DataTypes.INTEGER,
@@ -230,6 +254,9 @@ RoundResult.belongsTo(GameSession, { foreignKey: 'gameSessionId' });
 
 Team.hasMany(RoundResult, { foreignKey: 'teamId', onDelete: 'CASCADE' });
 RoundResult.belongsTo(Team, { foreignKey: 'teamId' });
+
+GameSession.hasMany(Team, { foreignKey: 'gameSessionId', onDelete: 'CASCADE' });
+Team.belongsTo(GameSession, { foreignKey: 'gameSessionId' });
 
 GameSession.hasMany(HighScore, { foreignKey: 'gameSessionId', onDelete: 'CASCADE' });
 HighScore.belongsTo(GameSession, { foreignKey: 'gameSessionId' });

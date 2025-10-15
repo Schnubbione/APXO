@@ -1,20 +1,20 @@
 # APXO - Agents Guide
 
-Updated: March 19, 2026
+Updated: March 19, 2026 (multi-session update)
 
 This document compresses the current project context and outlines sensible next steps. It is aimed at maintainers, contributors, and automation/AI agents that plan or prioritise work.
 
 ## Quick Overview
 - Purpose: Real-time multi-user simulation (fixed-seat auction + live market) for touristic procurement and demand.
-- Architecture: React + Vite (frontend) · Agent v1 simulation in TypeScript (`src/lib/simulation`) · Node/Express + Socket.IO (backend) · SQLite/Sequelize (persistence).
+- Architecture: React + Vite (frontend) · Agent v1 simulation in TypeScript (`src/lib/simulation`) · Node/Express + Socket.IO (backend) · SQLite/Sequelize (persistence, named sessions + migration helper).
 - Dev Tooling: Storybook, Jest (incl. engine tests), Playwright, ESLint, Tailwind + shadcn/ui.
 - Deployment Targets: Frontend via Vercel, backend via Render/Railway (or local network exposure).
 
 ## Current State
-- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`). Fresh evaluation view replaces the old Fix Market/Your Decisions panels after each round, the Phase 2 launch dialog surfaces Phase 1 context (allocation, budget balance, airline price range), and the admin phase card now bundles Start/End/Reset (current game) actions.
+- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`). Fresh evaluation view replaces the old Fix Market/Your Decisions panels after each round, the Phase 2 launch dialog surfaces Phase 1 context, and the admin console now shows a session banner (selector + launch button) alongside the phase control card.
 - **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit tests cover auction, fixed-before-pooling, airline repricing, and win condition (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
-- **Backend**: Legacy service (`server/gameService.js`) still powers lobby/realtime. Integration with the new engine is pending.
-- **Documentation**: README updated (simulation core, practice mode, setup). Agents Guide provides priorities.
+- **Backend**: Socket.IO lobby now supports named sessions (slugged, owner aware). Reset/analytics/launch commands are session-scoped; legacy service still drives live calculations (engine integration pending).
+- **Documentation**: README updated (simulation core, practice mode, multi-session + migration). Agents Guide provides priorities.
 - **Tests & Quality**: Jest (frontend + engine), separate backend Jest suite (`server/`). Playwright exists, ESLint enforced.
 
 ## Environments & Scripts
@@ -30,24 +30,25 @@ This document compresses the current project context and outlines sensible next 
   - `test`, `test:frontend`, `test:backend`, `test:e2e`
   - `lint`, `lint:fix`
 - Server `package.json`:
-  - `dev` → `node server.js`, `start` → `node index.js`, `test` (Jest)
+  - `dev` → `node server.js`, `start` → `node index.js`, `test` (Jest), `migrate:sessions`
 
 ## Capabilities (Today)
-- Multi-user team registration, admin login (env password), phase control (auction → live market) in the backend.
+- Multi-session lobby: teams register per session, the first entrant becomes session owner (can launch multiplayer rounds).
+- Admin dashboard exposes a session selector, launch shortcut, and per-session reset/analytics controls.
 - Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
 - Round evaluation screen summarises Phase 1 allocation, Phase 2 performance, and top performers while live controls are hidden.
-- Airline guardrails in place: Phase 1 releases 8 % of seats per active team by default (auto-calculated), the auction enforces a minimum bid tied to the airline floor, pooling sales pause before breaching the insolvency limit, and profit is clamped at −€20 000 everywhere it is displayed. Live repricing now uses a headroom-weighted gamma step so the airline reaches €400 only after sustained overflow demand.
+- Airline guardrails: auto-calculated fixed-seat share (8 % per active team), minimum bid tied to airline floor, pooling pause before insolvency, profit clamped at −€20 000, headroom-based repricing toward €400.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
-- Data: SQLite via Sequelize with automatic schema creation. Sessions/teams persist.
-- Active teams are automatically logged out after 15 minutes of inactivity (configurable).
+- Data: SQLite via Sequelize with automatic schema creation plus migration helper (`npm run migrate:sessions`). Active teams auto-logout after 15 minutes (configurable).
 
 ## Known Gaps & Risks
 - **Engine Integration**: Backend still executes legacy calculations. Socket events must migrate to the new engine.
-- **Persistence**: SQLite without migrations/backups; no versioning for game states.
+- **Persistence**: Only a bespoke session migration exists; no general migration/backups or game-state versioning.
 - **Security**: Admin auth is basic, no rate limiting or auditing.
 - **Validation**: No central schema/env validation (e.g. Zod or envalid).
 - **Observability**: Console logging only, no structured logs or request IDs.
+- **Session UX**: Ownership transfer/cleanup is manual; no tooling for merging/archiving sessions.
 - **Load/Chaos**: Load or failure scenarios are undocumented.
 
 ## Roadmap (Proposal)
@@ -60,7 +61,7 @@ This document compresses the current project context and outlines sensible next 
    - Implement rate limiting, audit logs, stricter admin login (passkeys or temporary codes).
    - Introduce structured logging (`pino`) and request IDs.
 3. **Persistence & Data**
-   - Add migrations (Sequelize CLI) and optional Postgres support.
+   - Formalise migration tooling (beyond the session helper) and optional Postgres support.
    - Define backup/restore strategy, possibly snapshot after every round.
 4. **Quality & CI**
    - GitHub Actions for lint/test/build/storybook.
@@ -100,6 +101,10 @@ This document compresses the current project context and outlines sensible next 
 - **Simulation Check**
   ```bash
   npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts
+  ```
+- **Session Migration**
+  ```bash
+  cd server && npm run migrate:sessions
   ```
 - **Practice Mode**: Toggle in the frontend (top right); runs on the new engine.
 - **Watchpoints**: Socket.IO events, config changes (`apxo.config.yaml`), admin panel (legacy vs. new engine).
