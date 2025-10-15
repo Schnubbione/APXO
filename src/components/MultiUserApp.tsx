@@ -898,6 +898,62 @@ export const MultiUserApp: React.FC = () => {
   // Team view
   if (currentTeam) {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
+    const totalLeaderboardTeams = displayedLeaderboard?.length ?? (gameState.teams?.length ?? 0);
+    const mobileLeaderboardRank = (() => {
+      if (!currentTeam) return null;
+      const list = displayedLeaderboard ?? [];
+      const index = list.findIndex(entry => entry.name === currentTeam.name);
+      return index >= 0 ? index + 1 : null;
+    })();
+
+    const mobileMetrics = [
+      {
+        key: 'profit',
+        label: 'Profit',
+        value: `€${currencyFormatter.format(currentProfit)}`,
+        valueClass: currentProfit >= 0 ? 'text-emerald-300' : 'text-rose-300',
+        dotClass: currentProfit >= 0 ? 'bg-emerald-500/60' : 'bg-rose-500/60'
+      },
+      {
+        key: 'revenue',
+        label: 'Revenue',
+        value: `€${currencyFormatter.format(currentRoundRevenue)}`,
+        valueClass: 'text-sky-300',
+        dotClass: 'bg-sky-500/50'
+      },
+      {
+        key: 'sold',
+        label: 'Seats sold',
+        value: numberFormatter.format(currentRoundSold),
+        valueClass: 'text-slate-100',
+        dotClass: 'bg-indigo-500/50'
+      },
+      {
+        key: 'remaining',
+        label: 'Seats left',
+        value: numberFormatter.format(remainingFixSeats),
+        valueClass: 'text-amber-200',
+        dotClass: 'bg-amber-500/50'
+      },
+      {
+        key: 'pooling',
+        label: 'Pooling price',
+        value: poolingPrice > 0 ? `€${currencyFormatter.format(poolingPrice)}` : '—',
+        valueClass: 'text-purple-300',
+        dotClass: 'bg-purple-500/50'
+      }
+    ];
+
+    if (mobileLeaderboardRank !== null) {
+      mobileMetrics.unshift({
+        key: 'rank',
+        label: 'Rank',
+        value: totalLeaderboardTeams > 0 ? `#${mobileLeaderboardRank}/${totalLeaderboardTeams}` : `#${mobileLeaderboardRank}`,
+        valueClass: 'text-white',
+        dotClass: 'bg-slate-500/60'
+      });
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         {/* Top-right: connection badge, actions */}
@@ -1026,6 +1082,27 @@ export const MultiUserApp: React.FC = () => {
               </div>
             </div>
           </header>
+
+          {mobileMetrics.length > 0 && (
+            <section className="-mx-4 block sm:hidden" aria-label="Team quick metrics">
+              <div className="flex gap-3 overflow-x-auto px-4 pb-3 snap-x snap-mandatory">
+                {mobileMetrics.map((metric) => (
+                  <div
+                    key={metric.key}
+                    className="snap-start min-w-[160px] rounded-xl border border-slate-600/60 bg-slate-800/80 p-3 shadow-lg shadow-slate-900/30 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-wide text-slate-400">{metric.label}</span>
+                      <span className={`h-2 w-2 rounded-full ${metric.dotClass}`} aria-hidden="true" />
+                    </div>
+                    <div className={`mt-2 text-lg font-semibold tabular-nums ${metric.valueClass}`}>
+                      {metric.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Price Setting Dialog - Show before simulation starts */}
           {gameState.currentPhase === 'simulation' && !gameState.isActive && !initialPriceSet && (

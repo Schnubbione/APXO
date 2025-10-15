@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Zap, Flame, Target } from "lucide-react";
+import { Clock, Zap, Flame, Target, ChevronDown, ChevronUp } from "lucide-react";
 
 interface RoundTimerProps {
   roundTime: number; // in minutes
@@ -14,6 +14,31 @@ interface RoundTimerProps {
 export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase, remainingTime, simulatedDaysUntilDeparture }: RoundTimerProps) {
   const [timeLeft, setTimeLeft] = useState(remainingTime || roundTime * 60); // in seconds
   const [progress, setProgress] = useState(100);
+  const [isCompact, setIsCompact] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompact(event.matches);
+    };
+
+    setIsCompact(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    setIsCollapsed(isCompact);
+  }, [isCompact]);
 
   // Update time when remainingTime from server changes
   useEffect(() => {
@@ -101,60 +126,98 @@ export default function RoundTimer({ roundTime, isActive, onTimeUp, currentPhase
     return null;
   }
 
-  // Simulation: show days-to-departure instead of timer
-  if (currentPhase === 'simulation') {
-    const days = Math.max(0, Math.floor(Number(simulatedDaysUntilDeparture ?? 0)));
+  const isSimulationPhase = currentPhase === 'simulation';
+  const daysUntilDeparture = isSimulationPhase
+    ? Math.max(0, Math.floor(Number(simulatedDaysUntilDeparture ?? 0)))
+    : null;
+
+  const primaryValue = isSimulationPhase
+    ? `${daysUntilDeparture} day${daysUntilDeparture === 1 ? "" : "s"}`
+    : `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+  const subtitle = isSimulationPhase ? "Days until departure" : "Time Remaining";
+  const primaryClasses = isSimulationPhase
+    ? "text-3xl sm:text-4xl font-bold text-white"
+    : `text-3xl sm:text-4xl font-bold tabular-nums ${getTimerColor()}`;
+  const subtitleClasses = isSimulationPhase
+    ? "text-sm text-slate-300 font-medium"
+    : "text-sm text-slate-400 font-medium";
+  const messageText = isSimulationPhase
+    ? "Simulation running. Customers book in intervals."
+    : getMotivationalMessage();
+  const messageClasses = isSimulationPhase
+    ? "text-xs font-medium text-slate-300"
+    : `text-xs font-medium ${getTimerColor()}`;
+  const leadingIcon = isSimulationPhase
+    ? <Clock className="w-5 h-5 text-blue-400" />
+    : getMotivationalIcon();
+
+  if (isCompact && isCollapsed) {
     return (
-      <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
-        <CardContent className="p-4 sm:p-6">
-          <div className="text-center space-y-3">
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="w-5 h-5 text-blue-400" />
-              <div className="text-sm text-slate-400 font-medium">Days until departure</div>
-            </div>
-            <div className="text-3xl sm:text-4xl font-bold tabular-nums text-white">
-              {days} day{days === 1 ? '' : 's'}
-            </div>
-            <div className="text-xs font-medium text-slate-300">
-              Simulation running. Customers book in intervals.
-            </div>
-            {!isActive && (
-              <div className="text-sm text-slate-500 mt-2 font-medium">Simulation pausiert</div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(false)}
+        className="fixed bottom-4 left-1/2 z-40 flex items-center gap-2 -translate-x-1/2 transform rounded-full border border-slate-600 bg-slate-900/90 px-4 py-2 text-sm font-medium text-slate-200 shadow-lg backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1 focus:ring-offset-slate-900"
+        aria-label="Timer öffnen"
+      >
+        <Clock className="w-4 h-4 text-slate-300" />
+        <span className="font-mono text-base text-white">
+          {isSimulationPhase ? `${daysUntilDeparture}d` : `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`}
+        </span>
+        <ChevronUp className="w-4 h-4 text-slate-400" />
+      </button>
     );
   }
 
+  const cardPositionClasses = isCompact
+    ? "bottom-4 left-1/2 -translate-x-1/2 transform w-[calc(100%-2rem)] max-w-md"
+    : "top-4 left-4 w-auto";
+  const contentPadding = isCompact ? "p-3" : "p-4 sm:p-6";
+  const stackSpacing = isCompact ? "space-y-2" : "space-y-3";
+
   return (
-    <Card className="fixed top-4 left-4 z-40 w-auto bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300">
-      <CardContent className="p-4 sm:p-6">
-        <div className="text-center space-y-3">
+    <Card className={`fixed z-40 bg-slate-800/95 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300 ${cardPositionClasses}`}>
+      <CardContent className={`relative ${contentPadding}`}>
+        {isCompact && (
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(true)}
+            className="absolute right-2 top-2 rounded-full p-1 text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            aria-label="Timer minimieren"
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        )}
+        <div className={`text-center ${stackSpacing}`}>
           <div className="flex items-center justify-center gap-2">
-            {getMotivationalIcon()}
-            <div className="text-sm text-slate-400 font-medium">Time Remaining</div>
+            {leadingIcon}
+            <div className={subtitleClasses}>{subtitle}</div>
           </div>
 
-          <div className={`text-3xl sm:text-4xl font-bold tabular-nums ${getTimerColor()}`}>
-            {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+          <div className={primaryClasses}>
+            {primaryValue}
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-2 bg-gradient-to-r ${getProgressColor()} transition-all duration-1000 ease-out rounded-full`}
-              style={{ width: `${progress}%` }}
-            />
+          {!isSimulationPhase && (
+            <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-2 bg-gradient-to-r ${getProgressColor()} transition-all duration-1000 ease-out rounded-full`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+
+          <div className={messageClasses}>
+            {messageText}
           </div>
 
-          {/* Motivational Message */}
-          <div className={`text-xs font-medium ${getTimerColor()}`}>
-            {getMotivationalMessage()}
-          </div>
-
-          {!isActive && (
-            <div className="text-sm text-slate-500 mt-2 font-medium">
+          {isSimulationPhase && !isActive && (
+            <div className="text-sm text-slate-500 mt-1 font-medium">
+              Simulation pausiert
+            </div>
+          )}
+          {!isSimulationPhase && !isActive && (
+            <div className="text-sm text-slate-500 mt-1 font-medium">
               Round paused
             </div>
           )}
