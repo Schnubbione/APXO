@@ -153,94 +153,114 @@ export class GameService {
         return;
       }
 
-      if (definition?.slug) {
-        this.slugSchemaEnsured = true;
-        this.slugLookupEnabled = true;
-        return;
-      }
+      let hasSlug = Boolean(definition?.slug);
+      let hasOwnerColumn = Boolean(definition?.ownerTeamId);
 
-      console.log('🔧 Detected legacy GameSessions table without slug column. Applying in-place migration.');
-      const slugAttribute = GameSessionModel.rawAttributes?.slug;
+      if (!hasSlug) {
+        console.log('🔧 Detected legacy GameSessions table without slug column. Applying in-place migration.');
+        const slugAttribute = GameSessionModel.rawAttributes?.slug;
 
-      if (!slugAttribute) {
-        console.warn('Unable to locate slug attribute metadata; skipping slug migration.');
-        this.slugSchemaEnsured = true;
-        this.slugLookupEnabled = false;
-        return;
-      }
+        if (!slugAttribute) {
+          console.warn('Unable to locate slug attribute metadata; skipping slug migration.');
+        } else {
+          const columnDefinition = {
+            type: slugAttribute.type,
+            allowNull: true,
+            defaultValue: null
+          };
 
-      const columnDefinition = {
-        type: slugAttribute.type,
-        allowNull: true,
-        defaultValue: null
-      };
+          try {
+            await queryInterface.addColumn(tableRef, 'slug', columnDefinition);
+            hasSlug = true;
+          } catch (error) {
+            if (error?.message && /duplicate|exists/i.test(error.message)) {
+              hasSlug = true;
+            } else {
+              console.error('Failed to add slug column to GameSessions table:', error);
+            }
+          }
 
-      try {
-        await queryInterface.addColumn(tableRef, 'slug', columnDefinition);
-      } catch (error) {
-        // If the column already exists, mark as ensured and bail.
-        if (error?.message && /duplicate|exists/i.test(error.message)) {
-          this.slugSchemaEnsured = true;
-          this.slugLookupEnabled = true;
-          return;
+          if (hasSlug) {
+            const sessions = await GameSessionModel.findAll({
+              attributes: ['id', 'name'],
+              order: [['createdAt', 'ASC']]
+            });
+
+            const takenSlugs = new Set();
+            for (const session of sessions) {
+              const baseSlug = slugify(session.name) || `session-${session.id?.slice(0, 8) || Date.now().toString(36)}`;
+              let candidate = baseSlug || DEFAULT_SESSION_SLUG;
+              let counter = 1;
+              while (!candidate || takenSlugs.has(candidate)) {
+                candidate = `${baseSlug}-${counter++}`;
+              }
+              takenSlugs.add(candidate);
+              await this.applySessionUpdates(session, { slug: candidate });
+            }
+
+            if (!takenSlugs.has(DEFAULT_SESSION_SLUG) && sessions.length > 0) {
+              const [firstSession] = sessions;
+              if (firstSession) {
+                await this.applySessionUpdates(firstSession, { slug: DEFAULT_SESSION_SLUG });
+                takenSlugs.add(DEFAULT_SESSION_SLUG);
+              }
+            }
+
+            try {
+              const slugAttributeType = GameSessionModel.rawAttributes?.slug?.type;
+              if (slugAttributeType) {
+                await queryInterface.changeColumn(tableRef, 'slug', {
+                  type: slugAttributeType,
+                  allowNull: false,
+                  defaultValue: DEFAULT_SESSION_SLUG
+                });
+              }
+            } catch (error) {
+              console.warn('Unable to enforce NOT NULL/default on slug column:', error?.message || error);
+            }
+
+            try {
+              await queryInterface.addIndex(tableRef, {
+                fields: ['slug'],
+                unique: true,
+                name: 'game_sessions_slug_unique'
+              });
+            } catch (error) {
+              if (!(error?.message && /exists|duplicate/i.test(error.message))) {
+                console.warn('Unable to create unique index for GameSession slug column:', error?.message || error);
+              }
+            }
+
+            console.log('✅ GameSessions slug column migration completed.');
+          }
         }
-        console.error('Failed to add slug column to GameSessions table:', error);
-        this.slugSchemaEnsured = true;
-        this.slugLookupEnabled = false;
-        return;
       }
 
-      const sessions = await GameSessionModel.findAll({
-        attributes: ['id', 'name'],
-        order: [['createdAt', 'ASC']]
-      });
-
-      const takenSlugs = new Set();
-      for (const session of sessions) {
-        const baseSlug = slugify(session.name) || `session-${session.id?.slice(0, 8) || Date.now().toString(36)}`;
-        let candidate = baseSlug || DEFAULT_SESSION_SLUG;
-        let counter = 1;
-        while (!candidate || takenSlugs.has(candidate)) {
-          candidate = `${baseSlug}-${counter++}`;
-        }
-        takenSlugs.add(candidate);
-        await this.applySessionUpdates(session, { slug: candidate });
-      }
-
-      // Ensure the default session slug exists for the first session if none assigned.
-      if (!takenSlugs.has(DEFAULT_SESSION_SLUG) && sessions.length > 0) {
-        const [firstSession] = sessions;
-        if (firstSession) {
-          await this.applySessionUpdates(firstSession, { slug: DEFAULT_SESSION_SLUG });
-          takenSlugs.add(DEFAULT_SESSION_SLUG);
-        }
-      }
-
-      try {
-        await queryInterface.changeColumn(tableRef, 'slug', {
-          type: slugAttribute.type,
-          allowNull: false,
-          defaultValue: DEFAULT_SESSION_SLUG
-        });
-      } catch (error) {
-        console.warn('Unable to enforce NOT NULL/default on slug column:', error?.message || error);
-      }
-
-      try {
-        await queryInterface.addIndex(tableRef, {
-          fields: ['slug'],
-          unique: true,
-          name: 'game_sessions_slug_unique'
-        });
-      } catch (error) {
-        if (!(error?.message && /exists|duplicate/i.test(error.message))) {
-          console.warn('Unable to create unique index for GameSession slug column:', error?.message || error);
+      if (!hasOwnerColumn) {
+        const ownerAttr = GameSessionModel.rawAttributes?.ownerTeamId;
+        if (!ownerAttr) {
+          console.warn('Unable to locate ownerTeamId attribute metadata; skipping owner column migration.');
+        } else {
+          try {
+            await queryInterface.addColumn(tableRef, 'ownerTeamId', {
+              type: ownerAttr.type,
+              allowNull: true,
+              defaultValue: null
+            });
+            hasOwnerColumn = true;
+            console.log('✅ GameSessions ownerTeamId column added.');
+          } catch (error) {
+            if (error?.message && /duplicate|exists/i.test(error.message)) {
+              hasOwnerColumn = true;
+            } else {
+              console.warn('Unable to add ownerTeamId column to GameSessions table:', error?.message || error);
+            }
+          }
         }
       }
 
       this.slugSchemaEnsured = true;
-      this.slugLookupEnabled = true;
-      console.log('✅ GameSessions slug column migration completed.');
+      this.slugLookupEnabled = hasSlug;
     })().catch(error => {
       console.error('Error while ensuring GameSession slug support:', error);
       this.slugSchemaEnsured = true;
