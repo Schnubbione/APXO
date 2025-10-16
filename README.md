@@ -10,8 +10,8 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Round Evaluation View** - Post-round recap for teams that distills Phase 1 allocations plus Phase 2 market performance while hiding live controls.
-- **Multi-Session Lobby** - Sessions have names, owners, and isolated timers; the first player becomes session owner and can launch a multiplayer round with standard timings. Admins can hop between sessions from the dashboard.
-- **Streamlined Admin Controls** - Session banner + phase control card bundle Start/End buttons with guarded reset actions for quick recoveries.
+- **Multi-Session Lobby** - Sessions have names, owners, and isolated timers; the first player becomes session owner and can launch a multiplayer round with standard timings. Idle teams auto-expire after 15 minutes and empty sessions are pruned automatically to keep the lobby tidy.
+- **Streamlined Admin Controls** - Session banner + phase control card bundle Start/End buttons with guarded reset actions for quick recoveries. A danger-zone purge can wipe all sessions and rebuild a clean default lobby in one click.
 - **Airline Guardrails** - Admin-only controls for an auto-calculated fixed-seat share (8 % of aircraft seats per active team), a hard minimum bid aligned with the airline floor, and automatic pooling safety to prevent forced insolvency.
 - **Migration Script** - `npm run migrate:sessions` upgrades existing databases (adds session columns, assigns defaults, enforces slug uniqueness).
 - **UI Toolkit** - Tailwind + shadcn/ui, Storybook, Framer Motion animations, responsive layouts.
@@ -174,7 +174,8 @@ When a round ends the UI switches into an evaluation state:
 2. Use the session banner to switch between sessions; the first team in a session becomes owner and can launch rounds.
 3. Start/stop phases with the control card; resets now operate per session (global resets still exist if required).
 4. Run analytics from the current session to review demand curves, profit trends, and round history.
-5. Practice mode remains a quick way to onboard new teams.
+5. When the lobby gets noisy, delete all sessions from the Danger Zone to rebuild a clean default lobby; the backend also auto-prunes inactive sessions and auto-logs silent teams after 15 minutes.
+6. Practice mode remains a quick way to onboard new teams.
 
 ---
 
