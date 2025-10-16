@@ -237,14 +237,6 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 >
                   New session
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={refreshSessions}
-                  className="px-3 py-2 text-sm bg-slate-800/70 border-slate-600 text-slate-200 hover:bg-slate-700/70"
-                >
-                  Refresh sessions
-                </Button>
               </div>
             </div>
 

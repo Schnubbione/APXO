@@ -33,7 +33,7 @@ This document compresses the current project context and outlines sensible next 
   - `dev` → `node server.js`, `start` → `node index.js`, `test` (Jest), `migrate:sessions`
 
 ## Capabilities (Today)
-- Multi-session lobby: teams register per session, the first entrant becomes session owner (can launch multiplayer rounds). The Admin Session is always available for facilitator-led play, and sessions auto-prune once they stay idle with no active teams.
+- Multi-session lobby: teams register per session, the first entrant becomes session owner (can launch multiplayer rounds). The lobby list refreshes automatically so new sessions surface without manual reloads. The Admin Session is always available for facilitator-led play, and sessions auto-prune once they stay idle with no active teams.
 - Admin dashboard exposes a session selector, launch shortcut, per-session reset/analytics controls, and a danger-zone purge that clears every session.
 - Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.

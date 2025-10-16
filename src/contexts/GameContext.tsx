@@ -5,6 +5,7 @@ import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
 const MIN_PROFIT_LIMIT = -20000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const SESSION_REFRESH_INTERVAL_MS = 5000;
 
 function buildPracticeDemandSchedule(options: {
   horizonDays: number;
@@ -1009,6 +1010,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
   }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+    if (typeof window === 'undefined') return undefined;
+    const intervalId = window.setInterval(() => {
+      refreshSessions();
+    }, SESSION_REFRESH_INTERVAL_MS);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [socket, refreshSessions]);
 
   const createSession = useCallback((name: string, ack?: (result: { ok: boolean; error?: string | null; session?: SessionSummary }) => void) => {
     if (!socket) {
