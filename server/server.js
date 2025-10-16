@@ -1266,24 +1266,53 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Start simulation phase (admin only)
+  // Start simulation phase (admin or ready team)
   socket.on('startSimulationPhase', async () => {
-    if (socket.id === adminSocket) {
+    const targetSessionId = socket.data?.sessionId || GameService.currentGameSession?.id;
+    if (!targetSessionId) {
+      socket.emit('error', 'No session ready to start');
+      return;
+    }
+
+    const isAdminRequest = socket.id === adminSocket;
+
+    if (!isAdminRequest) {
       try {
-        const session = await GameService.startSimulationPhase(socket.data?.sessionId || undefined);
-        io.to(getSessionRoom(session.id)).emit('phaseStarted', 'simulation');
-        await broadcastGameState(session.id);
-        console.log('Simulation phase started');
-
-        // Start pooling market updates
-        startPoolingMarketUpdates(session.id);
-
-        // Start round timer
-        await startRoundTimer(session.id);
+        const session = await GameService.getCurrentGameSession(targetSessionId);
+        if (isAdminSessionRecord(session)) {
+          socket.emit('error', 'Admin access required');
+          return;
+        }
+        if (session.settings?.currentPhase !== 'simulation' || session.isActive) {
+          socket.emit('error', 'Simulation phase is not ready to start');
+          return;
+        }
+        const allConfirmed = await GameService.areAllTeamsConfirmed(session.id);
+        if (!allConfirmed) {
+          socket.emit('error', 'Waiting for remaining teams to confirm');
+          return;
+        }
       } catch (error) {
-        console.error('Error starting simulation phase:', error);
-        socket.emit('error', 'Failed to start simulation phase');
+        console.error('Error validating simulation start request:', error);
+        socket.emit('error', 'Unable to start simulation');
+        return;
       }
+    }
+
+    try {
+      const session = await GameService.startSimulationPhase(targetSessionId || undefined);
+      io.to(getSessionRoom(session.id)).emit('phaseStarted', 'simulation');
+      await broadcastGameState(session.id);
+      console.log(`Simulation phase started for session ${session.id} (${isAdminRequest ? 'admin' : 'team'} trigger)`);
+
+      // Start pooling market updates
+      startPoolingMarketUpdates(session.id);
+
+      // Start round timer
+      await startRoundTimer(session.id);
+    } catch (error) {
+      console.error('Error starting simulation phase:', error);
+      socket.emit('error', 'Failed to start simulation phase');
     }
   });
 

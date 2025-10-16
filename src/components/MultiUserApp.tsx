@@ -82,7 +82,6 @@ export const MultiUserApp: React.FC = () => {
   deleteAllSessions,
   sessions,
   currentSessionId,
-    launchSession,
   tutorialActive,
   tutorialStep,
   startTutorial,
@@ -117,11 +116,6 @@ export const MultiUserApp: React.FC = () => {
   }, [sessions, activeSessionId]);
   const isAdminSession = (activeSession?.slug ?? '').toLowerCase() === 'admin-session';
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
-  const canLaunchSession = Boolean(
-    currentTeam &&
-    activeSession &&
-    currentTeam.sessionId === activeSession.id
-  );
   const canOpenSettings = isAdmin && isAdminSession;
   const totalSessionTeams = Array.isArray(gameState.teams) ? gameState.teams.length : 0;
   const confirmedTeamsCount = Array.isArray(gameState.teams)
@@ -161,6 +155,7 @@ export const MultiUserApp: React.FC = () => {
     ? Math.round(Number(gameState.poolingMarket?.currentPrice))
     : Math.round(Number(gameState.poolingCost ?? gameState.fixSeatPrice ?? 0));
   const isAdminView = isAdmin && isAdminSession;
+  const isSimulationIdle = gameState.currentPhase === 'simulation' && !gameState.isActive;
 
   React.useEffect(() => {
     if (!isAdminSession && showAdminPanel) {
@@ -186,6 +181,11 @@ export const MultiUserApp: React.FC = () => {
     confirmPhaseOne();
   }, [tempPrice, updateTeamDecision, confirmPhaseOne]);
 
+  const handleStartSimulation = React.useCallback(() => {
+    if (!isSimulationIdle) return;
+    startSimulationPhase();
+  }, [isSimulationIdle, startSimulationPhase]);
+
   const handleAdminLogout = () => {
     if (isAdmin) {
       logoutAsAdmin();
@@ -206,22 +206,11 @@ export const MultiUserApp: React.FC = () => {
             : 'Loading session information...'}
         </div>
       </div>
-      <div className="flex flex-col gap-2 sm:items-end">
-        {canLaunchSession && (
-          <Button
-            onClick={() => launchSession(activeSessionId || undefined)}
-            disabled={gameState.isActive}
-            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold px-5 py-2 rounded-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {gameState.isActive ? 'Session in progress' : 'Launch multiplayer'}
-          </Button>
-        )}
-        {(isPrePurchaseActive || isSimulationEvaluation) && (
-          <div className="text-xs text-slate-400 text-right">
-            {confirmationStatusText}
-          </div>
-        )}
-      </div>
+      {(isPrePurchaseActive || isSimulationEvaluation) && (
+        <div className="text-xs text-slate-400 text-right">
+          {confirmationStatusText}
+        </div>
+      )}
     </div>
   );
 
@@ -1792,8 +1781,17 @@ export const MultiUserApp: React.FC = () => {
                       </CardContent>
                     </Card>
                     <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
-                      <CardHeader className="pb-3">
+                      <CardHeader className="pb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-white text-lg">Pooling Price and Demand Trend</CardTitle>
+                        {isSimulationIdle && (
+                          <Button
+                            onClick={handleStartSimulation}
+                            disabled={!isSimulationIdle}
+                            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold px-4 py-2 rounded-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            Start Simulation
+                          </Button>
+                        )}
                       </CardHeader>
                       <CardContent className="h-64">
                         {priceHistoryData.length > 1 ? (
