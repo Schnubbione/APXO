@@ -185,11 +185,6 @@ export const MultiUserApp: React.FC = () => {
       logoutTeam();
     }
   };
-  const handleSessionChange = React.useCallback((sessionId: string) => {
-    if (!sessionId || sessionId === activeSessionId) return;
-    selectSession(sessionId);
-  }, [selectSession, activeSessionId]);
-
   const sessionBanner = (
     <div className="flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div>
@@ -204,25 +199,6 @@ export const MultiUserApp: React.FC = () => {
         </div>
       </div>
       <div className="flex flex-col gap-2 sm:items-end">
-        {isAdmin && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs sm:text-sm text-slate-300">
-            <span className="font-medium">Select session</span>
-            <select
-              className="min-w-[160px] rounded-lg border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm text-white focus:border-indigo-400 focus:outline-none"
-              value={activeSessionId ?? ''}
-              onChange={(event) => handleSessionChange(event.target.value)}
-            >
-              {sessions.length === 0 ? (
-                <option value="" disabled>No sessions available</option>
-              ) : null}
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.name} - {session.teamCount} team{session.teamCount === 1 ? '' : 's'}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
         {canLaunchSession && (
           <Button
             onClick={() => launchSession(activeSessionId || undefined)}
