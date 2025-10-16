@@ -1922,12 +1922,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const confirmPhaseOne = useCallback(() => {
     if (!socket) return;
+    const teamId = currentTeam?.id ?? socketIdRef.current ?? null;
+    if (teamId) {
+      setCurrentTeam(prev => {
+        if (!prev || prev.id !== teamId) return prev;
+        return {
+          ...prev,
+          decisions: {
+            ...prev.decisions,
+            phaseOneConfirmed: true
+          }
+        };
+      });
+      setGameState(prev => {
+        if (!prev?.teams) return prev;
+        const updatedTeams = prev.teams.map(team => {
+          if (team.id !== teamId) return team;
+          return {
+            ...team,
+            decisions: {
+              ...team.decisions,
+              phaseOneConfirmed: true
+            }
+          };
+        });
+        return { ...prev, teams: updatedTeams };
+      });
+    }
     socket.emit('updateTeamDecision', { phaseOneConfirmed: true }, (response?: { ok?: boolean; error?: string }) => {
       if (response?.ok === false && response.error) {
         setLastError(response.error);
       }
     });
-  }, [socket]);
+  }, [socket, currentTeam?.id]);
 
   const deleteAllSessions = useCallback(() => {
     if (!socket) {
