@@ -372,6 +372,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   countdownSeconds: 0
   });
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const sessionsRef = React.useRef<SessionSummary[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -413,6 +414,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     airlinePoolTotal: number;
   } | null>(null);
   const hasInitialSessionSyncRef = React.useRef(false);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   useEffect(() => {
     isAdminRef.current = isAdmin;
@@ -806,6 +811,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('adminLoginSuccess', () => {
       console.log('Admin login successful');
       setIsAdmin(true);
+      const adminSession = sessionsRef.current.find(session => session.slug === 'admin-session');
+      if (adminSession) {
+        setCurrentSessionId(adminSession.id);
+        newSocket.emit('session:select', { sessionId: adminSession.id });
+      }
     });
 
     // Listen for admin login error
