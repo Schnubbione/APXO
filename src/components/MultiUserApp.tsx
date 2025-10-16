@@ -83,7 +83,6 @@ export const MultiUserApp: React.FC = () => {
   sessions,
   currentSessionId,
     launchSession,
-  selectSession,
   tutorialActive,
   tutorialStep,
   startTutorial,
@@ -143,11 +142,17 @@ export const MultiUserApp: React.FC = () => {
   const displayedBidPrice = Math.max(0, Math.round(currentBidPriceDecision ?? 0));
   const displayedRequestedIntent = Math.max(0, Math.round(requestedFixSeatsIntent ?? 0));
   const isConfirmActionEnabled = Boolean(isSimulationEvaluation && !isCurrentTeamConfirmed && totalSessionTeams > 0 && allocationSummary);
-  const canConfirmInitialPrice = Boolean(
+  const canConfirmPrePurchase = Boolean(
+    isPrePurchaseActive &&
     !isCurrentTeamConfirmed &&
     totalSessionTeams > 0 &&
+    hasBidPriceDecision
+  );
+  const canConfirmInitialPrice = Boolean(
     tempPrice > 0 &&
-    (hasBidPriceDecision || displayedRequestedIntent === 0)
+    !initialPriceSet &&
+    gameState.currentPhase === 'simulation' &&
+    !gameState.isActive
   );
   const confirmationStatusText = totalSessionTeams > 0
     ? `${confirmedTeamsCount}/${totalSessionTeams} teams confirmed`
@@ -169,14 +174,17 @@ export const MultiUserApp: React.FC = () => {
     }
   }, [gameState.currentPhase, gameState.isActive, gameState.currentRound]);
 
+  const handlePrePurchaseConfirm = React.useCallback(() => {
+    if (!isPrePurchaseActive || isCurrentTeamConfirmed || !hasBidPriceDecision) return;
+    confirmPhaseOne();
+  }, [isPrePurchaseActive, isCurrentTeamConfirmed, hasBidPriceDecision, confirmPhaseOne]);
+
   const handleInitialPriceConfirm = React.useCallback(() => {
     if (tempPrice <= 0) return;
     updateTeamDecision({ price: tempPrice });
     setInitialPriceSet(true);
-    if (!isCurrentTeamConfirmed) {
-      confirmPhaseOne();
-    }
-  }, [tempPrice, updateTeamDecision, isCurrentTeamConfirmed, confirmPhaseOne]);
+    confirmPhaseOne();
+  }, [tempPrice, updateTeamDecision, confirmPhaseOne]);
 
   const handleAdminLogout = () => {
     if (isAdmin) {
@@ -1305,14 +1313,11 @@ export const MultiUserApp: React.FC = () => {
                   </div>
 
                   <Button
-                    onClick={() => {
-                      updateTeamDecision({ price: tempPrice });
-                      setInitialPriceSet(true);
-                    }}
-                    disabled={tempPrice <= 0}
+                    onClick={handleInitialPriceConfirm}
+                    disabled={!canConfirmInitialPrice}
                     className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 min-h-[48px] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Confirm Initial Price (€{tempPrice})
+                    Confirm Initial Price (€{currencyFormatter.format(Math.max(0, Math.round(tempPrice)))})
                   </Button>
                 </CardContent>
               </Card>
@@ -1705,30 +1710,28 @@ export const MultiUserApp: React.FC = () => {
                     </div>
                     <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 space-y-3">
                       <div className="flex flex-col gap-2 text-sm text-indigo-100">
-                        <span className="flex items-center gap-2 font-medium">
+                        <div className="flex items-center gap-2 font-medium">
                           {isCurrentTeamConfirmed ? (
                             <CheckCircle className="w-4 h-4" />
                           ) : (
                             <Clock className="w-4 h-4" />
                           )}
                           {isCurrentTeamConfirmed ? 'Bid locked' : 'Confirm your sealed bid'}
-                        </span>
-                        <span className="text-indigo-100/80">{prePurchaseConfirmHint}</span>
-                        <span className="text-xs text-indigo-200/70">
+                        </div>
+                        <div className="text-indigo-100/80">{prePurchaseConfirmHint}</div>
+                        <div className="text-xs text-indigo-200/70">
                           Current entry: €{currencyFormatter.format(displayedBidPrice)} · {displayedRequestedIntent.toLocaleString('de-DE')} seats
-                        </span>
-                        <span className="text-xs text-indigo-200/70">
-                          {confirmationStatusText}
-                        </span>
+                        </div>
+                        <div className="text-xs text-indigo-200/70">{confirmationStatusText}</div>
                       </div>
                       <Button
                         type="button"
-                        onClick={handleInitialPriceConfirm}
-                        disabled={!canConfirmInitialPrice}
+                        onClick={handlePrePurchaseConfirm}
+                        disabled={!canConfirmPrePurchase}
                         className={`w-full min-h-[44px] rounded-lg font-semibold transition-all duration-200 ${
                           isCurrentTeamConfirmed
                             ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-100 cursor-default'
-                            : canConfirmInitialPrice
+                            : canConfirmPrePurchase
                               ? 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                               : 'bg-indigo-900/30 border border-indigo-700/40 text-indigo-200/60 cursor-not-allowed'
                         }`}
@@ -1739,7 +1742,7 @@ export const MultiUserApp: React.FC = () => {
                             Bid locked
                           </span>
                         ) : (
-                          `Confirm Initial Price (€${currencyFormatter.format(Math.max(0, Math.round(tempPrice)))})`
+                          'Confirm Bid'
                         )}
                       </Button>
                     </div>
