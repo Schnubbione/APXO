@@ -234,7 +234,7 @@ function buildRandomMultiplayerSettings() {
     secondsPerDay: 1,
     autoAdvance: true,
     simulationTicksTotal: 365,
-    roundTime: 180,
+    roundTime: 60,
     perTeamBudget: 10000
   };
 }
@@ -315,11 +315,11 @@ async function startRoundTimer(sessionId, overrideSeconds = null) {
   let roundTime = overrideSeconds;
   if (roundTime === null || roundTime === undefined) {
     if (currentPhase === 'prePurchase') {
-      roundTime = settings.roundTime || 180;
+      roundTime = settings.roundTime || 60;
     } else if (currentPhase === 'simulation') {
       roundTime = null;
     } else {
-      roundTime = 180;
+      roundTime = 60;
     }
   }
 
@@ -425,6 +425,42 @@ async function autoEndCurrentPhase(sessionId) {
   } catch (error) {
     console.error(`Error auto-ending phase for session ${sessionId}:`, error);
     stopRoundTimer(sessionId);
+  }
+}
+
+async function autoAdvanceAfterConfirmations(sessionId) {
+  try {
+    const session = await GameService.getCurrentGameSession(sessionId);
+    if (!session || !session.isActive) return;
+    if (session.settings?.currentPhase !== 'prePurchase') return;
+
+    const allConfirmed = await GameService.areAllTeamsConfirmed(sessionId);
+    if (!allConfirmed) return;
+
+    console.log(`✅ All teams confirmed bids for session ${sessionId}. Advancing to simulation.`);
+
+    const allocationResult = await GameService.allocateFixSeats(sessionId);
+    io.to(getSessionRoom(sessionId)).emit('fixSeatsAllocated', allocationResult);
+
+    await GameService.endPhase(sessionId);
+
+    const nextSession = await GameService.startSimulationPhase(sessionId);
+    io.to(getSessionRoom(sessionId)).emit('phaseStarted', 'simulation');
+
+    startPoolingMarketUpdates(sessionId);
+    const runtime = getSessionRuntime(sessionId);
+    const roundTime = nextSession.settings?.roundTime || 60;
+    if (runtime) runtime.remainingTime = roundTime;
+    await startRoundTimer(sessionId, roundTime);
+
+    await broadcastGameState(sessionId);
+
+    io.to(getSessionRoom(sessionId)).emit('phaseAutoAdvanced', {
+      phase: 'simulation',
+      reason: 'all-teams-confirmed'
+    });
+  } catch (error) {
+    console.error(`Error auto-advancing session ${sessionId} after confirmations:`, error);
   }
 }
 
@@ -698,9 +734,9 @@ io.on('connection', async (socket) => {
 
       const runtime = getSessionRuntime(targetSessionId);
       if (runtime) {
-        runtime.remainingTime = randomSettings.roundTime || 180;
+        runtime.remainingTime = randomSettings.roundTime || 60;
       }
-      await startRoundTimer(targetSessionId, randomSettings.roundTime || 180);
+      await startRoundTimer(targetSessionId, randomSettings.roundTime || 60);
       await broadcastGameState(targetSessionId);
 
       console.log(`🎮 Session ${targetSessionId} launched by socket ${socket.id}`);
@@ -796,11 +832,14 @@ io.on('connection', async (socket) => {
   // Team decisions
   socket.on('updateTeamDecision', async (decision, ack) => {
     try {
-      const team = await GameService.updateTeamDecision(socket.id, decision);
-      if (team) {
-        const sessionId = team.gameSessionId || socket.data?.sessionId;
+      const result = await GameService.updateTeamDecision(socket.id, decision);
+      if (result && result.team) {
+        const sessionId = result.sessionId || result.team.gameSessionId || socket.data?.sessionId;
         if (sessionId) {
           await broadcastGameState(sessionId);
+          if (result.allPhaseOneConfirmed) {
+            await autoAdvanceAfterConfirmations(sessionId);
+          }
         } else {
           await broadcastGameState();
         }

@@ -416,7 +416,7 @@ export class GameService {
       shock: 0.1,
       sharedMarket: true,
       seed: 42,
-      roundTime: 180,
+      roundTime: 60,
       priceElasticity: -1.5,
       crossElasticity: 0.3,
       costVolatility: 0.05,
@@ -835,6 +835,9 @@ export class GameService {
 
     // Build sanitized update
     const next = { ...(team.decisions || {}) };
+    let resetPhaseConfirmation = false;
+    let confirmationRequested = false;
+    let confirmationValue = false;
 
     if (typeof decision.price === 'number' && !Number.isNaN(decision.price)) {
       // Clamp retail price to sensible bounds
@@ -850,6 +853,7 @@ export class GameService {
         const requested = Math.max(0, Math.floor(decision.fixSeatsPurchased));
         next.fixSeatsPurchased = requested;
         next.fixSeatsRequested = requested;
+        resetPhaseConfirmation = true;
       }
     }
 
@@ -869,7 +873,13 @@ export class GameService {
         } else {
           next.fixSeatBidPrice = null;
         }
+        resetPhaseConfirmation = true;
       }
+    }
+
+    if (isPrePurchasePhase && decision.phaseOneConfirmed !== undefined) {
+      confirmationRequested = true;
+      confirmationValue = Boolean(decision.phaseOneConfirmed);
     }
 
     // Agent v1 live controls: can be set during simulation phase
@@ -893,8 +903,31 @@ export class GameService {
       next.fixSeatsAllocated = team.decisions.fixSeatsAllocated;
     }
 
+    if (isPrePurchasePhase) {
+      if (!Object.prototype.hasOwnProperty.call(next, 'phaseOneConfirmed')) {
+        next.phaseOneConfirmed = false;
+      }
+      if (resetPhaseConfirmation && !confirmationRequested) {
+        next.phaseOneConfirmed = false;
+      }
+      if (confirmationRequested) {
+        next.phaseOneConfirmed = confirmationValue;
+      }
+    }
+
     await team.update({ decisions: next, lastActiveAt: new Date() });
-    return team;
+    team.decisions = next;
+
+    let allConfirmed = false;
+    if (confirmationRequested && confirmationValue) {
+      allConfirmed = await this.areAllTeamsConfirmed(session.id);
+    }
+
+    return {
+      team,
+      sessionId: session.id,
+      allPhaseOneConfirmed: confirmationRequested && confirmationValue && allConfirmed
+    };
   }
 
   /**
@@ -912,6 +945,26 @@ export class GameService {
         required: false
       }]
     });
+  }
+
+  static async areAllTeamsConfirmed(sessionId) {
+    const teams = await this.getActiveTeams(sessionId);
+    if (!teams.length) return false;
+    return teams.every(team => Boolean(team?.decisions?.phaseOneConfirmed));
+  }
+
+  static async resetPhaseOneConfirmations(sessionId) {
+    const teams = await TeamModel.findAll({ where: { gameSessionId: sessionId } });
+    for (const team of teams) {
+      const currentDecisions = { ...(team.decisions || {}) };
+      if (currentDecisions.phaseOneConfirmed) {
+        currentDecisions.phaseOneConfirmed = false;
+        await team.update({ decisions: currentDecisions });
+      } else if (!Object.prototype.hasOwnProperty.call(currentDecisions, 'phaseOneConfirmed')) {
+        currentDecisions.phaseOneConfirmed = false;
+        await team.update({ decisions: currentDecisions });
+      }
+    }
   }
 
   /**
@@ -972,8 +1025,11 @@ export class GameService {
         const defaultDecisions = {
           price: 500,
           fixSeatsPurchased: 0,
+          fixSeatsRequested: 0,
           fixSeatsAllocated: 0,
-          poolingAllocation: 0
+          poolingAllocation: 0,
+          fixSeatBidPrice: null,
+          phaseOneConfirmed: false
         };
 
         if (shouldReset) {
@@ -1031,8 +1087,11 @@ export class GameService {
         lastActiveAt: new Date(),
         decisions: {
           price: 500,
+          fixSeatsRequested: 0,
           fixSeatsPurchased: 0,
-          poolingAllocation: 0
+          poolingAllocation: 0,
+          fixSeatBidPrice: null,
+          phaseOneConfirmed: false
         },
         totalProfit: 0,
         totalRevenue: 0,
@@ -1317,6 +1376,12 @@ export class GameService {
     await session.update({ settings: updatedSettings, isActive: true });
     session.settings = updatedSettings;
     session.isActive = true;
+
+    try {
+      await this.resetPhaseOneConfirmations(session.id);
+    } catch (error) {
+      console.warn('Unable to reset phase one confirmations:', error?.message || error);
+    }
     return session;
   }
 
@@ -2251,6 +2316,12 @@ export class GameService {
         settings: defaultSettings
       });
       adminSession.settings = defaultSettings;
+
+      try {
+        await this.resetPhaseOneConfirmations(adminSessionId);
+      } catch (error) {
+        console.warn('Unable to reset confirmations while purging sessions:', error?.message || error);
+      }
 
       this.sessionCache.clear();
       this.sessionCache.set(adminSessionId, adminSession);

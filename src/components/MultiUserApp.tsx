@@ -14,7 +14,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Line, Tooltip as RechartsTooltip } from 'recharts';
-import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map as MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee } from 'lucide-react';
+import { Users, Award, Settings, MapPin, Sun, Camera, Compass, Anchor, Mountain, Tent, Binoculars, Map as MapIcon, Navigation, Waves, Snowflake, Eye, Star, Coffee, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from './ui/toast';
 import { defaultConfig } from '@/lib/simulation/defaultConfig';
 
@@ -78,6 +78,7 @@ export const MultiUserApp: React.FC = () => {
   getAnalytics,
   resetAllData,
   resetCurrentGame,
+  confirmPhaseOne,
   deleteAllSessions,
   sessions,
   currentSessionId,
@@ -118,6 +119,15 @@ export const MultiUserApp: React.FC = () => {
   const isAdminSession = (activeSession?.slug ?? '').toLowerCase() === 'admin-session';
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
   const canOpenSettings = isAdmin && isAdminSession;
+  const totalSessionTeams = Array.isArray(gameState.teams) ? gameState.teams.length : 0;
+  const confirmedTeamsCount = Array.isArray(gameState.teams)
+    ? gameState.teams.filter(team => team.decisions?.phaseOneConfirmed).length
+    : 0;
+  const isCurrentTeamConfirmed = Boolean(currentTeam?.decisions?.phaseOneConfirmed);
+  const isConfirmActionEnabled = Boolean(gameState.isActive && gameState.currentPhase === 'prePurchase' && !isCurrentTeamConfirmed);
+  const confirmationStatusText = totalSessionTeams > 0
+    ? `${confirmedTeamsCount}/${totalSessionTeams} teams confirmed`
+    : 'Waiting for teams to join';
   const isAdminView = isAdmin && isAdminSession;
 
   React.useEffect(() => {
@@ -1626,6 +1636,47 @@ export const MultiUserApp: React.FC = () => {
                     </div>
                     <div className="text-xs text-slate-400">
                       You can request any number of fixed seats; the airline still awards at most the published allotment to the highest bids. Allocations are revealed once Phase 1 ends—adjust your bid and quantity in the panel above to secure capacity.
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-600/60 bg-slate-800/60 p-4">
+                      <div className="flex items-center gap-2 text-sm text-slate-300">
+                        {confirmedTeamsCount === totalSessionTeams && totalSessionTeams > 0 ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                            <span>All teams confirmed. Simulation will launch automatically.</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-4 h-4 text-slate-300" />
+                            <span>
+                              {isCurrentTeamConfirmed && confirmedTeamsCount < totalSessionTeams
+                                ? `Waiting for other teams (${confirmedTeamsCount}/${totalSessionTeams})`
+                                : confirmationStatusText}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={confirmPhaseOne}
+                        disabled={!isConfirmActionEnabled}
+                        className={`min-h-[44px] rounded-xl px-4 py-2 font-semibold transition-all duration-200 ${
+                          isCurrentTeamConfirmed
+                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 cursor-default'
+                            : isConfirmActionEnabled
+                              ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                              : 'bg-slate-700/60 border border-slate-600 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isCurrentTeamConfirmed ? (
+                          <span className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4" />
+                            Bid confirmed
+                          </span>
+                        ) : (
+                          'Confirm bid'
+                        )}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

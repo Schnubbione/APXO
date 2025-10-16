@@ -29,7 +29,7 @@ describe('AdminLogin', () => {
         shock: 0.1,
         sharedMarket: true,
         seed: 42,
-        roundTime: 180,
+        roundTime: 60,
         fares: [],
         currentPhase: 'prePurchase',
         phaseTime: 600,

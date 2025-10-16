@@ -106,6 +106,7 @@ interface Team {
     fixSeatBidPrice?: number | null;
     fixSeatsRequested?: number;
     fixSeatClearingPrice?: number | null;
+    phaseOneConfirmed?: boolean;
     // Agent v1 live controls (preview)
     push_level?: 0 | 1 | 2;
     fix_hold_pct?: number;
@@ -302,6 +303,7 @@ interface GameContextType {
   resetAllData: () => void;
   resetCurrentGame: () => void;
   logoutTeam: () => void;
+  confirmPhaseOne: () => void;
   deleteAllSessions: () => void;
 }
 
@@ -332,7 +334,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     shock: 0.1,
     sharedMarket: true,
     seed: 42,
-    roundTime: 180,
+    roundTime: 60,
     fares: [], // No longer used - simplified to Fix Seats + Pooling only
     currentPhase: 'prePurchase',
     phaseTime: 600, // 10 minutes for pre-purchase phase
@@ -1886,6 +1888,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('resetCurrentGame', { sessionId });
   };
 
+  const confirmPhaseOne = useCallback(() => {
+    if (!socket) return;
+    socket.emit('updateTeamDecision', { phaseOneConfirmed: true }, (response?: { ok?: boolean; error?: string }) => {
+      if (response?.ok === false && response.error) {
+        setLastError(response.error);
+      }
+    });
+  }, [socket]);
+
   const deleteAllSessions = useCallback(() => {
     if (!socket) {
       setLastError('Not connected.');
@@ -1999,6 +2010,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getAnalytics,
     resetAllData,
     resetCurrentGame,
+    confirmPhaseOne,
     deleteAllSessions,
     logoutTeam
   };

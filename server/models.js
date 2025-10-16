@@ -49,7 +49,8 @@ export const Team = sequelize.define('Team', {
       fixSeatsAllocated: 0,
       poolingAllocation: 0,
       fixSeatBidPrice: null,
-      fixSeatClearingPrice: null
+      fixSeatClearingPrice: null,
+      phaseOneConfirmed: false
     }
   },
   totalProfit: {
@@ -112,7 +113,7 @@ export const GameSession = sequelize.define('GameSession', {
       shock: 0.1,
       sharedMarket: true,
       seed: 42,
-      roundTime: 180,
+      roundTime: 60,
       priceElasticity: -1.5,
       crossElasticity: 0.3,
       costVolatility: 0.05,
