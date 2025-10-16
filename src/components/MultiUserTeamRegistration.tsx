@@ -27,6 +27,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [newSessionName, setNewSessionName] = useState('');
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [showCreateSessionDialog, setShowCreateSessionDialog] = useState(false);
   const selectedSession = sessions.find(session => session.id === selectedSessionId) || null;
   const isViewingSelectedSession = Boolean(selectedSessionId && gameState.sessionId && gameState.sessionId === selectedSessionId);
   const trimmedTeamName = teamName.trim();
@@ -86,6 +87,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
           selectSession(result.session.id);
         }
         refreshSessions();
+        setShowCreateSessionDialog(false);
       } else if (result.error) {
         setSessionError(result.error);
       }
@@ -110,6 +112,57 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      {showCreateSessionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md bg-slate-800/95 border border-slate-700 shadow-2xl">
+            <CardHeader className="pb-2 text-center">
+              <CardTitle className="text-xl text-white">Create a new session</CardTitle>
+              <CardDescription className="text-slate-400">
+                Name your lobby. The first team joining becomes the session owner.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Session name</Label>
+                <Input
+                  id="new-session"
+                  type="text"
+                  placeholder="Workshop lobby, Practice group…"
+                  value={newSessionName}
+                  onChange={(e) => setNewSessionName(e.target.value)}
+                  className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[48px] rounded-xl"
+                />
+              </div>
+              {sessionError && (
+                <div className="text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  {sessionError}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={handleCreateSession}
+                  className="flex-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold min-h-[48px] rounded-xl shadow-lg transition-all duration-200"
+                >
+                  Create session
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCreateSessionDialog(false);
+                    setSessionError(null);
+                    setNewSessionName('');
+                  }}
+                  className="flex-1 border-slate-500 text-white hover:bg-slate-700/60 min-h-[48px] rounded-xl transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       <Card className="w-full max-w-md bg-slate-800/90 backdrop-blur-sm border-slate-700 shadow-2xl">
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-4">
@@ -175,37 +228,24 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 <Button
                   type="button"
                   variant="outline"
+                  onClick={() => {
+                    setSessionError(null);
+                    setNewSessionName('');
+                    setShowCreateSessionDialog(true);
+                  }}
+                  className="px-3 py-2 text-sm bg-slate-800/70 border-slate-600 text-slate-200 hover:bg-slate-700/70"
+                >
+                  New session
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={refreshSessions}
                   className="px-3 py-2 text-sm bg-slate-800/70 border-slate-600 text-slate-200 hover:bg-slate-700/70"
                 >
                   Refresh sessions
                 </Button>
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="new-session" className="text-slate-300 text-sm font-medium">Create a new session</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="new-session"
-                  type="text"
-                  placeholder="Session name"
-                  value={newSessionName}
-                  onChange={(e) => setNewSessionName(e.target.value)}
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[48px] rounded-xl"
-                />
-                <Button
-                  type="button"
-                  onClick={handleCreateSession}
-                  variant="outline"
-                  className="bg-indigo-500/20 border-indigo-500/60 text-indigo-200 hover:bg-indigo-500/30 hover:text-white min-h-[48px] rounded-xl"
-                >
-                  Create
-                </Button>
-              </div>
-              <p className="text-xs text-slate-400">
-                Session creators can launch multiplayer at any time.
-              </p>
             </div>
 
             <div className="space-y-3">
