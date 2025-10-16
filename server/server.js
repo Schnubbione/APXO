@@ -398,6 +398,11 @@ async function autoEndCurrentPhase(sessionId) {
       });
       console.log(`Simulation phase auto-ended with ${endRes.results.reduce((sum, r) => sum + r.sold, 0)} total sales (session ${sessionId})`);
     } else {
+      try {
+        await GameService.resetPhaseOneConfirmations(sessionId);
+      } catch (error) {
+        console.warn(`Unable to reset phase-one confirmations after ending pre-purchase for session ${sessionId}:`, error?.message || error);
+      }
       io.to(getSessionRoom(sessionId)).emit('phaseEnded', {
         phaseNumber: 1,
         isFinalPhase: false
@@ -433,11 +438,27 @@ async function autoAdvanceAfterConfirmations(sessionId) {
     const session = await GameService.getCurrentGameSession(sessionId);
     if (!session) return;
     if (isAdminSessionRecord(session)) return;
-    if (session.settings?.currentPhase !== 'simulation') return;
-    if (session.isActive) return;
-
+    const currentPhase = session.settings?.currentPhase;
     const allConfirmed = await GameService.areAllTeamsConfirmed(sessionId);
     if (!allConfirmed) return;
+
+    if (currentPhase === 'prePurchase') {
+      if (!session.isActive) return;
+      const runtime = getSessionRuntime(sessionId);
+      if (runtime.phaseOneAutoEnding) {
+        return;
+      }
+      runtime.phaseOneAutoEnding = true;
+      console.log(`✅ All teams locked sealed bids for session ${sessionId}. Ending pre-purchase.`);
+      try {
+        await autoEndCurrentPhase(sessionId);
+      } finally {
+        delete runtime.phaseOneAutoEnding;
+      }
+      return;
+    }
+
+    if (currentPhase !== 'simulation' || session.isActive) return;
 
     console.log(`✅ All teams confirmed allocations for session ${sessionId}. Launching simulation.`);
 

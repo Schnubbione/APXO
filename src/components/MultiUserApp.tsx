@@ -118,6 +118,11 @@ export const MultiUserApp: React.FC = () => {
   }, [sessions, activeSessionId]);
   const isAdminSession = (activeSession?.slug ?? '').toLowerCase() === 'admin-session';
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
+  const canLaunchSession = Boolean(
+    currentTeam &&
+    activeSession &&
+    currentTeam.sessionId === activeSession.id
+  );
   const canOpenSettings = isAdmin && isAdminSession;
   const totalSessionTeams = Array.isArray(gameState.teams) ? gameState.teams.length : 0;
   const confirmedTeamsCount = Array.isArray(gameState.teams)
@@ -125,7 +130,25 @@ export const MultiUserApp: React.FC = () => {
     : 0;
   const isCurrentTeamConfirmed = Boolean(currentTeam?.decisions?.phaseOneConfirmed);
   const isSimulationEvaluation = Boolean(!gameState.isActive && gameState.currentPhase === 'simulation');
+  const isPrePurchaseActive = Boolean(gameState.isActive && gameState.currentPhase === 'prePurchase');
+  const currentBidPriceDecision = typeof currentTeam?.decisions?.fixSeatBidPrice === 'number'
+    ? currentTeam.decisions.fixSeatBidPrice
+    : null;
+  const hasBidPriceDecision = currentBidPriceDecision !== null && Number.isFinite(currentBidPriceDecision) && currentBidPriceDecision > 0;
+  const requestedFixSeatsIntent = typeof currentTeam?.decisions?.fixSeatsRequested === 'number'
+    ? currentTeam.decisions.fixSeatsRequested
+    : typeof currentTeam?.decisions?.fixSeatsPurchased === 'number'
+      ? currentTeam.decisions.fixSeatsPurchased
+      : null;
+  const displayedBidPrice = Math.max(0, Math.round(currentBidPriceDecision ?? 0));
+  const displayedRequestedIntent = Math.max(0, Math.round(requestedFixSeatsIntent ?? 0));
   const isConfirmActionEnabled = Boolean(isSimulationEvaluation && !isCurrentTeamConfirmed && totalSessionTeams > 0 && allocationSummary);
+  const canConfirmPrePurchase = Boolean(
+    isPrePurchaseActive &&
+    !isCurrentTeamConfirmed &&
+    totalSessionTeams > 0 &&
+    hasBidPriceDecision
+  );
   const confirmationStatusText = totalSessionTeams > 0
     ? `${confirmedTeamsCount}/${totalSessionTeams} teams confirmed`
     : 'Waiting for teams to join';
@@ -184,7 +207,7 @@ export const MultiUserApp: React.FC = () => {
             </select>
           </div>
         )}
-        {isSessionOwner && (
+        {canLaunchSession && (
           <Button
             onClick={() => launchSession(activeSessionId || undefined)}
             disabled={gameState.isActive}
@@ -192,6 +215,11 @@ export const MultiUserApp: React.FC = () => {
           >
             {gameState.isActive ? 'Session in progress' : 'Launch multiplayer'}
           </Button>
+        )}
+        {(isPrePurchaseActive || isSimulationEvaluation) && (
+          <div className="text-xs text-slate-400 text-right">
+            {confirmationStatusText}
+          </div>
         )}
       </div>
     </div>
@@ -485,6 +513,11 @@ export const MultiUserApp: React.FC = () => {
   const effectiveMinimumBid = allocationSummary?.minimumBidPrice
     ? Math.max(fixSeatMinBid, allocationSummary.minimumBidPrice)
     : fixSeatMinBid;
+  const prePurchaseConfirmHint = isCurrentTeamConfirmed
+    ? 'Waiting for the remaining teams to confirm.'
+    : (!hasBidPriceDecision
+      ? `Enter a bid price above €${currencyFormatter.format(Math.round(effectiveMinimumBid))} before confirming.`
+      : 'Confirm once your bid price and quantity are final. Phase ends when every team confirms.');
   const activeTeamCount = Array.isArray(gameState.teams)
     ? gameState.teams.filter(team => team && (team as any).isActive !== false).length
     : 0;
@@ -1677,6 +1710,46 @@ export const MultiUserApp: React.FC = () => {
                     </div>
                     <div className="text-xs text-slate-400">
                       You can request any number of fixed seats; the airline still awards at most the published allotment to the highest bids. Allocations are revealed once Phase 1 ends—adjust your bid and quantity in the panel above to secure capacity.
+                    </div>
+                    <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 space-y-3">
+                      <div className="flex flex-col gap-2 text-sm text-indigo-100">
+                        <span className="flex items-center gap-2 font-medium">
+                          {isCurrentTeamConfirmed ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <Clock className="w-4 h-4" />
+                          )}
+                          {isCurrentTeamConfirmed ? 'Bid locked' : 'Confirm your sealed bid'}
+                        </span>
+                        <span className="text-indigo-100/80">{prePurchaseConfirmHint}</span>
+                        <span className="text-xs text-indigo-200/70">
+                          Current entry: €{currencyFormatter.format(displayedBidPrice)} · {displayedRequestedIntent.toLocaleString('de-DE')} seats
+                        </span>
+                        <span className="text-xs text-indigo-200/70">
+                          {confirmationStatusText}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => confirmPhaseOne()}
+                        disabled={!canConfirmPrePurchase}
+                        className={`w-full min-h-[44px] rounded-lg font-semibold transition-all duration-200 ${
+                          isCurrentTeamConfirmed
+                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-100 cursor-default'
+                            : canConfirmPrePurchase
+                              ? 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                              : 'bg-indigo-900/30 border border-indigo-700/40 text-indigo-200/60 cursor-not-allowed'
+                        }`}
+                      >
+                        {isCurrentTeamConfirmed ? (
+                          <span className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4" />
+                            Bid locked
+                          </span>
+                        ) : (
+                          'Confirm sealed bid'
+                        )}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
