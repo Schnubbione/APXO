@@ -31,7 +31,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             Multiplayer Simulation Overview
           </CardTitle>
           <p className="text-slate-400 text-base max-w-2xl mx-auto">
-            Sessions keep multiplayer runs tidy. Join the facilitator-led admin session for scheduled rounds, or spin up your own lobby where the session owner launches with fresh random settings. Profit still crowns the winner.
+            Sessions keep multiplayer runs tidy. Join the facilitator-led admin session for scheduled rounds, or create your own session where the first team becomes owner and launches with fresh random settings. Profit still crowns the winner.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -39,9 +39,9 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             <div className="flex items-start gap-3">
               <Users className="w-6 h-6 text-indigo-300 mt-1" />
               <div>
-                <h3 className="text-xl font-semibold text-white">Sessions & Lobby Roles</h3>
+                <h3 className="text-xl font-semibold text-white">Sessions & Roles</h3>
                 <ul className="mt-2 space-y-2 text-sm text-slate-200">
-                  <li>• Select an existing session or create a lobby that fits your group.</li>
+                  <li>• Select an existing session from the lobby or create a new one that fits your group.</li>
                   <li>• The “Admin Session” is facilitator-driven—an admin advances the phases manually.</li>
                   <li>• Any other session is owned by its first team; owners can launch fresh rounds with randomised settings tailored to practice play.</li>
                 </ul>

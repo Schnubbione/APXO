@@ -30,7 +30,7 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'session-lobby',
     title: 'Sessions Keep Games Organised',
-    description: 'Pick or create the lobby that matches your group. Join the facilitator-led admin session for coordinated rounds, or run your own practice lobby where the session owner launches the game.',
+    description: 'Pick a session from the lobby overview or create a new one for your group. Join the facilitator-led admin session for coordinated rounds, or run your own session where the owner launches the game.',
     target: '[data-tutorial="session-selector"]',
     position: 'top'
   },

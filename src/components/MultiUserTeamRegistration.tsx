@@ -118,7 +118,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
             <CardHeader className="pb-2 text-center">
               <CardTitle className="text-xl text-white">Create a new session</CardTitle>
               <CardDescription className="text-slate-400">
-                Name your lobby. The first team joining becomes the session owner.
+                Name your session. The first team joining becomes the session owner.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -127,7 +127,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 <Input
                   id="new-session"
                   type="text"
-                  placeholder="Workshop lobby, Practice group…"
+                  placeholder="Workshop session, Practice group…"
                   value={newSessionName}
                   onChange={(e) => setNewSessionName(e.target.value)}
                   className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-slate-500 focus:ring-slate-400/30 text-lg min-h-[48px] rounded-xl"
