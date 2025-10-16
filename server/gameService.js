@@ -549,6 +549,22 @@ export class GameService {
     }
 
     if (!session) {
+      let existingCount = 0;
+      if (typeof GameSessionModel.count === 'function') {
+        try {
+          existingCount = await GameSessionModel.count();
+        } catch (error) {
+          console.warn('Unable to count existing sessions:', error?.message || error);
+        }
+      }
+      if (existingCount > 0) {
+        session = await GameSessionModel.findOne({
+          order: [['createdAt', 'ASC']]
+        });
+      }
+    }
+
+    if (!session) {
       const defaultPayload = {
         name: 'Default Session',
         currentRound: 0,
