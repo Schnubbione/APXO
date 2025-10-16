@@ -124,10 +124,14 @@ export const MultiUserApp: React.FC = () => {
     ? gameState.teams.filter(team => team.decisions?.phaseOneConfirmed).length
     : 0;
   const isCurrentTeamConfirmed = Boolean(currentTeam?.decisions?.phaseOneConfirmed);
-  const isConfirmActionEnabled = Boolean(gameState.isActive && gameState.currentPhase === 'prePurchase' && !isCurrentTeamConfirmed);
+  const isSimulationEvaluation = Boolean(!gameState.isActive && gameState.currentPhase === 'simulation');
+  const isConfirmActionEnabled = Boolean(isSimulationEvaluation && !isCurrentTeamConfirmed && totalSessionTeams > 0 && allocationSummary);
   const confirmationStatusText = totalSessionTeams > 0
     ? `${confirmedTeamsCount}/${totalSessionTeams} teams confirmed`
     : 'Waiting for teams to join';
+  const initialPoolingPrice = Number.isFinite(Number(gameState.poolingMarket?.currentPrice)) && Number(gameState.poolingMarket?.currentPrice) > 0
+    ? Math.round(Number(gameState.poolingMarket?.currentPrice))
+    : Math.round(Number(gameState.poolingCost ?? gameState.fixSeatPrice ?? 0));
   const isAdminView = isAdmin && isAdminSession;
 
   React.useEffect(() => {
@@ -1452,6 +1456,43 @@ export const MultiUserApp: React.FC = () => {
                             </div>
                           </div>
                         )}
+                        {isSimulationEvaluation && (
+                          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
+                            <div className="flex flex-col gap-2 text-sm text-emerald-200">
+                              <span className="flex items-center gap-2 font-medium">
+                                <CheckCircle className="w-4 h-4" />
+                                Confirm allocation & initial pooling price
+                              </span>
+                              <span className="text-emerald-100/80">
+                                Initial pooling price is set to €{initialPoolingPrice.toLocaleString('de-DE')}. Confirm once your team is ready to continue. The simulation starts when every team confirms, unless the admin launches it manually.
+                              </span>
+                              <span className="text-xs text-emerald-100/70">
+                                {confirmationStatusText}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={confirmPhaseOne}
+                              disabled={!isConfirmActionEnabled}
+                              className={`w-full min-h-[44px] rounded-lg font-semibold transition-all duration-200 ${
+                                isCurrentTeamConfirmed
+                                  ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-100 cursor-default'
+                                  : isConfirmActionEnabled
+                                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
+                                    : 'bg-emerald-900/30 border border-emerald-700/40 text-emerald-200/60 cursor-not-allowed'
+                              }`}
+                            >
+                              {isCurrentTeamConfirmed ? (
+                                <span className="flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4" />
+                                  Confirmed
+                                </span>
+                              ) : (
+                                'Confirm & continue'
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="text-sm text-slate-400 text-center py-6">
@@ -1636,47 +1677,6 @@ export const MultiUserApp: React.FC = () => {
                     </div>
                     <div className="text-xs text-slate-400">
                       You can request any number of fixed seats; the airline still awards at most the published allotment to the highest bids. Allocations are revealed once Phase 1 ends—adjust your bid and quantity in the panel above to secure capacity.
-                    </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-600/60 bg-slate-800/60 p-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        {confirmedTeamsCount === totalSessionTeams && totalSessionTeams > 0 ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 text-emerald-400" />
-                            <span>All teams confirmed. Simulation will launch automatically.</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-4 h-4 text-slate-300" />
-                            <span>
-                              {isCurrentTeamConfirmed && confirmedTeamsCount < totalSessionTeams
-                                ? `Waiting for other teams (${confirmedTeamsCount}/${totalSessionTeams})`
-                                : confirmationStatusText}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={confirmPhaseOne}
-                        disabled={!isConfirmActionEnabled}
-                        className={`min-h-[44px] rounded-xl px-4 py-2 font-semibold transition-all duration-200 ${
-                          isCurrentTeamConfirmed
-                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 cursor-default'
-                            : isConfirmActionEnabled
-                              ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                              : 'bg-slate-700/60 border border-slate-600 text-slate-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {isCurrentTeamConfirmed ? (
-                          <span className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
-                            Bid confirmed
-                          </span>
-                        ) : (
-                          'Confirm bid'
-                        )}
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>

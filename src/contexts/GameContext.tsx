@@ -292,7 +292,7 @@ interface GameContextType {
   loginAsAdmin: (password: string) => void;
   logoutAsAdmin: () => void;
   updateGameSettings: (settings: Partial<GameState>) => void;
-  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number; push_level?: 0 | 1 | 2; fix_hold_pct?: number; tool?: 'none' | 'hedge' | 'spotlight' | 'commit' }) => void;
+  updateTeamDecision: (decision: { price?: number; buy?: Record<string, number>; fixSeatsPurchased?: number; poolingAllocation?: number; fixSeatBidPrice?: number; push_level?: 0 | 1 | 2; fix_hold_pct?: number; tool?: 'none' | 'hedge' | 'spotlight' | 'commit'; phaseOneConfirmed?: boolean }) => void;
   startPracticeMode: (config?: { rounds?: number; aiCount?: number; overridePrice?: number }) => void;
   stopPracticeMode: () => void;
   startPrePurchasePhase: () => void;

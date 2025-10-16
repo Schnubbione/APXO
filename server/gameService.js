@@ -846,6 +846,7 @@ export class GameService {
     }
 
     const isPrePurchasePhase = settings.currentPhase === 'prePurchase';
+    const isSimulationPending = settings.currentPhase === 'simulation' && !session.isActive;
 
     if (typeof decision.fixSeatsPurchased === 'number' && Number.isFinite(decision.fixSeatsPurchased)) {
       if (isPrePurchasePhase) {
@@ -877,9 +878,11 @@ export class GameService {
       }
     }
 
-    if (isPrePurchasePhase && decision.phaseOneConfirmed !== undefined) {
-      confirmationRequested = true;
-      confirmationValue = Boolean(decision.phaseOneConfirmed);
+    if (decision.phaseOneConfirmed !== undefined) {
+      if (isSimulationPending) {
+        confirmationRequested = true;
+        confirmationValue = Boolean(decision.phaseOneConfirmed);
+      }
     }
 
     // Agent v1 live controls: can be set during simulation phase
@@ -903,7 +906,7 @@ export class GameService {
       next.fixSeatsAllocated = team.decisions.fixSeatsAllocated;
     }
 
-    if (isPrePurchasePhase) {
+    if (isSimulationPending) {
       if (!Object.prototype.hasOwnProperty.call(next, 'phaseOneConfirmed')) {
         next.phaseOneConfirmed = false;
       }
@@ -913,6 +916,14 @@ export class GameService {
       if (confirmationRequested) {
         next.phaseOneConfirmed = confirmationValue;
       }
+    } else if (isPrePurchasePhase) {
+      if (!Object.prototype.hasOwnProperty.call(next, 'phaseOneConfirmed')) {
+        next.phaseOneConfirmed = false;
+      }
+      if (resetPhaseConfirmation && !confirmationRequested) {
+        next.phaseOneConfirmed = false;
+      }
+      // confirmations during active pre-purchase are ignored
     }
 
     await team.update({ decisions: next, lastActiveAt: new Date() });

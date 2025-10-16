@@ -431,18 +431,15 @@ async function autoEndCurrentPhase(sessionId) {
 async function autoAdvanceAfterConfirmations(sessionId) {
   try {
     const session = await GameService.getCurrentGameSession(sessionId);
-    if (!session || !session.isActive) return;
-    if (session.settings?.currentPhase !== 'prePurchase') return;
+    if (!session) return;
+    if (isAdminSessionRecord(session)) return;
+    if (session.settings?.currentPhase !== 'simulation') return;
+    if (session.isActive) return;
 
     const allConfirmed = await GameService.areAllTeamsConfirmed(sessionId);
     if (!allConfirmed) return;
 
-    console.log(`✅ All teams confirmed bids for session ${sessionId}. Advancing to simulation.`);
-
-    const allocationResult = await GameService.allocateFixSeats(sessionId);
-    io.to(getSessionRoom(sessionId)).emit('fixSeatsAllocated', allocationResult);
-
-    await GameService.endPhase(sessionId);
+    console.log(`✅ All teams confirmed allocations for session ${sessionId}. Launching simulation.`);
 
     const nextSession = await GameService.startSimulationPhase(sessionId);
     io.to(getSessionRoom(sessionId)).emit('phaseStarted', 'simulation');
@@ -454,7 +451,6 @@ async function autoAdvanceAfterConfirmations(sessionId) {
     await startRoundTimer(sessionId, roundTime);
 
     await broadcastGameState(sessionId);
-
     io.to(getSessionRoom(sessionId)).emit('phaseAutoAdvanced', {
       phase: 'simulation',
       reason: 'all-teams-confirmed'
