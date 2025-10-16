@@ -67,19 +67,20 @@ export const MultiUserApp: React.FC = () => {
   lastError,
   clearLastError,
   practice,
-    updateTeamDecision,
-    updateGameSettings,
-    startPrePurchasePhase,
+  updateTeamDecision,
+  updateGameSettings,
+  startPrePurchasePhase,
   startSimulationPhase,
   endRound,
   startPracticeMode,
   stopPracticeMode,
   getLeaderboard,
-    getAnalytics,
-    resetAllData,
-    resetCurrentGame,
-    sessions,
-    currentSessionId,
+  getAnalytics,
+  resetAllData,
+  resetCurrentGame,
+  deleteAllSessions,
+  sessions,
+  currentSessionId,
     launchSession,
   selectSession,
   tutorialActive,
@@ -712,6 +713,7 @@ export const MultiUserApp: React.FC = () => {
           roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
+          onDeleteAllSessions={deleteAllSessions}
         />
 
         <RoundTimer
@@ -1127,6 +1129,7 @@ export const MultiUserApp: React.FC = () => {
           roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
+          onDeleteAllSessions={deleteAllSessions}
         />
 
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">

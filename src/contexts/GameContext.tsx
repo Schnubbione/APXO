@@ -302,6 +302,7 @@ interface GameContextType {
   resetAllData: () => void;
   resetCurrentGame: () => void;
   logoutTeam: () => void;
+  deleteAllSessions: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -1885,6 +1886,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket?.emit('resetCurrentGame', { sessionId });
   };
 
+  const deleteAllSessions = useCallback(() => {
+    if (!socket) {
+      setLastError('Not connected.');
+      return;
+    }
+    socket.emit('session:purgeAll', (response?: { ok?: boolean; error?: string; session?: SessionSummary }) => {
+      if (response?.ok) {
+        refreshSessions();
+        const nextSessionId = response.session?.id ?? null;
+        if (nextSessionId) {
+          setCurrentSessionId(nextSessionId);
+          selectSession(nextSessionId);
+        } else {
+          setCurrentSessionId(null);
+        }
+      } else if (response?.error) {
+        setLastError(response.error);
+      }
+    });
+  }, [socket, refreshSessions, selectSession]);
+
   // Tutorial functions
   const startTutorial = useCallback(() => {
     console.log('Starting tutorial');
@@ -1977,6 +1999,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getAnalytics,
     resetAllData,
     resetCurrentGame,
+    deleteAllSessions,
     logoutTeam
   };
 

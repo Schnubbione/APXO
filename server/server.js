@@ -492,6 +492,13 @@ async function enforceTeamInactivityTimeout() {
     console.log(`👋 Logged out inactive teams (${deactivated.length}): ${names || 'n/a'}`);
 
     await broadcastGameState();
+
+    const { removed } = await GameService.removeInactiveSessions();
+    if (removed?.length) {
+      const sessionNames = removed.map(session => session.name || session.id).join(', ');
+      console.log(`🗑 Removed inactive sessions (${removed.length}): ${sessionNames || 'n/a'}`);
+      await broadcastSessionList();
+    }
   } catch (error) {
     console.error('Error enforcing team inactivity timeout:', error);
   }
@@ -1310,6 +1317,55 @@ io.on('connection', async (socket) => {
       }
     } else {
       socket.emit('error', 'Unauthorized: Admin access required');
+    }
+  });
+
+  socket.on('session:purgeAll', async (ack) => {
+    if (socket.id !== adminSocket) {
+      const errorMessage = 'Unauthorized: Admin access required';
+      if (typeof ack === 'function') {
+        ack({ ok: false, error: errorMessage });
+      } else {
+        socket.emit('error', errorMessage);
+      }
+      return;
+    }
+
+    try {
+      console.log('🧨 Admin purging all sessions...');
+      for (const runtimeSessionId of [...sessionRuntimes.keys()]) {
+        stopPoolingMarketUpdates(runtimeSessionId);
+        stopRoundTimer(runtimeSessionId);
+        clearSessionRuntime(runtimeSessionId);
+      }
+
+      const result = await GameService.deleteAllSessions();
+      const nextSession = result?.session ?? null;
+
+      sessionRuntimes.clear();
+      socket.data.sessionId = nextSession?.id ?? null;
+
+      await broadcastSessionList();
+      if (nextSession?.id) {
+        await broadcastGameState(nextSession.id);
+      } else {
+        await broadcastGameState();
+      }
+
+      if (typeof ack === 'function') {
+        ack({ ok: true, session: nextSession });
+      } else {
+        socket.emit('sessionPurgeComplete', { session: nextSession });
+      }
+      console.log('✅ All sessions deleted');
+    } catch (error) {
+      console.error('❌ Error deleting all sessions:', error);
+      const message = error?.message || 'Failed to delete sessions';
+      if (typeof ack === 'function') {
+        ack({ ok: false, error: message });
+      } else {
+        socket.emit('sessionPurgeError', message);
+      }
     }
   });
 

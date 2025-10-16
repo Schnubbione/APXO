@@ -7,7 +7,8 @@ const Team = {
   findOne: jest.fn(),
   create: jest.fn(),
   destroy: jest.fn(),
-  update: jest.fn()
+  update: jest.fn(),
+  count: jest.fn()
 };
 const GameSession = {
   findOne: jest.fn(),
@@ -15,7 +16,8 @@ const GameSession = {
   findByPk: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
-  destroy: jest.fn()
+  destroy: jest.fn(),
+  count: jest.fn()
 };
 const RoundResult = {
   findAll: jest.fn(),
@@ -55,6 +57,8 @@ describe('GameService', () => {
     // Reset current game session
     GameService.currentGameSession = null;
     GameService.sessionCache = new Map();
+    Team.count.mockResolvedValue(0);
+    GameSession.count.mockResolvedValue(0);
   });
 
   describe('getCurrentGameSession', () => {
@@ -408,6 +412,84 @@ describe('GameService', () => {
 
       expect(result.deactivated).toEqual([]);
       expect(Team.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeInactiveSessions', () => {
+    test('removes inactive sessions without active teams', async () => {
+      const staleSession = {
+        id: 'sess-1',
+        name: 'Old Session',
+        slug: 'old-session',
+        isActive: false,
+        destroy: jest.fn().mockResolvedValue(undefined)
+      };
+
+      GameSession.findAll.mockResolvedValue([staleSession]);
+      Team.count
+        .mockResolvedValueOnce(0) // active teams
+        .mockResolvedValueOnce(0); // total teams
+      Team.destroy.mockResolvedValue(1);
+      RoundResult.destroy.mockResolvedValue(1);
+      HighScore.destroy.mockResolvedValue(1);
+
+      GameService.currentGameSession = { id: 'keep-session' };
+
+      const result = await GameService.removeInactiveSessions({ now: new Date() });
+
+      expect(staleSession.destroy).toHaveBeenCalled();
+      expect(Team.destroy).toHaveBeenCalledWith({ where: { gameSessionId: 'sess-1' } });
+      expect(result.removed).toEqual([{ id: 'sess-1', name: 'Old Session', teamCount: 0 }]);
+    });
+
+    test('keeps default session intact', async () => {
+      const defaultSession = {
+        id: 'default-session-id',
+        name: 'Default Session',
+        slug: 'default-session',
+        isActive: false,
+        destroy: jest.fn().mockResolvedValue(undefined)
+      };
+
+      GameSession.findAll.mockResolvedValue([defaultSession]);
+
+      const result = await GameService.removeInactiveSessions({ now: new Date() });
+
+      expect(defaultSession.destroy).not.toHaveBeenCalled();
+      expect(result.removed).toEqual([]);
+    });
+  });
+
+  describe('deleteAllSessions', () => {
+    test('destroys session data and creates fresh session', async () => {
+      Team.destroy.mockResolvedValue(1);
+      RoundResult.destroy.mockResolvedValue(1);
+      HighScore.destroy.mockResolvedValue(1);
+      GameSession.destroy.mockResolvedValue(1);
+
+      const freshSession = { id: 'fresh', settings: {}, update: jest.fn().mockResolvedValue(undefined) };
+      const getSessionSpy = jest.spyOn(GameService, 'getCurrentGameSession').mockResolvedValueOnce(freshSession);
+      const updateFixSpy = jest.spyOn(GameService, 'updateFixSeatShare').mockResolvedValueOnce({});
+
+      const result = await GameService.deleteAllSessions();
+
+      expect(Team.destroy).toHaveBeenCalledWith({ where: {} });
+      expect(GameSession.destroy).toHaveBeenCalledWith({ where: {} });
+      expect(getSessionSpy).toHaveBeenCalled();
+      expect(updateFixSpy).toHaveBeenCalledWith(freshSession, { teamCount: 0, resetAvailable: true });
+      expect(result).toEqual({ success: true, session: freshSession });
+
+      getSessionSpy.mockRestore();
+      updateFixSpy.mockRestore();
+    });
+  });
+
+  describe('createSession', () => {
+    test('throws when session with name already exists', async () => {
+      GameSession.findOne
+        .mockResolvedValueOnce({ id: 'existing-session' });
+
+      await expect(GameService.createSession({ name: 'Duplicate Name' })).rejects.toThrow('A session with this name already exists.');
     });
   });
 

@@ -471,6 +471,80 @@ export class GameService {
     return { cutoff, deactivated: toDeactivate };
   }
 
+  static async removeInactiveSessions({ now = new Date() } = {}) {
+    const timeoutMs = this.getInactivityTimeoutMs();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return { cutoff: null, removed: [] };
+    }
+    const cutoff = new Date(now.getTime() - timeoutMs);
+
+    let candidates = [];
+    try {
+      candidates = await GameSessionModel.findAll({
+        where: {
+          isActive: false,
+          updatedAt: { [Op.lt]: cutoff }
+        }
+      });
+    } catch (error) {
+      console.warn('Unable to fetch inactive sessions for cleanup:', error?.message || error);
+      return { cutoff, removed: [] };
+    }
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return { cutoff, removed: [] };
+    }
+
+    const removed = [];
+
+    for (const session of candidates) {
+      if (!session) continue;
+      if (session.slug && session.slug === DEFAULT_SESSION_SLUG) continue;
+      if (session.isActive) continue;
+
+      const activeTeamCount = await TeamModel.count({
+        where: { gameSessionId: session.id, isActive: true }
+      });
+      if (activeTeamCount > 0) continue;
+
+      const totalTeamCount = await TeamModel.count({
+        where: { gameSessionId: session.id }
+      });
+
+      try {
+        await TeamModel.destroy({ where: { gameSessionId: session.id } });
+        await RoundResultModel.destroy({ where: { gameSessionId: session.id } });
+        await HighScoreModel.destroy({ where: { gameSessionId: session.id } });
+      } catch (error) {
+        console.warn(`Unable to clean dependent data for session ${session.id}:`, error?.message || error);
+      }
+
+      try {
+        if (typeof session.destroy === 'function') {
+          await session.destroy();
+        } else {
+          await GameSessionModel.destroy({ where: { id: session.id } });
+        }
+        this.sessionCache.delete(session.id);
+        if (this.currentGameSession?.id === session.id) {
+          this.currentGameSession = null;
+        }
+        removed.push({
+          id: session.id,
+          name: session.name,
+          teamCount: totalTeamCount
+        });
+      } catch (error) {
+        console.warn(`Unable to delete inactive session ${session.id}:`, error?.message || error);
+      }
+    }
+
+    if (removed.length > 0 && !this.currentGameSession) {
+      await this.getCurrentGameSession();
+    }
+
+    return { cutoff, removed };
+  }
+
   static async updateFixSeatShare(session = null, { teamCount, resetAvailable = false, availableFixSeatsOverride } = {}) {
     const targetSession = session ?? await this.getCurrentGameSession();
     const targetSessionId = targetSession?.id ?? null;
@@ -640,6 +714,11 @@ export class GameService {
     }
     if (inputName.length > 80) {
       throw new Error('Session name is too long (max 80 characters).');
+    }
+
+    const existing = await GameSessionModel.findOne({ where: { name: inputName } });
+    if (existing) {
+      throw new Error('A session with this name already exists.');
     }
 
     let slugPayload = null;
@@ -2056,6 +2135,30 @@ export class GameService {
     } catch (error) {
       console.error('❌ Error resetting game data:', error);
       throw new Error('Failed to reset game data');
+    }
+  }
+
+  static async deleteAllSessions() {
+    try {
+      await RoundResultModel.destroy({ where: {} });
+      await HighScoreModel.destroy({ where: {} });
+      await TeamModel.destroy({ where: {} });
+      await GameSessionModel.destroy({ where: {} });
+
+      this.sessionCache.clear();
+      this.currentGameSession = null;
+
+      const freshSession = await this.getCurrentGameSession();
+      await this.updateFixSeatShare(freshSession, { teamCount: 0, resetAvailable: true });
+
+      console.log('🗑️ All sessions deleted. Fresh session created.');
+      return {
+        success: true,
+        session: freshSession
+      };
+    } catch (error) {
+      console.error('❌ Error deleting all sessions:', error);
+      throw new Error('Failed to delete all sessions');
     }
   }
 

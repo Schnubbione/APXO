@@ -77,7 +77,8 @@ describe('AdminLogin', () => {
       getLeaderboard: jest.fn(),
       getAnalytics: jest.fn(),
       resetAllData: jest.fn(),
-      resetCurrentGame: jest.fn()
+      resetCurrentGame: jest.fn(),
+      deleteAllSessions: jest.fn()
     });
   });
 

@@ -76,6 +76,7 @@ interface AdminPanelProps {
   roundResults: any[] | null;
   onGetAnalytics?: () => void;
   onResetAllData?: () => void;
+  onDeleteAllSessions?: () => void;
 }
 
 export default function AdminPanel({
@@ -98,7 +99,8 @@ export default function AdminPanel({
   perTeamBudget, setPerTeamBudget,
   isAdmin, showAdminPanel, setShowAdminPanel,
   gameState: _gameState, roundHistory, leaderboard, roundResults, onGetAnalytics,
-  onResetAllData
+  onResetAllData,
+  onDeleteAllSessions
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState("settings");
   const agentConfig = defaultConfig;
@@ -604,16 +606,28 @@ export default function AdminPanel({
                     Danger Zone
                   </h3>
                   <div className="space-y-3">
+                  <Button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to reset ALL data? This will delete everything including high scores!')) {
+                        onResetAllData?.();
+                      }
+                    }}
+                    variant="outline"
+                    className="w-full bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:border-red-600/50 font-medium"
+                  >
+                    Reset All Data
+                  </Button>
                     <Button
                       onClick={() => {
-                        if (window.confirm('Are you sure you want to reset ALL data? This will delete everything including high scores!')) {
-                          onResetAllData?.();
+                        if (window.confirm('Delete every session and start from scratch? This action cannot be undone.')) {
+                          onDeleteAllSessions?.();
                         }
                       }}
                       variant="outline"
-                      className="w-full bg-red-600/10 border-red-600/30 text-red-400 hover:bg-red-600/20 hover:border-red-600/50 font-medium"
+                      className="w-full bg-red-950/30 border-red-700/40 text-red-300 hover:bg-red-900/40 hover:border-red-700/60 font-medium"
+                      disabled={!onDeleteAllSessions}
                     >
-                      Reset All Data
+                      Delete All Sessions
                     </Button>
                   </div>
                 </div>
