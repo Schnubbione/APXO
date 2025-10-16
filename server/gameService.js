@@ -108,6 +108,8 @@ export class GameService {
   static slugMigrationPromise = null;
   static slugSchemaEnsured = false;
   static slugLookupEnabled = true;
+  static teamSchemaPromise = null;
+  static teamSchemaEnsured = false;
 
   static async applySessionUpdates(session, values = {}) {
     if (!session || !values || Object.keys(values).length === 0) {
@@ -282,6 +284,93 @@ export class GameService {
     return this.slugMigrationPromise;
   }
 
+  static async ensureTeamSessionSupport() {
+    if (this.teamSchemaEnsured) return;
+    if (this.teamSchemaPromise) return this.teamSchemaPromise;
+    const sequelize = TeamModel?.sequelize;
+    if (!sequelize || typeof sequelize.getQueryInterface !== 'function') {
+      this.teamSchemaEnsured = true;
+      return;
+    }
+    const queryInterface = sequelize.getQueryInterface();
+    const rawTable = TeamModel.getTableName();
+    const tableDetails = typeof rawTable === 'string'
+      ? { tableName: rawTable, schema: undefined }
+      : rawTable;
+    const tableName = tableDetails.tableName;
+    const schema = tableDetails.schema;
+    const tableRef = schema ? { tableName, schema } : tableName;
+
+    this.teamSchemaPromise = (async () => {
+      let definition;
+      try {
+        definition = schema
+          ? await queryInterface.describeTable(tableName, { schema })
+          : await queryInterface.describeTable(tableName);
+      } catch (error) {
+        console.warn('Unable to inspect Teams table while ensuring session support:', error?.message || error);
+        this.teamSchemaEnsured = true;
+        return;
+      }
+
+      let hasSessionColumn = Boolean(definition?.gameSessionId);
+      if (!hasSessionColumn) {
+        const attr = TeamModel.rawAttributes?.gameSessionId;
+        if (!attr) {
+          console.warn('Unable to locate gameSessionId metadata; please run the session migration.');
+        } else {
+          const columnDefinition = {
+            type: attr.type,
+            allowNull: attr.allowNull ?? true,
+            defaultValue: attr.defaultValue ?? null
+          };
+          if (attr.references) {
+            columnDefinition.references = attr.references;
+          }
+          if (attr.onUpdate) {
+            columnDefinition.onUpdate = attr.onUpdate;
+          }
+          if (attr.onDelete) {
+            columnDefinition.onDelete = attr.onDelete;
+          }
+          try {
+            await queryInterface.addColumn(tableRef, 'gameSessionId', columnDefinition);
+            hasSessionColumn = true;
+            console.log('✅ Teams.gameSessionId column added automatically.');
+          } catch (error) {
+            if (error?.message && /duplicate|exists/i.test(error.message)) {
+              hasSessionColumn = true;
+            } else {
+              console.warn('Unable to add gameSessionId column to Teams table:', error?.message || error);
+            }
+          }
+        }
+      }
+
+      if (hasSessionColumn) {
+        try {
+          await queryInterface.addConstraint(tableRef, {
+            fields: ['name', 'gameSessionId'],
+            type: 'unique',
+            name: 'team_session_unique'
+          });
+        } catch (error) {
+          if (!(error?.message && /exists|duplicate/i.test(error.message))) {
+            console.warn('Unable to enforce team/session uniqueness constraint:', error?.message || error);
+          }
+        }
+      }
+
+      this.teamSchemaEnsured = true;
+    })().catch(error => {
+      console.error('Error while ensuring Teams session support:', error);
+    }).finally(() => {
+      this.teamSchemaPromise = null;
+    });
+
+    return this.teamSchemaPromise;
+  }
+
   static buildDefaultSessionSettings(overrides = {}) {
     const totalSeats = Math.max(1, Math.round(Number(overrides.totalAircraftSeats ?? 1000)));
     const share = clampShareValue(overrides.fixSeatShare ?? AGENT_V1_DEFAULTS.fixSeatShare);
@@ -418,6 +507,7 @@ export class GameService {
    * @returns {Promise<GameSession>} The current active game session
    */
   static async getCurrentGameSession(sessionId = null) {
+    await this.ensureTeamSessionSupport();
     await this.ensureSessionSlugSupport();
     if (sessionId) {
       let session = this.sessionCache.get(sessionId);
@@ -676,6 +766,7 @@ export class GameService {
    * @returns {Promise<Team[]>} Array of active teams
    */
   static async getActiveTeams(sessionId = null) {
+    await this.ensureTeamSessionSupport();
     const session = await this.getCurrentGameSession(sessionId);
     return await TeamModel.findAll({
       where: { isActive: true, gameSessionId: session.id },
@@ -688,6 +779,7 @@ export class GameService {
   }
 
   static async resolveSessionForTeamOwner(teamName) {
+    await this.ensureTeamSessionSupport();
     const normalized = (teamName || '').trim();
     if (!normalized) {
       return { status: 'invalid-name' };
@@ -777,6 +869,7 @@ export class GameService {
    * @throws {Error} If team name is invalid or already exists
    */
   static async registerTeam(socketId, teamName, sessionId) {
+    await this.ensureTeamSessionSupport();
     try {
       // Normalize and validate input
       const normalizedName = (teamName || '').trim();
