@@ -714,13 +714,6 @@ io.on('connection', async (socket) => {
 
     try {
       const session = await GameService.getCurrentGameSession(targetSessionId);
-      const ownerTeamId = session.ownerTeamId;
-      if (ownerTeamId && socket.data?.teamId && ownerTeamId !== socket.data.teamId) {
-        const message = 'Only the session owner can launch the multiplayer mode.';
-        if (typeof ack === 'function') ack({ ok: false, error: message });
-        else socket.emit('sessionLaunchError', message);
-        return;
-      }
 
       const randomSettings = buildRandomMultiplayerSettings();
       await GameService.updateGameSettings(randomSettings, targetSessionId);
