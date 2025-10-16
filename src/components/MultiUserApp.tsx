@@ -158,7 +158,13 @@ export const MultiUserApp: React.FC = () => {
     : Math.round(Number(gameState.poolingCost ?? gameState.fixSeatPrice ?? 0));
   const isAdminView = isAdmin && isAdminSession;
   const isSimulationIdle = gameState.currentPhase === 'simulation' && !gameState.isActive;
-  const canStartAuction = Boolean(currentTeam && activeSession && currentTeam.sessionId === activeSession.id && isPhaseOneIdle);
+  const canStartAuction = Boolean(
+    currentTeam &&
+    activeSession &&
+    currentTeam.sessionId === activeSession.id &&
+    isPhaseOneIdle &&
+    !isAdminSession
+  );
 
   React.useEffect(() => {
     if (!isAdminSession && showAdminPanel) {
@@ -185,9 +191,9 @@ export const MultiUserApp: React.FC = () => {
   }, [tempPrice, updateTeamDecision, confirmPhaseOne]);
 
   const handleStartSimulation = React.useCallback(() => {
-    if (!isSimulationIdle) return;
+    if (!isSimulationIdle || isAdminSession) return;
     startSimulationPhase();
-  }, [isSimulationIdle, startSimulationPhase]);
+  }, [isSimulationIdle, isAdminSession, startSimulationPhase]);
 
   const handleAdminLogout = () => {
     if (isAdmin) {
@@ -1796,7 +1802,7 @@ export const MultiUserApp: React.FC = () => {
                     <Card className="lg:col-span-7 bg-slate-800/70 border-slate-600">
                       <CardHeader className="pb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-white text-lg">Pooling Price and Demand Trend</CardTitle>
-                        {isSimulationIdle && (
+                        {isSimulationIdle && !isAdminSession && (
                           <Button
                             onClick={handleStartSimulation}
                             disabled={!isSimulationIdle}
