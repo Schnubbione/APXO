@@ -458,7 +458,6 @@ async function autoAdvanceAfterConfirmations(sessionId) {
       } finally {
         delete runtime.phaseOneAutoEnding;
       }
-      return;
     }
 
     if (currentPhase !== 'simulation' || session.isActive) return;
