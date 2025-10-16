@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Users, Lightbulb } from 'lucide-react';
+import { Switch } from './ui/switch';
 
 type TeamRegistrationProps = {
   onShowTutorial?: () => void;
@@ -27,8 +28,10 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [newSessionName, setNewSessionName] = useState('');
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [autoAdminJoin, setAutoAdminJoin] = useState(false);
   const selectedSession = sessions.find(session => session.id === selectedSessionId) || null;
-  const isViewingSelectedSession = Boolean(selectedSessionId && gameState.sessionId && gameState.sessionId === selectedSessionId);
+  const isViewingSelectedSession = !autoAdminJoin && Boolean(selectedSessionId && gameState.sessionId && gameState.sessionId === selectedSessionId);
+  const trimmedTeamName = teamName.trim();
 
   useEffect(() => {
     refreshSessions();
@@ -37,6 +40,13 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
   useEffect(() => {
     if (currentSessionId) {
       setSelectedSessionId(currentSessionId);
+      if (autoAdminJoin) {
+        setAutoAdminJoin(false);
+      }
+      return;
+    }
+    if (autoAdminJoin) {
+      setSelectedSessionId('');
       return;
     }
     if (sessions.length > 0 && !selectedSessionId) {
@@ -52,19 +62,25 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
         selectSession(fallback);
       }
     }
-  }, [sessions, selectedSessionId, currentSessionId, selectSession, socket]);
+  }, [sessions, selectedSessionId, currentSessionId, selectSession, socket, autoAdminJoin]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSessionError(null);
-    if (!selectedSessionId) {
+    const trimmed = teamName.trim();
+    if (!trimmed) {
+      return;
+    }
+    if (!autoAdminJoin && !selectedSessionId) {
       setSessionError('Please choose a session.');
       return;
     }
-    if (teamName.trim()) {
-      registerTeam(teamName.trim(), selectedSessionId);
-      setTeamName('');
+    if (autoAdminJoin) {
+      registerTeam(trimmed);
+    } else {
+      registerTeam(trimmed, selectedSessionId);
     }
+    setTeamName('');
   };
 
   const handleCreateSession = () => {
@@ -103,7 +119,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
   };
 
   const isRoundActive = selectedSession ? selectedSession.isActive : gameState.isActive;
-  const canJoin = !isRoundActive && Boolean(selectedSessionId);
+  const canJoin = !isRoundActive && Boolean(trimmedTeamName) && (autoAdminJoin || Boolean(selectedSessionId));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -138,12 +154,14 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
               ) : (
                 <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
                   {sessions.map((session) => {
-                    const isSelected = session.id === selectedSessionId;
+                    const isSelected = session.id === selectedSessionId && !autoAdminJoin;
                     return (
                       <button
                         type="button"
                         key={session.id}
+                        disabled={autoAdminJoin}
                         onClick={() => {
+                          if (autoAdminJoin) return;
                           setSelectedSessionId(session.id);
                           selectSession(session.id);
                           setSessionError(null);
@@ -151,7 +169,9 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                         className={`w-full text-left px-3 py-2 rounded-lg border transition-all duration-200 ${
                           isSelected
                             ? 'border-indigo-400/70 bg-indigo-500/20 text-white shadow-lg'
-                            : 'border-slate-600/50 bg-slate-700/40 text-slate-200 hover:bg-slate-700/60'
+                            : `border-slate-600/50 bg-slate-700/40 text-slate-200 ${
+                                autoAdminJoin ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-700/60'
+                              }`
                         }`}
                       >
                         <div className="flex items-center justify-between text-sm font-semibold">
@@ -177,6 +197,24 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                 >
                   Refresh sessions
                 </Button>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-slate-600/50 bg-slate-700/40 px-3 py-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-200">Admin quick join</div>
+                  <p className="text-xs text-slate-400">
+                    Enable to locate the session you own by team name only.
+                  </p>
+                </div>
+                <Switch
+                  checked={autoAdminJoin}
+                  onCheckedChange={(checked) => {
+                    setAutoAdminJoin(checked);
+                    if (checked) {
+                      setSelectedSessionId('');
+                      setSessionError(null);
+                    }
+                  }}
+                />
               </div>
             </div>
 
@@ -266,9 +304,17 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
 
           <div className="mt-8 pt-6 border-t border-slate-600">
             <div className="text-slate-300 text-sm font-medium mb-4">
-              {selectedSession ? `Teams in "${selectedSession.name}"` : 'Teams in the selected session'}
+              {autoAdminJoin
+                ? 'Admin quick join enabled'
+                : selectedSession
+                  ? `Teams in "${selectedSession.name}"`
+                  : 'Teams in the selected session'}
             </div>
-            {!selectedSessionId ? (
+            {autoAdminJoin ? (
+              <div className="text-slate-500 text-center py-4">
+                Enter your session owner team name to connect automatically.
+              </div>
+            ) : !selectedSessionId ? (
               <div className="text-slate-500 text-center py-4">Select a session to view registered teams.</div>
             ) : isViewingSelectedSession ? (
               <div className="space-y-3 max-h-40 overflow-y-auto">

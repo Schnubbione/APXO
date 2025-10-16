@@ -63,32 +63,33 @@ export const MultiUserApp: React.FC = () => {
     roundResults,
     leaderboard,
   roundHistory,
-    allocationSummary,
+  allocationSummary,
   lastError,
   clearLastError,
   practice,
     updateTeamDecision,
     updateGameSettings,
     startPrePurchasePhase,
-    startSimulationPhase,
-    endRound,
+  startSimulationPhase,
+  endRound,
   startPracticeMode,
   stopPracticeMode,
-    getLeaderboard,
+  getLeaderboard,
     getAnalytics,
     resetAllData,
     resetCurrentGame,
     sessions,
     currentSessionId,
     launchSession,
-    selectSession,
-    tutorialActive,
-    tutorialStep,
-    startTutorial,
-    skipTutorial,
-    setTutorialStep,
-    completeTutorial,
-  logoutAsAdmin
+  selectSession,
+  tutorialActive,
+  tutorialStep,
+  startTutorial,
+  skipTutorial,
+  setTutorialStep,
+  completeTutorial,
+  logoutAsAdmin,
+  logoutTeam
   } = useGame();
 
   const [showTutorial, setShowTutorial] = useState(false);
@@ -114,6 +115,14 @@ export const MultiUserApp: React.FC = () => {
     return sessions.find(session => session.id === activeSessionId) || null;
   }, [sessions, activeSessionId]);
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
+  const hasAdminAccess = isAdmin || isSessionOwner;
+  const handleAdminLogout = () => {
+    if (isAdmin) {
+      logoutAsAdmin();
+    } else if (isSessionOwner) {
+      logoutTeam();
+    }
+  };
   const handleSessionChange = React.useCallback((sessionId: string) => {
     if (!sessionId || sessionId === activeSessionId) return;
     selectSession(sessionId);
@@ -527,8 +536,8 @@ export const MultiUserApp: React.FC = () => {
 
   // Debug: Log state changes
   React.useEffect(() => {
-    console.log('App state:', { currentTeam: currentTeam?.name, isAdmin, showAdminLogin });
-  }, [currentTeam, isAdmin, showAdminLogin]);
+    console.log('App state:', { currentTeam: currentTeam?.name, hasAdminAccess, showAdminLogin });
+  }, [currentTeam, hasAdminAccess, showAdminLogin]);
 
   // Startansicht: Join the Simulation (kein Auto-Tutorial)
 
@@ -598,7 +607,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // 2) Explicitly show Admin Login when requested (takes precedence over registration/team views)
-  if (showAdminLogin && !isAdmin) {
+  if (showAdminLogin && !hasAdminAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         <div className="flex justify-center pt-8">
@@ -616,7 +625,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // 3) If not registered and not admin, show registration
-  if (!currentTeam && !isAdmin) {
+  if (!currentTeam && !hasAdminAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         <div className="flex justify-center pt-8">
@@ -635,7 +644,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // Admin view
-  if (isAdmin) {
+  if (hasAdminAccess) {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
@@ -646,9 +655,7 @@ export const MultiUserApp: React.FC = () => {
           </div>
           <Button
             variant="outline"
-            onClick={() => {
-              logoutAsAdmin();
-            }}
+            onClick={handleAdminLogout}
             className="bg-slate-800/80 border-slate-600 text-white hover:bg-slate-700/80 backdrop-blur-sm shadow-lg min-h-[40px] text-sm"
             title="Logout as Admin"
           >
@@ -695,7 +702,7 @@ export const MultiUserApp: React.FC = () => {
           setCostVolatility={(v) => updateGameSettings({ costVolatility: v })}
           crossElasticity={gameState.crossElasticity}
           setCrossElasticity={(v) => updateGameSettings({ crossElasticity: v })}
-          isAdmin={true}
+          isAdmin={hasAdminAccess}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
           setShowAdminPanel={setShowAdminPanel}

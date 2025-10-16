@@ -284,7 +284,7 @@ interface GameContextType {
   completeTutorial: () => void;
 
   // Actions
-  registerTeam: (name: string, sessionId: string) => void;
+  registerTeam: (name: string, sessionId?: string | null) => void;
   createSession: (name: string, ack?: (result: { ok: boolean; error?: string | null; session?: SessionSummary }) => void) => void;
   refreshSessions: () => void;
   launchSession: (sessionId?: string) => void;
@@ -929,14 +929,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [applyServerSnapshot, processRoundEnded, processRoundStarted]);
 
-  const registerTeam = (name: string, sessionId: string) => {
+  const registerTeam = (name: string, sessionId?: string | null) => {
     setRegistrationError(null); // Clear any previous error
-    if (!sessionId) {
-      setRegistrationError('Please choose a session.');
+    const trimmedName = name?.trim();
+    if (!trimmedName) {
+      setRegistrationError('Please enter a team name.');
       return;
     }
-    socket?.emit('registerTeam', { teamName: name, sessionId });
-    setCurrentSessionId(sessionId);
+    if (sessionId) {
+      socket?.emit('registerTeam', { teamName: trimmedName, sessionId });
+      setCurrentSessionId(sessionId);
+      return;
+    }
+    socket?.emit('registerTeam', trimmedName);
   };
 
   const selectSession = useCallback((sessionId: string) => {

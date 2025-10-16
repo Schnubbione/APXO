@@ -11,6 +11,8 @@ const Team = {
 };
 const GameSession = {
   findOne: jest.fn(),
+  findAll: jest.fn(),
+  findByPk: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
   destroy: jest.fn()
@@ -52,6 +54,7 @@ describe('GameService', () => {
     jest.clearAllMocks();
     // Reset current game session
     GameService.currentGameSession = null;
+    GameService.sessionCache = new Map();
   });
 
   describe('getCurrentGameSession', () => {
@@ -155,10 +158,13 @@ describe('GameService', () => {
       };
 
       GameService.currentGameSession = mockSession;
+      GameService.sessionCache.set(mockSession.id, mockSession);
+      GameSession.findByPk.mockResolvedValue(mockSession);
+      Team.findOne.mockResolvedValue(null);
       Team.findAll.mockResolvedValue([]);
       Team.create.mockResolvedValue(createdTeam);
 
-      const team = await GameService.registerTeam('socket123', 'Test Team');
+      const team = await GameService.registerTeam('socket123', 'Test Team', mockSession.id);
 
       expect(Team.create).toHaveBeenCalledWith(expect.objectContaining({
         socketId: 'socket123',
@@ -176,10 +182,51 @@ describe('GameService', () => {
     });
 
     test('should throw error if round is in progress', async () => {
-      const mockSession = { id: 1, isActive: true };
+      const mockSession = { id: 1, isActive: true, update: jest.fn() };
       GameService.currentGameSession = mockSession;
+      GameService.sessionCache.set(mockSession.id, mockSession);
+      GameSession.findByPk.mockResolvedValue(mockSession);
 
-      await expect(GameService.registerTeam('socket123', 'Test Team')).rejects.toThrow('Cannot join the game while a round is in progress');
+      await expect(GameService.registerTeam('socket123', 'Test Team', mockSession.id)).rejects.toThrow('Cannot join the game while a round is in progress');
+    });
+
+    test('auto-detects admin session when only team name is provided', async () => {
+      const mockSession = {
+        id: 'session-1',
+        ownerTeamId: 'team-1',
+        isActive: false,
+        settings: {},
+        update: jest.fn().mockResolvedValue(undefined)
+      };
+      const ownerTeam = {
+        id: 'team-1',
+        name: 'Admin Team',
+        gameSessionId: 'session-1',
+        isActive: false,
+        decisions: {},
+        update: jest.fn().mockResolvedValue(undefined)
+      };
+
+      Team.findAll
+        .mockResolvedValueOnce([ownerTeam])
+        .mockResolvedValueOnce([ownerTeam]);
+      Team.findOne.mockResolvedValue(ownerTeam);
+      RoundResult.destroy.mockResolvedValue(0);
+      GameSession.findAll.mockResolvedValue([mockSession]);
+      GameSession.findByPk.mockResolvedValue(mockSession);
+
+      const team = await GameService.registerTeam('socket123', 'Admin Team');
+
+      expect(GameSession.findAll).toHaveBeenCalled();
+      expect(GameSession.findByPk).toHaveBeenCalledWith('session-1');
+      expect(ownerTeam.update).toHaveBeenCalledWith(expect.objectContaining({
+        socketId: 'socket123',
+        isActive: true,
+        totalProfit: 0,
+        totalRevenue: 0,
+        gameSessionId: 'session-1'
+      }));
+      expect(team).toBe(ownerTeam);
     });
   });
 
