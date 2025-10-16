@@ -110,7 +110,7 @@ export const MultiUserApp: React.FC = () => {
       clearLastError();
     }
   }, [lastError, toast, clearLastError]);
-  const activeSessionId = gameState.sessionId ?? currentSessionId ?? currentTeam?.sessionId ?? sessions[0]?.id ?? null;
+  const activeSessionId = currentSessionId ?? currentTeam?.sessionId ?? gameState.sessionId ?? sessions[0]?.id ?? null;
   const activeSession = React.useMemo(() => {
     if (!activeSessionId) return null;
     return sessions.find(session => session.id === activeSessionId) || null;
