@@ -117,8 +117,8 @@ export const MultiUserApp: React.FC = () => {
   }, [sessions, activeSessionId]);
   const isAdminSession = (activeSession?.slug ?? '').toLowerCase() === 'admin-session';
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
-  const hasAdminAccess = isAdmin || isSessionOwner;
   const canOpenSettings = isAdmin && isAdminSession;
+  const isAdminView = isAdmin && isAdminSession;
 
   React.useEffect(() => {
     if (!isAdminSession && showAdminPanel) {
@@ -545,8 +545,8 @@ export const MultiUserApp: React.FC = () => {
 
   // Debug: Log state changes
   React.useEffect(() => {
-    console.log('App state:', { currentTeam: currentTeam?.name, hasAdminAccess, showAdminLogin });
-  }, [currentTeam, hasAdminAccess, showAdminLogin]);
+    console.log('App state:', { currentTeam: currentTeam?.name, isAdminView, isSessionOwner, showAdminLogin });
+  }, [currentTeam, isAdminView, isSessionOwner, showAdminLogin]);
 
   // Startansicht: Join the Simulation (kein Auto-Tutorial)
 
@@ -616,7 +616,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // 2) Explicitly show Admin Login when requested (takes precedence over registration/team views)
-  if (showAdminLogin && !hasAdminAccess) {
+  if (showAdminLogin && !isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         <div className="flex justify-center pt-8">
@@ -634,7 +634,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // 3) If not registered and not admin, show registration
-  if (!currentTeam && !hasAdminAccess) {
+  if (!currentTeam && !isAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
         <div className="flex justify-center pt-8">
@@ -653,7 +653,7 @@ export const MultiUserApp: React.FC = () => {
   }
 
   // Admin view
-  if (hasAdminAccess) {
+  if (isAdminView) {
     const roundTimeMinutes = Math.max(1, Math.round(gameState.roundTime / 60));
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
@@ -1129,7 +1129,7 @@ export const MultiUserApp: React.FC = () => {
           setCostVolatility={(v) => updateGameSettings({ costVolatility: v })}
           crossElasticity={gameState.crossElasticity}
           setCrossElasticity={(v) => updateGameSettings({ crossElasticity: v })}
-          isAdmin={isAdmin}
+          isAdmin={isAdminView}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
           setShowAdminPanel={setShowAdminPanel}
