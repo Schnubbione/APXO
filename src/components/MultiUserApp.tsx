@@ -143,11 +143,11 @@ export const MultiUserApp: React.FC = () => {
   const displayedBidPrice = Math.max(0, Math.round(currentBidPriceDecision ?? 0));
   const displayedRequestedIntent = Math.max(0, Math.round(requestedFixSeatsIntent ?? 0));
   const isConfirmActionEnabled = Boolean(isSimulationEvaluation && !isCurrentTeamConfirmed && totalSessionTeams > 0 && allocationSummary);
-  const canConfirmPrePurchase = Boolean(
-    isPrePurchaseActive &&
+  const canConfirmInitialPrice = Boolean(
     !isCurrentTeamConfirmed &&
     totalSessionTeams > 0 &&
-    hasBidPriceDecision
+    tempPrice > 0 &&
+    (hasBidPriceDecision || displayedRequestedIntent === 0)
   );
   const confirmationStatusText = totalSessionTeams > 0
     ? `${confirmedTeamsCount}/${totalSessionTeams} teams confirmed`
@@ -162,6 +162,22 @@ export const MultiUserApp: React.FC = () => {
       setShowAdminPanel(false);
     }
   }, [isAdminSession, showAdminPanel]);
+
+  React.useEffect(() => {
+    if (gameState.currentPhase === 'prePurchase' && gameState.isActive) {
+      setInitialPriceSet(prev => (prev ? false : prev));
+    }
+  }, [gameState.currentPhase, gameState.isActive, gameState.currentRound]);
+
+  const handleInitialPriceConfirm = React.useCallback(() => {
+    if (tempPrice <= 0) return;
+    updateTeamDecision({ price: tempPrice });
+    setInitialPriceSet(true);
+    if (!isCurrentTeamConfirmed) {
+      confirmPhaseOne();
+    }
+  }, [tempPrice, updateTeamDecision, isCurrentTeamConfirmed, confirmPhaseOne]);
+
   const handleAdminLogout = () => {
     if (isAdmin) {
       logoutAsAdmin();
@@ -1731,12 +1747,12 @@ export const MultiUserApp: React.FC = () => {
                       </div>
                       <Button
                         type="button"
-                        onClick={() => confirmPhaseOne()}
-                        disabled={!canConfirmPrePurchase}
+                        onClick={handleInitialPriceConfirm}
+                        disabled={!canConfirmInitialPrice}
                         className={`w-full min-h-[44px] rounded-lg font-semibold transition-all duration-200 ${
                           isCurrentTeamConfirmed
                             ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-100 cursor-default'
-                            : canConfirmPrePurchase
+                            : canConfirmInitialPrice
                               ? 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
                               : 'bg-indigo-900/30 border border-indigo-700/40 text-indigo-200/60 cursor-not-allowed'
                         }`}
@@ -1747,7 +1763,7 @@ export const MultiUserApp: React.FC = () => {
                             Bid locked
                           </span>
                         ) : (
-                          'Confirm sealed bid'
+                          `Confirm Initial Price (€${currencyFormatter.format(Math.max(0, Math.round(tempPrice)))})`
                         )}
                       </Button>
                     </div>

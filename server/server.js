@@ -232,7 +232,7 @@ function buildRandomMultiplayerSettings() {
     poolingMarketUpdateInterval: 1,
     simulatedWeeksPerUpdate: 7,
     secondsPerDay: 1,
-    autoAdvance: true,
+    autoAdvance: false,
     simulationTicksTotal: 365,
     roundTime: 60,
     perTeamBudget: 10000
@@ -462,11 +462,16 @@ async function autoAdvanceAfterConfirmations(sessionId) {
 
     console.log(`✅ All teams confirmed allocations for session ${sessionId}. Launching simulation.`);
 
-    await GameService.startSimulationPhase(sessionId);
+    const startedSession = await GameService.startSimulationPhase(sessionId);
     io.to(getSessionRoom(sessionId)).emit('phaseStarted', 'simulation');
 
     startPoolingMarketUpdates(sessionId);
-    await startRoundTimer(sessionId);
+    const countdownSeconds = (() => {
+      const raw = startedSession?.settings?.simulationTicksTotal ?? startedSession?.settings?.countdownSeconds ?? 365;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 365;
+    })();
+    await startRoundTimer(sessionId, countdownSeconds);
 
     await broadcastGameState(sessionId);
     io.to(getSessionRoom(sessionId)).emit('phaseAutoAdvanced', {
