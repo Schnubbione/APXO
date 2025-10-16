@@ -441,14 +441,11 @@ async function autoAdvanceAfterConfirmations(sessionId) {
 
     console.log(`✅ All teams confirmed allocations for session ${sessionId}. Launching simulation.`);
 
-    const nextSession = await GameService.startSimulationPhase(sessionId);
+    await GameService.startSimulationPhase(sessionId);
     io.to(getSessionRoom(sessionId)).emit('phaseStarted', 'simulation');
 
     startPoolingMarketUpdates(sessionId);
-    const runtime = getSessionRuntime(sessionId);
-    const roundTime = nextSession.settings?.roundTime || 60;
-    if (runtime) runtime.remainingTime = roundTime;
-    await startRoundTimer(sessionId, roundTime);
+    await startRoundTimer(sessionId);
 
     await broadcastGameState(sessionId);
     io.to(getSessionRoom(sessionId)).emit('phaseAutoAdvanced', {
