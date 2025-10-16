@@ -581,20 +581,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const applyServerSnapshot = React.useCallback((state: GameState) => {
     if (!state) return;
     const fareCodes = (state.fares || []).map(f => f.code);
-    const normalizedTeams = (state.teams || []).map(team => ({
-      ...team,
-      sessionId: team.sessionId ?? state.sessionId ?? null,
-      decisions: {
-        price: team.decisions?.price ?? 500,
-        buy: fareCodes.reduce((acc, code) => ({ ...acc, [code]: team.decisions?.buy?.[code] ?? 0 }), {} as Record<string, number>),
-        fixSeatsPurchased: team.decisions?.fixSeatsPurchased ?? 0,
-        fixSeatsAllocated: team.decisions?.fixSeatsAllocated,
-        poolingAllocation: team.decisions?.poolingAllocation ?? 0,
-        fixSeatsRequested: team.decisions?.fixSeatsRequested ?? team.decisions?.fixSeatsPurchased ?? 0,
-        fixSeatBidPrice: team.decisions?.fixSeatBidPrice ?? null,
-        fixSeatClearingPrice: team.decisions?.fixSeatClearingPrice ?? null
-      }
-    }));
+    const normalizedTeams = (state.teams || []).map(team => {
+      const baseDecisions = team.decisions ?? {};
+      const normalizedBuy = fareCodes.reduce((acc, code) => ({
+        ...acc,
+        [code]: baseDecisions.buy?.[code] ?? 0
+      }), {} as Record<string, number>);
+
+      return {
+        ...team,
+        sessionId: team.sessionId ?? state.sessionId ?? null,
+        decisions: {
+          ...baseDecisions,
+          price: baseDecisions.price ?? 500,
+          buy: normalizedBuy,
+          fixSeatsPurchased: baseDecisions.fixSeatsPurchased ?? 0,
+          fixSeatsAllocated: baseDecisions.fixSeatsAllocated,
+          poolingAllocation: baseDecisions.poolingAllocation ?? 0,
+          fixSeatsRequested: baseDecisions.fixSeatsRequested ?? baseDecisions.fixSeatsPurchased ?? 0,
+          fixSeatBidPrice: baseDecisions.fixSeatBidPrice ?? null,
+          fixSeatClearingPrice: baseDecisions.fixSeatClearingPrice ?? null,
+          phaseOneConfirmed: Boolean(baseDecisions.phaseOneConfirmed)
+        }
+      };
+    });
     const normalizedState: GameState = { ...state, teams: normalizedTeams };
     setGameState(normalizedState);
     setCurrentSessionId(state.sessionId ?? null);
