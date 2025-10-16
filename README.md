@@ -10,7 +10,7 @@ APXO is a real-time, two-phase simulation for procurement and demand in tourism.
 - **Config-Driven Gameplay** - Default scenario lives in `apxo.config.yaml` and can be overridden for workshops or experiments.
 - **Practice Mode** - Frontend-only training mode (no backend) that runs the engine for quick demo rounds.
 - **Round Evaluation View** - Post-round recap for teams that distills Phase 1 allocations plus Phase 2 market performance while hiding live controls.
-- **Multi-Session Lobby** - Sessions have names, owners, and isolated timers; the first player becomes session owner and can launch a multiplayer round with standard timings. Idle teams auto-expire after 15 minutes and empty sessions are pruned automatically to keep the lobby tidy.
+- **Multi-Session Lobby** - Sessions have names, owners, and isolated timers; the first player becomes session owner and can launch a multiplayer round with standard timings. The Admin Session is always available for facilitator-led play, idle teams auto-expire after 15 minutes, and empty sessions are pruned automatically to keep the lobby tidy.
 - **Streamlined Admin Controls** - Session banner + phase control card bundle Start/End buttons with guarded reset actions for quick recoveries. A danger-zone purge can wipe all sessions and rebuild a clean default lobby in one click.
 - **Airline Guardrails** - Admin-only controls for an auto-calculated fixed-seat share (8 % of aircraft seats per active team), a hard minimum bid aligned with the airline floor, and automatic pooling safety to prevent forced insolvency.
 - **Migration Script** - `npm run migrate:sessions` upgrades existing databases (adds session columns, assigns defaults, enforces slug uniqueness).
@@ -58,7 +58,7 @@ npm run migrate:sessions
 cd ..
 ```
 
-> The script is idempotent. It will create a default session (if missing), assign legacy teams to it, and ensure unique slugs.
+> The script is idempotent. It will create the Admin Session (if missing), assign legacy teams to it, and ensure unique slugs.
 
 ### Environment Variables
 
@@ -162,7 +162,7 @@ When a round ends the UI switches into an evaluation state:
 
 ### Teams
 
-1. Join or create a session in the lobby, then register your team name.
+1. Join or create a session in the lobby, then register your team name. The Admin Session is reserved for facilitator-led rounds; any custom session you create will make you the owner automatically.
 2. In Phase 1 submit a sealed bid and wait for the allocation summary.
 3. In Phase 2 adjust price, push level, fixed hold %, and optional tool each tick to maximise profit.
 4. Monitor the live snapshots and the evaluation recap after the round ends; prepare for the next launch.
@@ -171,10 +171,10 @@ When a round ends the UI switches into an evaluation state:
 ### Admins
 
 1. Sign in via “Admin Login” (password from the environment file).
-2. Use the session banner to switch between sessions; the first team in a session becomes owner and can launch rounds.
+2. Use the session banner to switch between sessions; the Admin Session stays facilitator-controlled while any other session assigns ownership to the first team that joins.
 3. Start/stop phases with the control card; resets now operate per session (global resets still exist if required).
 4. Run analytics from the current session to review demand curves, profit trends, and round history.
-5. When the lobby gets noisy, delete all sessions from the Danger Zone to rebuild a clean default lobby; the backend also auto-prunes inactive sessions and auto-logs silent teams after 15 minutes.
+5. When the lobby gets noisy, delete all sessions from the Danger Zone to rebuild a clean Admin Session; the backend also auto-prunes inactive sessions and auto-logs silent teams after 15 minutes.
 6. Practice mode remains a quick way to onboard new teams.
 
 ---

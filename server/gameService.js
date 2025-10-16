@@ -28,7 +28,10 @@ const computeTeamBasedFixSeatShare = (teamCount) => clampShareValue((teamCount |
 const DEFAULT_TEAM_COUNT = 3;
 const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
 const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
-const DEFAULT_SESSION_SLUG = 'default-session';
+const ADMIN_SESSION_NAME = 'Admin Session';
+const LEGACY_ADMIN_SESSION_NAME = 'Default Session';
+const DEFAULT_SESSION_SLUG = 'admin-session';
+const LEGACY_ADMIN_SESSION_SLUG = 'default-session';
 
 const slugify = (value = '') => {
   return value
@@ -58,6 +61,14 @@ const AGENT_V1_DEFAULTS = Object.freeze({
     kappa: 50,
   },
 });
+
+const isAdminSessionRecord = (session) => {
+  if (!session) return false;
+  const slug = (session.slug || '').toLowerCase();
+  if (slug === DEFAULT_SESSION_SLUG || slug === LEGACY_ADMIN_SESSION_SLUG) return true;
+  const name = session.name || '';
+  return name === ADMIN_SESSION_NAME || name === LEGACY_ADMIN_SESSION_NAME;
+};
 
 const buildSettingsWithShare = (settings = {}, share, options = {}) => {
   const { resetAvailableToFull = false, availableFixSeatsOverride } = options;
@@ -263,6 +274,39 @@ export class GameService {
 
       this.slugSchemaEnsured = true;
       this.slugLookupEnabled = hasSlug;
+
+      try {
+        const sessions = await GameSessionModel.findAll();
+        const usedSlugs = new Set();
+        for (const session of sessions) {
+          if (session.slug) {
+            usedSlugs.add(session.slug);
+          }
+        }
+        for (const session of sessions) {
+          const updates = {};
+          if (session.name === LEGACY_ADMIN_SESSION_NAME) {
+            updates.name = ADMIN_SESSION_NAME;
+          }
+          if (session.slug === LEGACY_ADMIN_SESSION_SLUG) {
+            let candidate = DEFAULT_SESSION_SLUG;
+            let suffix = 1;
+            while (candidate !== session.slug && usedSlugs.has(candidate)) {
+              candidate = `${DEFAULT_SESSION_SLUG}-${suffix++}`;
+            }
+            if (candidate !== session.slug) {
+              usedSlugs.delete(session.slug);
+              usedSlugs.add(candidate);
+              updates.slug = candidate;
+            }
+          }
+          if (Object.keys(updates).length > 0) {
+            await this.applySessionUpdates(session, updates);
+          }
+        }
+      } catch (error) {
+        console.warn('Unable to normalize admin session metadata:', error?.message || error);
+      }
     })().catch(error => {
       console.error('Error while ensuring GameSession slug support:', error);
       this.slugSchemaEnsured = true;
@@ -498,7 +542,7 @@ export class GameService {
 
     for (const session of candidates) {
       if (!session) continue;
-      if (session.slug && session.slug === DEFAULT_SESSION_SLUG) continue;
+      if (isAdminSessionRecord(session)) continue;
       if (session.isActive) continue;
 
       const activeTeamCount = await TeamModel.count({
@@ -640,7 +684,7 @@ export class GameService {
 
     if (!session) {
       const defaultPayload = {
-        name: 'Default Session',
+        name: ADMIN_SESSION_NAME,
         currentRound: 0,
         isActive: false,
         settings: this.buildDefaultSessionSettings()
@@ -655,9 +699,13 @@ export class GameService {
       const updates = {};
       if (this.slugLookupEnabled && !session.slug) {
         updates.slug = DEFAULT_SESSION_SLUG;
+      } else if (this.slugLookupEnabled && session.slug === LEGACY_ADMIN_SESSION_SLUG) {
+        updates.slug = DEFAULT_SESSION_SLUG;
       }
       if (!session.name) {
-        updates.name = 'Default Session';
+        updates.name = ADMIN_SESSION_NAME;
+      } else if (session.name === LEGACY_ADMIN_SESSION_NAME) {
+        updates.name = ADMIN_SESSION_NAME;
       }
       if (!session.settings) {
         updates.settings = this.buildDefaultSessionSettings();
@@ -714,6 +762,9 @@ export class GameService {
     }
     if (inputName.length > 80) {
       throw new Error('Session name is too long (max 80 characters).');
+    }
+    if (inputName === ADMIN_SESSION_NAME || inputName === LEGACY_ADMIN_SESSION_NAME) {
+      throw new Error('This name is reserved for the admin session.');
     }
 
     const existing = await GameSessionModel.findOne({ where: { name: inputName } });
@@ -892,6 +943,16 @@ export class GameService {
 
       // Check if a round is currently active
       const session = await this.getCurrentGameSession(targetSessionId);
+      const adminSession = isAdminSessionRecord(session);
+      if (adminSession && session.ownerTeamId) {
+        if (typeof session.update === 'function') {
+          await session.update({ ownerTeamId: null });
+        } else {
+          await GameSessionModel.update({ ownerTeamId: null }, { where: { id: session.id } });
+        }
+        session.ownerTeamId = null;
+        this.sessionCache.set(session.id, session);
+      }
       if (session.isActive) {
         throw new Error('Cannot join the game while a round is in progress. Please wait for the current round to end.');
       }
@@ -952,7 +1013,7 @@ export class GameService {
         const activeTeams = await this.getActiveTeams(session.id);
         await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
 
-        if (!session.ownerTeamId) {
+        if (!adminSession && !session.ownerTeamId) {
           await this.updateSessionOwner(session.id, anyTeamWithName.id);
         }
 
@@ -981,7 +1042,7 @@ export class GameService {
       const activeTeams = await this.getActiveTeams(session.id);
       await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });
 
-      if (!session.ownerTeamId) {
+      if (!adminSession && !session.ownerTeamId) {
         await this.updateSessionOwner(session.id, team.id);
       }
 

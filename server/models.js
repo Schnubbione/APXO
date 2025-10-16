@@ -84,13 +84,13 @@ export const GameSession = sequelize.define('GameSession', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'Default Session'
+    defaultValue: 'Admin Session'
   },
   slug: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    defaultValue: 'default-session'
+    defaultValue: 'admin-session'
   },
   ownerTeamId: {
     type: DataTypes.UUID,

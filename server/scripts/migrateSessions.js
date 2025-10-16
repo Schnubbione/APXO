@@ -12,15 +12,43 @@ const slugify = (value = '') => value
   .replace(/^-+|-+$/g, '')
   .replace(/--+/g, '-');
 
+const ADMIN_SESSION_NAME = 'Admin Session';
+const LEGACY_ADMIN_SESSION_NAME = 'Default Session';
+const ADMIN_SESSION_SLUG = 'admin-session';
+const LEGACY_ADMIN_SESSION_SLUG = 'default-session';
+
 async function ensureDefaultSession() {
-  let session = await GameSession.findOne({ order: [['updatedAt', 'DESC']] });
+  let session = await GameSession.findOne({
+    where: { slug: ADMIN_SESSION_SLUG },
+    order: [['updatedAt', 'DESC']]
+  });
+  if (!session) {
+    session = await GameSession.findOne({
+      where: { slug: LEGACY_ADMIN_SESSION_SLUG },
+      order: [['updatedAt', 'DESC']]
+    });
+  }
+  if (!session) {
+    session = await GameSession.findOne({ order: [['updatedAt', 'DESC']] });
+  }
   if (!session) {
     session = await GameSession.create({
-      name: 'Default Session',
-      slug: 'default-session',
+      name: ADMIN_SESSION_NAME,
+      slug: ADMIN_SESSION_SLUG,
       currentRound: 0,
       isActive: false
     });
+  } else {
+    const updates = {};
+    if (session.name === LEGACY_ADMIN_SESSION_NAME || !session.name) {
+      updates.name = ADMIN_SESSION_NAME;
+    }
+    if (session.slug === LEGACY_ADMIN_SESSION_SLUG || !session.slug) {
+      updates.slug = ADMIN_SESSION_SLUG;
+    }
+    if (Object.keys(updates).length) {
+      await session.update(updates);
+    }
   }
   return session;
 }
@@ -59,10 +87,22 @@ async function migrateGameSessions() {
   for (const session of sessions) {
     let hasChanges = false;
 
+    if (session.name === LEGACY_ADMIN_SESSION_NAME) {
+      session.name = ADMIN_SESSION_NAME;
+      hasChanges = true;
+    }
+
     if (!session.name) {
       session.name = session.slug
         ? session.slug.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
         : `Session ${session.id.slice(0, 8)}`;
+      hasChanges = true;
+    }
+
+    if (session.slug === LEGACY_ADMIN_SESSION_SLUG) {
+      session.slug = ADMIN_SESSION_SLUG;
+      takenSlugs.delete(LEGACY_ADMIN_SESSION_SLUG);
+      takenSlugs.add(session.slug);
       hasChanges = true;
     }
 
@@ -87,7 +127,7 @@ async function migrateGameSessions() {
 
   if (!sessions.length) {
     const defaultSession = await ensureDefaultSession();
-    console.log(`Created default session ${defaultSession.id}`);
+    console.log(`Created Admin Session ${defaultSession.id}`);
   }
 }
 

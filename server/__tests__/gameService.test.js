@@ -58,7 +58,15 @@ describe('GameService', () => {
     GameService.currentGameSession = null;
     GameService.sessionCache = new Map();
     Team.count.mockResolvedValue(0);
+    Team.findAll.mockResolvedValue([]);
+    Team.findOne.mockResolvedValue(null);
+    Team.destroy.mockResolvedValue(0);
+    RoundResult.destroy.mockResolvedValue(0);
+    HighScore.destroy.mockResolvedValue(0);
     GameSession.count.mockResolvedValue(0);
+    GameSession.findAll.mockResolvedValue([]);
+    GameSession.findOne.mockResolvedValue(null);
+    GameSession.destroy.mockResolvedValue(0);
   });
 
   describe('getCurrentGameSession', () => {
@@ -442,20 +450,37 @@ describe('GameService', () => {
       expect(result.removed).toEqual([{ id: 'sess-1', name: 'Old Session', teamCount: 0 }]);
     });
 
-    test('keeps default session intact', async () => {
-      const defaultSession = {
-        id: 'default-session-id',
+    test('keeps admin session intact', async () => {
+      const adminSession = {
+        id: 'admin-session-id',
+        name: 'Admin Session',
+        slug: 'admin-session',
+        isActive: false,
+        destroy: jest.fn().mockResolvedValue(undefined)
+      };
+
+      GameSession.findAll.mockResolvedValue([adminSession]);
+
+      const result = await GameService.removeInactiveSessions({ now: new Date() });
+
+      expect(adminSession.destroy).not.toHaveBeenCalled();
+      expect(result.removed).toEqual([]);
+    });
+
+    test('keeps legacy default session intact', async () => {
+      const legacySession = {
+        id: 'legacy-session-id',
         name: 'Default Session',
         slug: 'default-session',
         isActive: false,
         destroy: jest.fn().mockResolvedValue(undefined)
       };
 
-      GameSession.findAll.mockResolvedValue([defaultSession]);
+      GameSession.findAll.mockResolvedValue([legacySession]);
 
       const result = await GameService.removeInactiveSessions({ now: new Date() });
 
-      expect(defaultSession.destroy).not.toHaveBeenCalled();
+      expect(legacySession.destroy).not.toHaveBeenCalled();
       expect(result.removed).toEqual([]);
     });
   });
@@ -486,10 +511,21 @@ describe('GameService', () => {
 
   describe('createSession', () => {
     test('throws when session with name already exists', async () => {
-      GameSession.findOne
-        .mockResolvedValueOnce({ id: 'existing-session' });
+      GameSession.findOne.mockImplementation(({ where } = {}) => {
+        if (where?.name === 'Duplicate Name') {
+          return Promise.resolve({ id: 'existing-session' });
+        }
+        return Promise.resolve(null);
+      });
+      GameSession.findAll.mockResolvedValue([]);
 
       await expect(GameService.createSession({ name: 'Duplicate Name' })).rejects.toThrow('A session with this name already exists.');
+    });
+
+    test('reserves admin session name', async () => {
+      GameSession.findAll.mockResolvedValue([]);
+
+      await expect(GameService.createSession({ name: 'Admin Session' })).rejects.toThrow('This name is reserved for the admin session.');
     });
   });
 
