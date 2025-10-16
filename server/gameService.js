@@ -787,12 +787,16 @@ export class GameService {
         throw new Error('Team name is too long (max 64 characters).');
       }
 
-      if (!sessionId) {
+      const sessionIdRaw = sessionId ?? '';
+      const targetSessionId = typeof sessionIdRaw === 'string'
+        ? sessionIdRaw.trim()
+        : String(sessionIdRaw).trim();
+      if (!targetSessionId) {
         throw new Error('Please select a session before joining.');
       }
 
       // Check if a round is currently active
-      const session = await this.getCurrentGameSession(sessionId);
+      const session = await this.getCurrentGameSession(targetSessionId);
       if (session.isActive) {
         throw new Error('Cannot join the game while a round is in progress. Please wait for the current round to end.');
       }
@@ -801,12 +805,14 @@ export class GameService {
       const anyTeamWithName = await TeamModel.findOne({ where: { name: normalizedName, gameSessionId: session.id } });
 
       if (anyTeamWithName) {
-        if (anyTeamWithName.isActive) {
-          // Active team with same name -> block with friendly error
+        const shouldReset = !anyTeamWithName.isActive;
+        const canReattach = anyTeamWithName.isActive && !anyTeamWithName.socketId;
+
+        if (!shouldReset && !canReattach) {
+          // Active team with same name and still connected -> block with friendly error
           throw new Error('This team name is already in use. Please choose a different name.');
         }
 
-        // Reactivate existing inactive team: reset to a clean state and reuse the row
         const defaultDecisions = {
           price: 500,
           fixSeatsPurchased: 0,
@@ -814,6 +820,8 @@ export class GameService {
           poolingAllocation: 0
         };
 
+        if (shouldReset) {
+        // Reactivate existing inactive team: reset to a clean state and reuse the row
         // Optionally wipe current-session round results for this team to avoid leftovers
         try {
           await RoundResultModel.destroy({ where: { teamId: anyTeamWithName.id, gameSessionId: session.id } });
@@ -821,22 +829,30 @@ export class GameService {
           // Non-fatal: continue even if cleanup fails
           console.warn('Warning cleaning old round results for reactivated team:', e?.message || e);
         }
+        }
 
         // Generate a new resume token for this session
         const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
         const resumeUntil = new Date(Date.now() + 5 * 60 * 1000);
-        await anyTeamWithName.update({
+        const updatePayload = {
           socketId,
           isActive: true,
           resumeToken: token,
           resumeUntil,
           lastActiveAt: new Date(),
-          decisions: defaultDecisions,
-          totalProfit: 0,
-          totalRevenue: 0,
           gameSessionId: session.id
-        });
+        };
+
+        if (shouldReset) {
+          Object.assign(updatePayload, {
+            decisions: defaultDecisions,
+            totalProfit: 0,
+            totalRevenue: 0
+          });
+        }
+
+        await anyTeamWithName.update(updatePayload);
 
         const activeTeams = await this.getActiveTeams(session.id);
         await this.updateFixSeatShare(session, { teamCount: activeTeams.length, resetAvailable: true });

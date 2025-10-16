@@ -190,6 +190,53 @@ describe('GameService', () => {
       await expect(GameService.registerTeam('socket123', 'Test Team', mockSession.id)).rejects.toThrow('Cannot join the game while a round is in progress');
     });
 
+    test('reattaches a disconnected active team without resetting state', async () => {
+      const mockSession = {
+        id: 1,
+        isActive: false,
+        settings: {},
+        ownerTeamId: 'team-1',
+        update: jest.fn().mockResolvedValue(undefined)
+      };
+      const existingTeam = {
+        id: 'team-1',
+        name: 'Admin Team',
+        gameSessionId: 1,
+        isActive: true,
+        socketId: null,
+        decisions: { price: 450 },
+        totalProfit: 1234,
+        totalRevenue: 5678,
+        update: jest.fn().mockResolvedValue(undefined)
+      };
+
+      GameService.currentGameSession = mockSession;
+      GameService.sessionCache.set(mockSession.id, mockSession);
+      GameSession.findByPk.mockResolvedValue(mockSession);
+      Team.findOne.mockResolvedValue(existingTeam);
+      Team.findAll.mockResolvedValue([existingTeam]);
+
+      const updateFixSpy = jest.spyOn(GameService, 'updateFixSeatShare').mockResolvedValue({});
+
+      const team = await GameService.registerTeam('socket123', 'Admin Team', mockSession.id);
+
+      expect(existingTeam.update).toHaveBeenCalledTimes(1);
+      const updatePayload = existingTeam.update.mock.calls[0][0];
+      expect(updatePayload).toMatchObject({
+        socketId: 'socket123',
+        isActive: true,
+        resumeToken: expect.any(String),
+        resumeUntil: expect.any(Date),
+        gameSessionId: 1
+      });
+      // Existing metrics and decisions should remain untouched during reattach
+      expect(updatePayload).not.toHaveProperty('decisions');
+      expect(updatePayload).not.toHaveProperty('totalProfit');
+      expect(updatePayload).not.toHaveProperty('totalRevenue');
+      expect(team).toBe(existingTeam);
+      updateFixSpy.mockRestore();
+    });
+
     test('requires a session identifier', async () => {
       await expect(GameService.registerTeam('socket123', 'Admin Team')).rejects.toThrow(
         'Please select a session before joining.'
@@ -238,7 +285,7 @@ describe('GameService', () => {
 
   describe('getActiveTeams', () => {
     test('should return teams for current session', async () => {
-      const mockSession = { id: 1 };
+      const mockSession = { id: 1, settings: {}, update: jest.fn().mockResolvedValue(undefined) };
       const mockTeams = [
         { id: 1, name: 'Team 1', sessionId: 1 },
         { id: 2, name: 'Team 2', sessionId: 1 }
@@ -261,7 +308,7 @@ describe('GameService', () => {
     });
 
     test('should handle case when no session exists by creating one', async () => {
-      const mockSession = { id: 1 };
+      const mockSession = { id: 1, settings: {}, update: jest.fn().mockResolvedValue(undefined) };
       const mockTeams = [
         { id: 1, name: 'Team 1', sessionId: 1 },
         { id: 2, name: 'Team 2', sessionId: 1 }
@@ -288,10 +335,17 @@ describe('GameService', () => {
       const mockTeam = {
         id: 1,
         name: 'Test Team',
+        gameSessionId: 1,
         update: jest.fn().mockResolvedValue(true)
       };
 
       Team.findOne.mockResolvedValue(mockTeam);
+      const mockSession = { id: 1, settings: {}, update: jest.fn().mockResolvedValue(undefined) };
+      GameService.currentGameSession = mockSession;
+      GameService.sessionCache.set(1, mockSession);
+      GameSession.findByPk.mockResolvedValue(mockSession);
+      Team.findAll.mockResolvedValue([]);
+      const updateFixSpy = jest.spyOn(GameService, 'updateFixSeatShare').mockResolvedValue({});
 
       await GameService.removeTeam('socket123');
 
@@ -303,6 +357,7 @@ describe('GameService', () => {
         resumeUntil: null,
         lastActiveAt: null
       });
+      updateFixSpy.mockRestore();
     });
 
     test('should handle team not found gracefully', async () => {
