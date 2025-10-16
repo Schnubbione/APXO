@@ -190,54 +190,10 @@ describe('GameService', () => {
       await expect(GameService.registerTeam('socket123', 'Test Team', mockSession.id)).rejects.toThrow('Cannot join the game while a round is in progress');
     });
 
-    test('auto-detects admin session when only team name is provided', async () => {
-      const mockSession = {
-        id: 'session-1',
-        ownerTeamId: 'team-1',
-        isActive: false,
-        settings: {},
-        update: jest.fn().mockResolvedValue(undefined)
-      };
-      const ownerTeam = {
-        id: 'team-1',
-        name: 'Admin Team',
-        gameSessionId: 'session-1',
-        isActive: false,
-        decisions: {},
-        update: jest.fn().mockResolvedValue(undefined)
-      };
-
-      Team.findAll
-        .mockResolvedValueOnce([ownerTeam])
-        .mockResolvedValueOnce([ownerTeam]);
-      Team.findOne.mockResolvedValue(ownerTeam);
-      RoundResult.destroy.mockResolvedValue(0);
-      GameSession.findAll.mockResolvedValue([mockSession]);
-      GameSession.findByPk.mockResolvedValue(mockSession);
-
-      const team = await GameService.registerTeam('socket123', 'Admin Team');
-
-      expect(GameSession.findAll).toHaveBeenCalled();
-      expect(GameSession.findByPk).toHaveBeenCalledWith('session-1');
-      expect(ownerTeam.update).toHaveBeenCalledWith(expect.objectContaining({
-        socketId: 'socket123',
-        isActive: true,
-        totalProfit: 0,
-        totalRevenue: 0,
-        gameSessionId: 'session-1'
-      }));
-      expect(team).toBe(ownerTeam);
-    });
-
-    test('falls back gracefully when admin quick join schema is missing', async () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      Team.findAll.mockRejectedValueOnce(new Error('column "gameSessionId" does not exist'));
-
+    test('requires a session identifier', async () => {
       await expect(GameService.registerTeam('socket123', 'Admin Team')).rejects.toThrow(
-        'Admin quick join is unavailable on this server. Please select a session before joining.'
+        'Please select a session before joining.'
       );
-      expect(GameSession.findAll).not.toHaveBeenCalled();
-      warnSpy.mockRestore();
     });
   });
 
@@ -370,6 +326,8 @@ describe('GameService', () => {
 
       const session = { id: 'session-1', settings: {}, update: jest.fn().mockResolvedValue(undefined) };
       GameService.currentGameSession = session;
+      GameService.sessionCache.set(session.id, session);
+      GameSession.findByPk.mockResolvedValue(session);
 
       const updateFixSpy = jest.spyOn(GameService, 'updateFixSeatShare').mockResolvedValue({});
 

@@ -30,16 +30,6 @@ const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
 const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 const DEFAULT_SESSION_SLUG = 'default-session';
 
-const isMissingColumnError = (error, columnName) => {
-  if (!error) return false;
-  const rawMessage = error?.original?.message || error?.message || '';
-  if (!rawMessage) return false;
-  const lcMessage = rawMessage.toLowerCase();
-  const lcColumn = (columnName || '').toLowerCase();
-  if (!lcColumn) return false;
-  return lcMessage.includes(`no such column: ${lcColumn}`) || lcMessage.includes(`column "${lcColumn}" does not exist`) || lcMessage.includes(`column '${lcColumn}' does not exist`);
-};
-
 const slugify = (value = '') => {
   return value
     .toString()
@@ -778,89 +768,6 @@ export class GameService {
     });
   }
 
-  static async resolveSessionForTeamOwner(teamName) {
-    await this.ensureTeamSessionSupport();
-    const normalized = (teamName || '').trim();
-    if (!normalized) {
-      return { status: 'invalid-name' };
-    }
-
-    let teams = [];
-    if (typeof TeamModel.findAll === 'function') {
-      try {
-        teams = await TeamModel.findAll({
-          where: { name: normalized },
-          order: [['updatedAt', 'DESC']]
-        });
-      } catch (error) {
-        if (isMissingColumnError(error, 'gameSessionId')) {
-          console.warn('Admin quick join unavailable: missing gameSessionId column in Teams table.');
-          return { status: 'schema-missing' };
-        }
-        throw error;
-      }
-    }
-    if (!teams || teams.length === 0) {
-      return { status: 'not-found' };
-    }
-
-    const sessionIds = Array.from(
-      new Set(
-        teams
-          .map(team => team?.gameSessionId)
-          .filter(Boolean)
-      )
-    );
-    if (sessionIds.length === 0) {
-      return { status: 'not-found' };
-    }
-
-    let sessions = [];
-    if (typeof GameSessionModel.findAll === 'function') {
-      sessions = await GameSessionModel.findAll({
-        where: { id: { [Op.in]: sessionIds } }
-      });
-    }
-    if (!sessions || sessions.length === 0) {
-      return { status: 'not-found' };
-    }
-
-    const matches = [];
-    for (const team of teams) {
-      if (!team?.id) continue;
-      const session = sessions.find(entry => entry?.id === team.gameSessionId);
-      if (!session) continue;
-      if (session.ownerTeamId && session.ownerTeamId === team.id) {
-        matches.push({ session, team });
-      }
-    }
-
-    if (matches.length === 0) {
-      return { status: 'not-owner' };
-    }
-
-    const uniqueMatches = [];
-    const seen = new Set();
-    for (const match of matches) {
-      const sessionId = match.session?.id;
-      if (!sessionId || seen.has(sessionId)) continue;
-      seen.add(sessionId);
-      uniqueMatches.push(match);
-    }
-
-    if (uniqueMatches.length === 1) {
-      return { status: 'resolved', session: uniqueMatches[0].session, team: uniqueMatches[0].team };
-    }
-
-    uniqueMatches.sort((a, b) => {
-      const aTime = new Date(a.session?.updatedAt || 0).getTime();
-      const bTime = new Date(b.session?.updatedAt || 0).getTime();
-      return bTime - aTime;
-    });
-
-    return { status: 'ambiguous', sessions: uniqueMatches.map(entry => entry.session) };
-  }
-
   /**
    * Register a new team
    * @param {string} socketId - The socket ID of the connecting client
@@ -880,22 +787,12 @@ export class GameService {
         throw new Error('Team name is too long (max 64 characters).');
       }
 
-      let targetSessionId = sessionId ?? null;
-      if (!targetSessionId) {
-        const resolution = await this.resolveSessionForTeamOwner(normalizedName);
-        if (resolution.status === 'resolved') {
-          targetSessionId = resolution.session?.id ?? null;
-        } else if (resolution.status === 'ambiguous') {
-          throw new Error('Multiple admin sessions found for this team name. Please select a session from the list.');
-        } else if (resolution.status === 'schema-missing') {
-          throw new Error('Admin quick join is unavailable on this server. Please select a session before joining.');
-        } else if (resolution.status === 'not-owner' || resolution.status === 'not-found') {
-          throw new Error('No admin session found for this team name. Please select a session before joining.');
-        }
+      if (!sessionId) {
+        throw new Error('Please select a session before joining.');
       }
 
       // Check if a round is currently active
-      const session = await this.getCurrentGameSession(targetSessionId);
+      const session = await this.getCurrentGameSession(sessionId);
       if (session.isActive) {
         throw new Error('Cannot join the game while a round is in progress. Please wait for the current round to end.');
       }

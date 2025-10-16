@@ -30,14 +30,14 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'session-lobby',
     title: 'Sessions Keep Games Organised',
-    description: 'Pick or create the lobby that matches your group. Returning session owners can toggle the admin quick join switch to re-enter by name without manually selecting a session.',
-    target: '[data-tutorial="session-toggle"]',
+    description: 'Pick or create the lobby that matches your group. Join the facilitator-led admin session for coordinated rounds, or run your own practice lobby where the session owner launches the game.',
+    target: '[data-tutorial="session-selector"]',
     position: 'top'
   },
   {
     id: 'game-objective',
     title: 'Game Objective',
-    description: 'As tour operator teams you compete to maximise profit. Sessions isolate leaderboards so each lobby can run independent rounds without crosstalk.',
+    description: 'As tour operator teams you compete to maximise profit across two phases, and each session maintains its own leaderboard for clean matchups.',
     position: 'center'
   },
   {
@@ -49,14 +49,14 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-registration',
     title: 'Team Registration',
-    description: 'Choose a session, enter your team name, and join. If you are the owner, the lobby grants the launch controls once you are inside.',
+    description: 'Choose a session, enter your team name, and join. The first team inside becomes the owner and gains the launch controls.',
     target: '[data-tutorial="team-registration"]',
     position: 'bottom'
   },
   {
     id: 'admin-controls',
     title: 'Admin Controls',
-    description: 'Session owners (and authenticated admins) can launch rounds, adjust settings, and monitor all teams from the admin panel banner.',
+    description: 'Admins drive the facilitator session from this banner, while owners in self-organised lobbies use the same controls to roll fresh settings and launch phases.',
     target: '[data-tutorial="admin-login"]',
     position: 'bottom'
   },
