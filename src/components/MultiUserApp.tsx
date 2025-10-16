@@ -115,8 +115,16 @@ export const MultiUserApp: React.FC = () => {
     if (!activeSessionId) return null;
     return sessions.find(session => session.id === activeSessionId) || null;
   }, [sessions, activeSessionId]);
+  const isAdminSession = (activeSession?.slug ?? '').toLowerCase() === 'admin-session';
   const isSessionOwner = Boolean(currentTeam && activeSession?.ownerTeamId === currentTeam.id);
   const hasAdminAccess = isAdmin || isSessionOwner;
+  const canOpenSettings = isAdmin && isAdminSession;
+
+  React.useEffect(() => {
+    if (!isAdminSession && showAdminPanel) {
+      setShowAdminPanel(false);
+    }
+  }, [isAdminSession, showAdminPanel]);
   const handleAdminLogout = () => {
     if (isAdmin) {
       logoutAsAdmin();
@@ -703,7 +711,7 @@ export const MultiUserApp: React.FC = () => {
           setCostVolatility={(v) => updateGameSettings({ costVolatility: v })}
           crossElasticity={gameState.crossElasticity}
           setCrossElasticity={(v) => updateGameSettings({ crossElasticity: v })}
-          isAdmin={hasAdminAccess}
+          isAdmin={canOpenSettings}
           setIsAdmin={() => { /* handled via reload in AdminPanel */ }}
           showAdminPanel={showAdminPanel}
           setShowAdminPanel={setShowAdminPanel}
@@ -713,7 +721,7 @@ export const MultiUserApp: React.FC = () => {
           roundResults={roundResults}
           onGetAnalytics={getAnalytics}
           onResetAllData={resetAllData}
-          onDeleteAllSessions={deleteAllSessions}
+          onDeleteAllSessions={canOpenSettings ? deleteAllSessions : undefined}
         />
 
         <RoundTimer
@@ -732,16 +740,18 @@ export const MultiUserApp: React.FC = () => {
                 Allotment Procurement & Demand Simulation
               </h1>
             </div>
-            <div className="flex items-center justify-center gap-4 text-slate-400">
-              <span className="text-lg">Admin Control Panel</span>
-              <Button
-                onClick={() => setShowAdminPanel(true)}
-                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-            </div>
+          <div className="flex items-center justify-center gap-4 text-slate-400">
+            <span className="text-lg">Admin Control Panel</span>
+              {canOpenSettings && (
+                <Button
+                  onClick={() => setShowAdminPanel(true)}
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-700 hover:from-indigo-600 hover:via-purple-600 hover:to-purple-800 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition-all duration-200"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              )}
+          </div>
           </header>
 
           {sessionBanner}

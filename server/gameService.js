@@ -2201,21 +2201,67 @@ export class GameService {
 
   static async deleteAllSessions() {
     try {
-      await RoundResultModel.destroy({ where: {} });
-      await HighScoreModel.destroy({ where: {} });
-      await TeamModel.destroy({ where: {} });
-      await GameSessionModel.destroy({ where: {} });
+      const adminSession = await GameSessionModel.findOne({
+        where: {
+          [Op.or]: [
+            { slug: DEFAULT_SESSION_SLUG },
+            { slug: LEGACY_ADMIN_SESSION_SLUG },
+            { name: ADMIN_SESSION_NAME },
+            { name: LEGACY_ADMIN_SESSION_NAME }
+          ]
+        },
+        order: [['updatedAt', 'DESC']]
+      });
+
+      if (!adminSession) {
+        await RoundResultModel.destroy({ where: {} });
+        await HighScoreModel.destroy({ where: {} });
+        await TeamModel.destroy({ where: {} });
+        await GameSessionModel.destroy({ where: {} });
+
+        this.sessionCache.clear();
+        this.currentGameSession = null;
+
+        const freshSession = await this.getCurrentGameSession();
+        await this.updateFixSeatShare(freshSession, { teamCount: 0, resetAvailable: true });
+
+        console.log('🗑️ All sessions deleted. Fresh Admin Session created.');
+        return {
+          success: true,
+          session: freshSession
+        };
+      }
+
+      const adminSessionId = adminSession.id;
+
+      await TeamModel.destroy({ where: { gameSessionId: { [Op.ne]: adminSessionId } } });
+      await RoundResultModel.destroy({ where: { gameSessionId: { [Op.ne]: adminSessionId } } });
+      await HighScoreModel.destroy({ where: { gameSessionId: { [Op.ne]: adminSessionId } } });
+      await GameSessionModel.destroy({ where: { id: { [Op.ne]: adminSessionId } } });
+
+      await TeamModel.destroy({ where: { gameSessionId: adminSessionId } });
+      await RoundResultModel.destroy({ where: { gameSessionId: adminSessionId } });
+      await HighScoreModel.destroy({ where: { gameSessionId: adminSessionId } });
+
+      const defaultSettings = this.buildDefaultSessionSettings();
+      await adminSession.update({
+        currentRound: 0,
+        isActive: false,
+        ownerTeamId: null,
+        settings: defaultSettings
+      });
+      adminSession.settings = defaultSettings;
 
       this.sessionCache.clear();
-      this.currentGameSession = null;
+      this.sessionCache.set(adminSessionId, adminSession);
+      this.currentGameSession = adminSession;
 
-      const freshSession = await this.getCurrentGameSession();
-      await this.updateFixSeatShare(freshSession, { teamCount: 0, resetAvailable: true });
+      await this.updateFixSeatShare(adminSession, { teamCount: 0, resetAvailable: true });
 
-      console.log('🗑️ All sessions deleted. Fresh session created.');
+      console.log('🗑️ All non-admin sessions deleted. Admin Session reset.');
       return {
         success: true,
-        session: freshSession
+        session: adminSession
       };
     } catch (error) {
       console.error('❌ Error deleting all sessions:', error);
