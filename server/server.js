@@ -1267,8 +1267,9 @@ io.on('connection', async (socket) => {
   });
 
   // Start simulation phase (admin or ready team)
-  socket.on('startSimulationPhase', async () => {
-    const targetSessionId = socket.data?.sessionId || GameService.currentGameSession?.id;
+  socket.on('startSimulationPhase', async (payload = {}) => {
+    const requestedSessionId = typeof payload?.sessionId === 'string' ? payload.sessionId : null;
+    const targetSessionId = requestedSessionId || socket.data?.sessionId || GameService.currentGameSession?.id;
     if (!targetSessionId) {
       socket.emit('error', 'No session ready to start');
       return;
