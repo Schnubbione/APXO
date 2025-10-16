@@ -154,7 +154,7 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                     setSessionError(null);
                     setNewSessionName('');
                   }}
-                  className="flex-1 border-slate-500 text-white hover:bg-slate-700/60 min-h-[48px] rounded-xl transition-all duration-200"
+                  className="flex-1 border-slate-500 text-slate-200 hover:bg-slate-700/60 hover:text-white bg-slate-800/60 min-h-[48px] rounded-xl transition-all duration-200"
                 >
                   Cancel
                 </Button>
