@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Target, Gavel, Timer, TrendingUp } from "lucide-react";
+import { MapPin, Target, Gavel, Timer, TrendingUp, Users } from "lucide-react";
 import { useGame } from "@/contexts/GameContext";
 
 interface TutorialProps {
@@ -31,10 +31,27 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
             Multiplayer Simulation Overview
           </CardTitle>
           <p className="text-slate-400 text-base max-w-2xl mx-auto">
-            Every round has two simple steps: secure seats in the bidding phase, then steer demand during the live simulation. Profit decides the leaderboard.
+            Sessions keep multiplayer runs tidy. Pick or create the room you belong in, register your team, and then cycle between a bidding phase and the live market. Profit still crowns the winner.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="p-6 bg-slate-700/40 rounded-xl border border-slate-600/60">
+            <div className="flex items-start gap-3">
+              <Users className="w-6 h-6 text-indigo-300 mt-1" />
+              <div>
+                <h3 className="text-xl font-semibold text-white">Sessions & Lobby Roles</h3>
+                <ul className="mt-2 space-y-2 text-sm text-slate-200">
+                  <li>• Select an existing session to join your teammates, or create a new lobby for a fresh run.</li>
+                  <li>• The first team that joins a session becomes the session owner and gains the launch button for multiplayer rounds.</li>
+                  <li>• Returning owners can enable the “Admin quick join” toggle to reconnect by name—no manual session picking required.</li>
+                </ul>
+                <p className="text-xs text-slate-400 mt-3">
+                  Quick join requires the session migration! If a server is still on the legacy schema, the UI will ask owners to choose a lobby manually instead of failing silently.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="p-6 bg-slate-700/40 rounded-xl border border-slate-600/60">
             <div className="flex items-start gap-3">
               <Target className="w-6 h-6 text-emerald-300 mt-1" />
@@ -89,7 +106,7 @@ export default function Tutorial({ onStart, onStartTour }: TutorialProps) {
               <div className="space-y-2 text-sm text-slate-200">
                 <h3 className="text-lg font-semibold text-white">Round cadence</h3>
                 <ul className="space-y-2">
-                  <li>• Admin opens bidding, the timer runs, and allocations are revealed.</li>
+                  <li>• The session owner (or an authenticated admin) opens bidding, the timer runs, and allocations are revealed.</li>
                   <li>• Simulation begins instantly—watch the countdown and tweak pricing as often as needed.</li>
                   <li>• At departure (day 0) the scoreboard freezes, profit rankings update, and the evaluation screen summarises the round.</li>
                 </ul>

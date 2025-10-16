@@ -228,6 +228,17 @@ describe('GameService', () => {
       }));
       expect(team).toBe(ownerTeam);
     });
+
+    test('falls back gracefully when admin quick join schema is missing', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      Team.findAll.mockRejectedValueOnce(new Error('column "gameSessionId" does not exist'));
+
+      await expect(GameService.registerTeam('socket123', 'Admin Team')).rejects.toThrow(
+        'Admin quick join is unavailable on this server. Please select a session before joining.'
+      );
+      expect(GameSession.findAll).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
   });
 
   describe('updateTeamDecision (phase restrictions)', () => {

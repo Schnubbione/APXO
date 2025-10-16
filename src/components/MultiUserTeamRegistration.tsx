@@ -198,7 +198,10 @@ export const TeamRegistration: React.FC<TeamRegistrationProps> = ({ onShowTutori
                   Refresh sessions
                 </Button>
               </div>
-              <div className="flex items-center gap-3 rounded-xl border border-slate-600/50 bg-slate-700/40 px-3 py-3">
+              <div
+                className="flex items-center gap-3 rounded-xl border border-slate-600/50 bg-slate-700/40 px-3 py-3"
+                data-tutorial="session-toggle"
+              >
                 <div>
                   <div className="text-sm font-semibold text-slate-200">Admin quick join</div>
                   <p className="text-xs text-slate-400">

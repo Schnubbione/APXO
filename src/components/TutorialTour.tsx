@@ -28,9 +28,16 @@ const tutorialSteps: TutorialStep[] = [
     position: 'center'
   },
   {
+    id: 'session-lobby',
+    title: 'Sessions Keep Games Organised',
+    description: 'Pick or create the lobby that matches your group. Returning session owners can toggle the admin quick join switch to re-enter by name without manually selecting a session.',
+    target: '[data-tutorial="session-toggle"]',
+    position: 'top'
+  },
+  {
     id: 'game-objective',
     title: 'Game Objective',
-    description: 'As tour operator teams, you compete to maximize profits through strategic procurement and pricing decisions in a two-phase game.',
+    description: 'As tour operator teams you compete to maximise profit. Sessions isolate leaderboards so each lobby can run independent rounds without crosstalk.',
     position: 'center'
   },
   {
@@ -42,14 +49,14 @@ const tutorialSteps: TutorialStep[] = [
   {
     id: 'team-registration',
     title: 'Team Registration',
-    description: 'Enter your team name to join the simulation. Each team competes independently with their own strategies.',
+    description: 'Choose a session, enter your team name, and join. If you are the owner, the lobby grants the launch controls once you are inside.',
     target: '[data-tutorial="team-registration"]',
     position: 'bottom'
   },
   {
     id: 'admin-controls',
     title: 'Admin Controls',
-    description: 'Administrators can start phases, manage settings, and monitor all teams from the admin panel.',
+    description: 'Session owners (and authenticated admins) can launch rounds, adjust settings, and monitor all teams from the admin panel banner.',
     target: '[data-tutorial="admin-login"]',
     position: 'bottom'
   },

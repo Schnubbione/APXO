@@ -30,6 +30,16 @@ const DEFAULT_FIX_SHARE = computeTeamBasedFixSeatShare(DEFAULT_TEAM_COUNT);
 const DEFAULT_INACTIVITY_TIMEOUT_MINUTES = 15;
 const DEFAULT_SESSION_SLUG = 'default-session';
 
+const isMissingColumnError = (error, columnName) => {
+  if (!error) return false;
+  const rawMessage = error?.original?.message || error?.message || '';
+  if (!rawMessage) return false;
+  const lcMessage = rawMessage.toLowerCase();
+  const lcColumn = (columnName || '').toLowerCase();
+  if (!lcColumn) return false;
+  return lcMessage.includes(`no such column: ${lcColumn}`) || lcMessage.includes(`column "${lcColumn}" does not exist`) || lcMessage.includes(`column '${lcColumn}' does not exist`);
+};
+
 const slugify = (value = '') => {
   return value
     .toString()
@@ -685,10 +695,18 @@ export class GameService {
 
     let teams = [];
     if (typeof TeamModel.findAll === 'function') {
-      teams = await TeamModel.findAll({
-        where: { name: normalized },
-        order: [['updatedAt', 'DESC']]
-      });
+      try {
+        teams = await TeamModel.findAll({
+          where: { name: normalized },
+          order: [['updatedAt', 'DESC']]
+        });
+      } catch (error) {
+        if (isMissingColumnError(error, 'gameSessionId')) {
+          console.warn('Admin quick join unavailable: missing gameSessionId column in Teams table.');
+          return { status: 'schema-missing' };
+        }
+        throw error;
+      }
     }
     if (!teams || teams.length === 0) {
       return { status: 'not-found' };
@@ -776,6 +794,8 @@ export class GameService {
           targetSessionId = resolution.session?.id ?? null;
         } else if (resolution.status === 'ambiguous') {
           throw new Error('Multiple admin sessions found for this team name. Please select a session from the list.');
+        } else if (resolution.status === 'schema-missing') {
+          throw new Error('Admin quick join is unavailable on this server. Please select a session before joining.');
         } else if (resolution.status === 'not-owner' || resolution.status === 'not-found') {
           throw new Error('No admin session found for this team name. Please select a session before joining.');
         }
