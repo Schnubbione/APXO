@@ -11,7 +11,7 @@ This document compresses the current project context and outlines sensible next 
 - Deployment Targets: Frontend via Vercel, backend via Render/Railway (or local network exposure).
 
 ## Current State
-- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`). Fresh evaluation view replaces the old Fix Market/Your Decisions panels after each round, the Phase 2 launch dialog surfaces Phase 1 context, and the admin console now shows a session banner (selector + launch button) alongside the phase control card.
+- **Frontend**: Vite dev server (`npm run dev`). UI lives in `src/components`, practice mode already uses the Agent v1 engine. Global state handled in `src/contexts/GameContext.tsx`. Storybook works (`npm run storybook`). Fresh evaluation view replaces the old Fix Market/Your Decisions panels after each round, the Phase 2 launch dialog surfaces Phase 1 context, and the session banner now acts as a live status strip while teams can trigger Phase 2 via the in-round “Start Simulation” control once Phase 1 is locked.
 - **Simulation Engine**: `src/lib/simulation/{types,engine,defaultConfig}.ts` + `apxo.config.yaml`. Unit tests cover auction, fixed-before-pooling, airline repricing, and win condition (`npm test -- --runTestsByPath src/lib/simulation/__tests__/engine.test.ts`).
 - **Backend**: Socket.IO lobby now supports named sessions (slugged, owner aware). Reset/analytics/launch commands are session-scoped; idle teams are auto-logged out after 15 minutes, empty sessions are pruned on the same cadence, and admins can purge every session to rebuild a clean lobby. Legacy service still drives live calculations (engine integration pending).
 - **Documentation**: README updated (simulation core, practice mode, multi-session + migration). Agents Guide provides priorities.
@@ -33,11 +33,11 @@ This document compresses the current project context and outlines sensible next 
   - `dev` → `node server.js`, `start` → `node index.js`, `test` (Jest), `migrate:sessions`
 
 ## Capabilities (Today)
-- Multi-session lobby: teams register per session, the first entrant becomes session owner (can launch multiplayer rounds). The lobby list refreshes automatically so new sessions surface without manual reloads. The Admin Session is always available for facilitator-led play, and sessions auto-prune once they stay idle with no active teams.
-- Admin dashboard exposes a session selector, launch shortcut, per-session reset/analytics controls, and a danger-zone purge that clears every session.
+- Multi-session lobby: teams register per session, the first entrant still becomes the nominal session owner, but once every team confirms its sealed bid any player can kick off Phase 2 with the shared “Start Simulation” button. The lobby list refreshes automatically so new sessions surface without manual reloads. The Admin Session is always available for facilitator-led play, and sessions auto-prune once they stay idle with no active teams.
+- Admin dashboard exposes a per-session phase control card, session metrics, analytics/reset controls, and a danger-zone purge that clears every session.
 - Agent v1 simulation fully available in TypeScript (fixed auction, 12-15 countdown updates, airline repricing, tools).
 - Practice mode uses the new engine end-to-end; live play still relies on legacy server calculations.
-- Round evaluation screen summarises Phase 1 allocation, Phase 2 performance, and top performers while live controls are hidden.
+- Round evaluation screen summarises Phase 1 allocation, Phase 2 performance, and top performers while live controls are hidden; Phase 1 auto-ends as soon as every team confirms its bid, so the controls handoff happens immediately for ready groups.
 - Airline guardrails: auto-calculated fixed-seat share (8 % per active team), minimum bid tied to airline floor, pooling pause before insolvency, profit clamped at −€20 000, headroom-based repricing toward €400.
 - UI: Responsive layouts, component library (shadcn/ui), Storybook stories and animations.
 - Data: SQLite via Sequelize with automatic schema creation plus migration helper (`npm run migrate:sessions`). Active teams auto-logout after 15 minutes (configurable).
