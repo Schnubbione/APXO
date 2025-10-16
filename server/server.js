@@ -435,10 +435,11 @@ async function autoEndCurrentPhase(sessionId) {
 
 async function autoAdvanceAfterConfirmations(sessionId) {
   try {
-    const session = await GameService.getCurrentGameSession(sessionId);
+    let session = await GameService.getCurrentGameSession(sessionId);
     if (!session) return;
     if (isAdminSessionRecord(session)) return;
-    const currentPhase = session.settings?.currentPhase;
+
+    let currentPhase = session.settings?.currentPhase;
     const allConfirmed = await GameService.areAllTeamsConfirmed(sessionId);
     if (!allConfirmed) return;
 
@@ -452,10 +453,11 @@ async function autoAdvanceAfterConfirmations(sessionId) {
       console.log(`✅ All teams locked sealed bids for session ${sessionId}. Ending pre-purchase.`);
       try {
         await autoEndCurrentPhase(sessionId);
+        session = await GameService.getCurrentGameSession(sessionId);
+        currentPhase = session.settings?.currentPhase;
       } finally {
         delete runtime.phaseOneAutoEnding;
       }
-      return;
     }
 
     if (currentPhase !== 'simulation' || session.isActive) return;
