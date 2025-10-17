@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection } from './database.js';
 import { syncDatabase, Team } from './models.js';
-import GameService from './gameService.js';
+import GameService, { isAdminSessionRecord } from './gameService.js';
 import { calculateRoundResults, calculateMarketShares } from './calc.js';
 
 const FIX_SHARE_PER_TEAM = 0.08;
@@ -435,9 +435,9 @@ async function autoEndCurrentPhase(sessionId) {
 
 async function autoAdvanceAfterConfirmations(sessionId) {
   try {
-    let session = await GameService.getCurrentGameSession(sessionId);
-    if (!session) return;
-    if (isAdminSessionRecord(session)) return;
+  let session = await GameService.getCurrentGameSession(sessionId);
+  if (!session) return;
+  const isAdminSession = isAdminSessionRecord(session);
 
     let currentPhase = session.settings?.currentPhase;
     const allConfirmed = await GameService.areAllTeamsConfirmed(sessionId);
@@ -461,7 +461,8 @@ async function autoAdvanceAfterConfirmations(sessionId) {
       return;
     }
 
-    if (currentPhase !== 'simulation' || session.isActive) return;
+  if (currentPhase !== 'simulation' || session.isActive) return;
+  if (isAdminSession) return;
 
     console.log(`✅ All teams confirmed allocations for session ${sessionId}. Launching simulation.`);
 
@@ -852,9 +853,7 @@ io.on('connection', async (socket) => {
         const sessionId = result.sessionId || result.team.gameSessionId || socket.data?.sessionId;
         if (sessionId) {
           await broadcastGameState(sessionId);
-          if (result.allPhaseOneConfirmed) {
-            await autoAdvanceAfterConfirmations(sessionId);
-          }
+          await autoAdvanceAfterConfirmations(sessionId);
         } else {
           await broadcastGameState();
         }

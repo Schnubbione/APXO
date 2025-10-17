@@ -2429,4 +2429,5 @@ export class GameService {
 
 }
 
+export { isAdminSessionRecord };
 export default GameService;
