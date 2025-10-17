@@ -216,26 +216,53 @@ const randIntBetween = (min, max) => Math.floor(randBetween(min, max + 1));
 
 function buildRandomMultiplayerSettings() {
   const totalSeats = randIntBetween(600, 1400);
+  const seed = randIntBetween(1, 1_000_000);
+  const sharedMarket = Math.random() < 0.85;
+  const autoAdvance = Math.random() < 0.45;
+  const perTeamBudget = randIntBetween(6000, 20000);
+  const spread = randIntBetween(35, 120);
+  const shock = Number(randBetween(-0.3, 0.35).toFixed(2));
+  const fixSeatPrice = randIntBetween(55, 120);
+  const poolingCost = randIntBetween(fixSeatPrice + 10, fixSeatPrice + 70);
+  const airlineMinPrice = randIntBetween(60, Math.min(110, fixSeatPrice));
+  const airlineMaxPrice = randIntBetween(Math.max(airlineMinPrice + 80, 220), 450);
+  const fixSeatMinBid = Math.max(
+    airlineMinPrice,
+    Math.min(fixSeatPrice, randIntBetween(fixSeatPrice - 15, fixSeatPrice))
+  );
+  const pricePriorityBoost = Number(randBetween(1.1, 3.2).toFixed(2));
+  const simulatedWeeksPerUpdate = randIntBetween(5, 8);
+
   return {
-    baseDemand: randIntBetween(80, 240),
-    demandVolatility: Number(randBetween(0.05, 0.2).toFixed(3)),
-    priceElasticity: -Number(randBetween(0.9, 2.7).toFixed(2)),
-    marketPriceElasticity: -Number(randBetween(0.5, 1.8).toFixed(2)),
-    referencePrice: randIntBetween(170, 230),
-    crossElasticity: Number(randBetween(0.0, 1.0).toFixed(2)),
-    marketConcentration: Number(randBetween(0.5, 0.9).toFixed(2)),
+    baseDemand: randIntBetween(70, 260),
+    demandVolatility: Number(randBetween(0.05, 0.25).toFixed(3)),
+    priceElasticity: -Number(randBetween(0.9, 2.6).toFixed(2)),
+    marketPriceElasticity: -Number(randBetween(0.4, 1.8).toFixed(2)),
+    referencePrice: randIntBetween(160, 280),
+    crossElasticity: Number(randBetween(0.05, 0.95).toFixed(2)),
+    marketConcentration: Number(randBetween(0.35, 0.85).toFixed(2)),
+    sharedMarket,
+    spread,
+    shock,
+    seed,
     totalAircraftSeats: totalSeats,
     totalCapacity: totalSeats,
-    fixSeatPrice: randIntBetween(50, 80),
-    poolingCost: randIntBetween(70, 120),
-    costVolatility: Number(randBetween(0.03, 0.1).toFixed(3)),
+    fixSeatPrice,
+    fixSeatMinBid,
+    poolingCost,
+    costVolatility: Number(randBetween(0.02, 0.12).toFixed(3)),
     poolingMarketUpdateInterval: 1,
-    simulatedWeeksPerUpdate: 7,
+    simulatedWeeksPerUpdate,
     secondsPerDay: 1,
-    autoAdvance: false,
+    autoAdvance,
     simulationTicksTotal: 365,
     roundTime: 60,
-    perTeamBudget: 10000
+    perTeamBudget,
+    pricePriorityBoost,
+    airlinePriceMin: airlineMinPrice,
+    airlinePriceMax: airlineMaxPrice,
+    airlinePriceGamma: Number(randBetween(0.08, 0.22).toFixed(2)),
+    airlinePriceKappa: randIntBetween(30, 70)
   };
 }
 
@@ -740,24 +767,34 @@ io.on('connection', async (socket) => {
     }
 
     try {
-      const session = await GameService.getCurrentGameSession(targetSessionId);
+      let session = await GameService.getCurrentGameSession(targetSessionId);
+      const isAdminSession = isAdminSessionRecord(session);
 
-      const randomSettings = buildRandomMultiplayerSettings();
-      await GameService.updateGameSettings(randomSettings, targetSessionId);
+      let appliedSettings = session.settings || {};
+      if (!isAdminSession) {
+        const randomSettings = buildRandomMultiplayerSettings();
+        session = await GameService.updateGameSettings(randomSettings, targetSessionId);
+        appliedSettings = session.settings || randomSettings;
+        console.log(`🎲 Multiplayer session ${targetSessionId} randomized (seed ${appliedSettings.seed ?? 'n/a'})`);
+      }
 
       stopPoolingMarketUpdates(targetSessionId);
-      await GameService.startPrePurchasePhase(targetSessionId);
+      session = await GameService.startPrePurchasePhase(targetSessionId);
+      appliedSettings = session.settings || appliedSettings;
 
       const runtime = getSessionRuntime(targetSessionId);
+      const roundTimeSeconds = Number.isFinite(Number(appliedSettings.roundTime))
+        ? Math.max(10, Math.round(Number(appliedSettings.roundTime)))
+        : 60;
       if (runtime) {
-        runtime.remainingTime = randomSettings.roundTime || 60;
+        runtime.remainingTime = roundTimeSeconds;
       }
-      await startRoundTimer(targetSessionId, randomSettings.roundTime || 60);
+      await startRoundTimer(targetSessionId, roundTimeSeconds);
       await broadcastGameState(targetSessionId);
 
       console.log(`🎮 Session ${targetSessionId} launched by socket ${socket.id}`);
       if (typeof ack === 'function') {
-        ack({ ok: true, settings: randomSettings });
+        ack({ ok: true, settings: appliedSettings, randomized: !isAdminSession });
       }
     } catch (error) {
       console.error('Error launching session:', error);
