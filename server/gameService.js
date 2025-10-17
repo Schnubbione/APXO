@@ -618,17 +618,37 @@ export class GameService {
     await this.ensureTeamSessionSupport();
     await this.ensureSessionSlugSupport();
     if (sessionId) {
-      let session = this.sessionCache.get(sessionId);
+      const normalizedIdRaw = typeof sessionId === 'string'
+        ? sessionId.trim()
+        : String(sessionId ?? '').trim();
+      if (!normalizedIdRaw) {
+        throw new Error('Game session not found.');
+      }
+
+      const normalizedSlugKey = normalizedIdRaw.toLowerCase();
+
+      let session = this.sessionCache.get(normalizedIdRaw)
+        || (this.slugLookupEnabled ? this.sessionCache.get(normalizedSlugKey) : null);
+
       if (!session) {
         if (typeof GameSessionModel.findByPk === 'function') {
-          session = await GameSessionModel.findByPk(sessionId);
-        } else if (this.currentGameSession?.id === sessionId) {
+          session = await GameSessionModel.findByPk(normalizedIdRaw);
+        } else if (this.currentGameSession?.id === normalizedIdRaw) {
           session = this.currentGameSession;
+        }
+        if (!session && this.slugLookupEnabled && typeof GameSessionModel.findOne === 'function') {
+          session = await GameSessionModel.findOne({ where: { slug: normalizedSlugKey } });
         }
         if (!session) {
           throw new Error('Game session not found.');
         }
         this.sessionCache.set(session.id, session);
+        if (this.slugLookupEnabled && session.slug) {
+          const slugKey = String(session.slug).trim().toLowerCase();
+          if (slugKey) {
+            this.sessionCache.set(slugKey, session);
+          }
+        }
       }
       // Ensure settings exist
       if (!session.settings) {
