@@ -1268,11 +1268,13 @@ io.on('connection', async (socket) => {
   });
 
   // Start simulation phase (admin or ready team)
-  socket.on('startSimulationPhase', async (payload = {}) => {
+  socket.on('startSimulationPhase', async (payload = {}, ack) => {
     const requestedSessionId = typeof payload?.sessionId === 'string' ? payload.sessionId : null;
     const targetSessionId = requestedSessionId || socket.data?.sessionId || GameService.currentGameSession?.id;
     if (!targetSessionId) {
-      socket.emit('error', 'No session ready to start');
+      const message = 'No session ready to start';
+      if (typeof ack === 'function') ack({ ok: false, error: message });
+      else socket.emit('error', message);
       return;
     }
 
@@ -1282,21 +1284,29 @@ io.on('connection', async (socket) => {
       try {
         const session = await GameService.getCurrentGameSession(targetSessionId);
         if (isAdminSessionRecord(session)) {
-          socket.emit('error', 'Admin access required');
+          const message = 'Admin access required';
+          if (typeof ack === 'function') ack({ ok: false, error: message });
+          else socket.emit('error', message);
           return;
         }
         if (session.settings?.currentPhase !== 'simulation' || session.isActive) {
-          socket.emit('error', 'Simulation phase is not ready to start');
+          const message = 'Simulation phase is not ready to start';
+          if (typeof ack === 'function') ack({ ok: false, error: message });
+          else socket.emit('error', message);
           return;
         }
         const allConfirmed = await GameService.areAllTeamsConfirmed(session.id);
         if (!allConfirmed) {
-          socket.emit('error', 'Waiting for remaining teams to confirm');
+          const message = 'Waiting for remaining teams to confirm';
+          if (typeof ack === 'function') ack({ ok: false, error: message });
+          else socket.emit('error', message);
           return;
         }
       } catch (error) {
         console.error('Error validating simulation start request:', error);
-        socket.emit('error', 'Unable to start simulation');
+        const message = 'Unable to start simulation';
+        if (typeof ack === 'function') ack({ ok: false, error: message });
+        else socket.emit('error', message);
         return;
       }
     }
@@ -1312,9 +1322,14 @@ io.on('connection', async (socket) => {
 
       // Start round timer
       await startRoundTimer(session.id);
+      if (typeof ack === 'function') {
+        ack({ ok: true });
+      }
     } catch (error) {
       console.error('Error starting simulation phase:', error);
-      socket.emit('error', 'Failed to start simulation phase');
+      const message = 'Failed to start simulation phase';
+      if (typeof ack === 'function') ack({ ok: false, error: message });
+      else socket.emit('error', message);
     }
   });
 

@@ -1884,7 +1884,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startSimulationPhase = () => {
     const sessionId = requireSessionId();
     if (!sessionId) return;
-    socket?.emit('startSimulationPhase', { sessionId });
+    socket?.emit(
+      'startSimulationPhase',
+      { sessionId },
+      (response?: { ok?: boolean; error?: string }) => {
+        if (response?.ok) return;
+        const message = response?.error ?? 'Unable to start the simulation.';
+        setLastError(message);
+      }
+    );
   };
 
   const endRound = () => {
