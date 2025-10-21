@@ -9,6 +9,7 @@ import TutorialTour from './TutorialTour';
 import LiveCompetition from './LiveCompetition';
 import SoundEffects from './SoundEffects';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -165,6 +166,76 @@ export const MultiUserApp: React.FC = () => {
     isPhaseOneIdle &&
     !isAdminSession
   );
+
+  const participatingTeams = React.useMemo(() => {
+    if (!Array.isArray(gameState.teams)) return [] as Array<{ id: string; name: string; isSelf: boolean; isOwner: boolean }>;
+    const seen = new Set<string>();
+    return gameState.teams.map((team, index) => {
+      const rawName = typeof team?.name === 'string' ? team.name.trim() : '';
+      const name = rawName.length > 0 ? rawName : `Team ${index + 1}`;
+      const id = typeof team?.id === 'string' && team.id.trim().length > 0 ? team.id : `${name}-${index}`;
+      return {
+        id,
+        name,
+        isSelf: currentTeam?.id === team.id,
+        isOwner: activeSession?.ownerTeamId === team.id
+      };
+    }).filter(team => {
+      if (seen.has(team.id)) return false;
+      seen.add(team.id);
+      return true;
+    }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [gameState.teams, currentTeam?.id, activeSession?.ownerTeamId]);
+
+  const sessionTeamsPanel = React.useMemo(() => {
+    if (!activeSessionId) {
+      return (
+        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/30 px-4 py-4 text-sm text-slate-400">
+          Select a session to view participating teams.
+        </div>
+      );
+    }
+
+    if (participatingTeams.length === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/30 px-4 py-4 text-sm text-slate-400">
+          No teams have joined this session yet.
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-4 sm:px-6">
+        <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
+          <span>Teams in session</span>
+          <span className="text-slate-500">{participatingTeams.length} active</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {participatingTeams.map(team => {
+            const TeamIcon = getTeamIconByName(team.name);
+            return (
+              <Badge
+                key={team.id}
+                variant={team.isSelf ? 'default' : 'secondary'}
+                className={`flex items-center gap-2 px-3 py-1 ${
+                  team.isSelf
+                    ? 'bg-indigo-500/30 text-white border-indigo-400/40'
+                    : 'bg-slate-700/60 text-slate-200 border-slate-600'
+                }`}
+              >
+                <TeamIcon className="h-3 w-3" />
+                <span>{team.name}</span>
+                {team.isSelf && <span className="text-[10px] uppercase tracking-wide text-white/80">You</span>}
+                {!team.isSelf && team.isOwner && (
+                  <span className="text-[10px] uppercase tracking-wide text-white/70">Owner</span>
+                )}
+              </Badge>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }, [activeSessionId, participatingTeams]);
 
   React.useEffect(() => {
     if (!isAdminSession && showAdminPanel) {
@@ -811,6 +882,8 @@ export const MultiUserApp: React.FC = () => {
 
           {sessionBanner}
 
+          {sessionTeamsPanel}
+
           {/* Phase Control */}
           <Card
             className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border-slate-600 shadow-2xl hover:shadow-slate-900/20 transition-all duration-300"
@@ -1221,6 +1294,8 @@ export const MultiUserApp: React.FC = () => {
           </header>
 
           {sessionBanner}
+
+          {sessionTeamsPanel}
 
           {mobileMetrics.length > 0 && (
             <section className="-mx-4 block sm:hidden" aria-label="Team quick metrics">
