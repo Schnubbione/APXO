@@ -603,11 +603,6 @@ export function TimeframesEditor() {
           </div>
         )}
 
-        {/* Debug info */}
-        <div className="mt-8 p-4 bg-gray-100 rounded text-xs font-mono">
-          <div className="font-semibold mb-2">Current State:</div>
-          <pre>{JSON.stringify(slots.map(s => ({ start: hhmm(s.start), end: hhmm(s.end) })), null, 2)}</pre>
-        </div>
       </Card>
     </div>
   );
