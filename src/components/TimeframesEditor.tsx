@@ -552,7 +552,7 @@ export function TimeframesEditor() {
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Neues Zeitfenster</h2>
               <div className="space-y-4">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-600">Start</label>
                     <Input
@@ -563,7 +563,7 @@ export function TimeframesEditor() {
                       className={`text-center ${!addDialog.startValid ? 'border-red-500 focus:border-red-500' : ''}`}
                     />
                   </div>
-                  <span className="text-gray-500 text-sm">–</span>
+                  <span className="text-gray-500 text-sm pb-2">–</span>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-600">Ende</label>
                     <Input
@@ -574,16 +574,6 @@ export function TimeframesEditor() {
                       className={`text-center ${!addDialog.endValid ? 'border-red-500 focus:border-red-500' : ''}`}
                     />
                   </div>
-                </div>
-
-                <div className="text-xs text-gray-500 space-y-1">
-                  <p>Zielbereich: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}</p>
-                  <p>
-                    Berechnete Zeit:{' '}
-                    {addDialogStartParsed?.formatted && addDialogEndParsed?.formatted
-                      ? `${addDialogStartParsed.formatted} – ${addDialogEndParsed.formatted}`
-                      : '—'}
-                  </p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
