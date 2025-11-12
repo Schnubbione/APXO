@@ -112,27 +112,23 @@ function splitSlot(slots: Slot[], idx: number, splitStart: number, splitEnd: num
   const newSlots = [...slots];
   const original = newSlots[idx];
 
-  // Validate split is within bounds and makes sense
-  if (splitStart <= original.start || splitEnd >= original.end || splitStart > splitEnd) {
-    return slots; // Invalid split
+  // Validate split stays within bounds and has at least one minute
+  if (splitStart < original.start || splitEnd > original.end || splitStart > splitEnd) {
+    return slots;
   }
 
   const result: Slot[] = [];
 
-  // Left part (if any)
   if (original.start < splitStart) {
     result.push({ start: original.start, end: splitStart - 1 });
   }
 
-  // New slot
   result.push({ start: splitStart, end: splitEnd });
 
-  // Right part (if any)
   if (splitEnd < original.end) {
     result.push({ start: splitEnd + 1, end: original.end });
   }
 
-  // Replace original slot with new parts
   newSlots.splice(idx, 1, ...result);
 
   return normalizeAndFill(newSlots);
@@ -156,6 +152,13 @@ export function TimeframesEditor() {
     endValid: boolean;
   } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [addDialog, setAddDialog] = useState<{
+    slotIndex: number;
+    startValue: string;
+    endValue: string;
+    startValid: boolean;
+    endValid: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const changed = JSON.stringify(slots) !== JSON.stringify(savedSlots);
@@ -208,11 +211,33 @@ export function TimeframesEditor() {
     setEditingSlot(null);
   };
 
+  const getDefaultRangeForSlot = (slot: Slot) => {
+    const slotSize = slot.end - slot.start + 1;
+    const duration = Math.min(60, Math.max(1, Math.floor(slotSize / 3)));
+    const start = slot.start + Math.floor((slotSize - duration) / 2);
+    const clampedStart = Math.min(start, slot.end - duration + 1);
+    const end = clampedStart + duration - 1;
+    return { start: clampedStart, end };
+  };
+
+  const openAddDialog = (slotIndex: number) => {
+    const slot = slots[slotIndex];
+    if (!slot) return;
+    const defaults = getDefaultRangeForSlot(slot);
+    setAddDialog({
+      slotIndex,
+      startValue: hhmm(defaults.start),
+      endValue: hhmm(defaults.end),
+      startValid: true,
+      endValid: true,
+    });
+  };
+
   const handleAddTimeframe = () => {
-    // Find the largest slot and split it in half
+    if (!slots.length) return;
     let largestIdx = 0;
     let largestSize = slots[0].end - slots[0].start;
-    
+
     for (let i = 1; i < slots.length; i++) {
       const size = slots[i].end - slots[i].start;
       if (size > largestSize) {
@@ -220,23 +245,72 @@ export function TimeframesEditor() {
         largestIdx = i;
       }
     }
-    
-    const slot = slots[largestIdx];
-    const slotSize = slot.end - slot.start + 1; // +1 because end is inclusive
-    
-    // Only split if slot is at least 3 minutes (so we can make 3 parts: left, middle, right)
-    if (slotSize < 3) {
+
+    openAddDialog(largestIdx);
+  };
+
+  const handleAddDialogSlotChange = (index: number) => {
+    if (!slots[index]) return;
+    const defaults = getDefaultRangeForSlot(slots[index]);
+    setAddDialog(prev => prev && {
+      slotIndex: index,
+      startValue: hhmm(defaults.start),
+      endValue: hhmm(defaults.end),
+      startValid: true,
+      endValid: true,
+    });
+  };
+
+  const handleAddDialogInputChange = (field: 'start' | 'end', value: string) => {
+    setAddDialog(prev => {
+      if (!prev) return prev;
+      const slot = slots[prev.slotIndex];
+      if (!slot) return prev;
+
+      const isFormatValid = validateTimeInput(value);
+      let isValueValid = false;
+      if (isFormatValid) {
+        const minutesValue = minutes(value);
+        if (field === 'start') {
+          const endMinutes = validateTimeInput(prev.endValue) ? minutes(prev.endValue) : null;
+          isValueValid = minutesValue >= slot.start && minutesValue <= slot.end && (endMinutes === null || minutesValue <= endMinutes);
+        } else {
+          const startMinutes = validateTimeInput(prev.startValue) ? minutes(prev.startValue) : null;
+          isValueValid = minutesValue >= slot.start && minutesValue <= slot.end && (startMinutes === null || minutesValue >= startMinutes);
+        }
+      }
+
+      return {
+        ...prev,
+        startValue: field === 'start' ? value : prev.startValue,
+        endValue: field === 'end' ? value : prev.endValue,
+        startValid: field === 'start' ? isFormatValid && isValueValid : prev.startValid,
+        endValid: field === 'end' ? isFormatValid && isValueValid : prev.endValid,
+      };
+    });
+  };
+
+  const handleAddDialogCancel = () => setAddDialog(null);
+
+  const handleAddDialogConfirm = () => {
+    if (!addDialog) return;
+    const slot = slots[addDialog.slotIndex];
+    if (!slot) return;
+
+    const startValid = addDialog.startValid && validateTimeInput(addDialog.startValue);
+    const endValid = addDialog.endValid && validateTimeInput(addDialog.endValue);
+    if (!startValid || !endValid) return;
+
+    const startMinutes = minutes(addDialog.startValue);
+    const endMinutes = minutes(addDialog.endValue);
+
+    if (startMinutes < slot.start || endMinutes > slot.end || startMinutes > endMinutes) {
       return;
     }
-    
-    // Calculate split points - create a new slot roughly 1 hour (or 1/3 of the slot) in the middle
-    const newSlotDuration = Math.min(60, Math.floor(slotSize / 3));
-    const mid = Math.floor((slot.start + slot.end) / 2);
-    const splitStart = Math.max(slot.start + 1, mid - Math.floor(newSlotDuration / 2));
-    const splitEnd = Math.min(slot.end - 1, splitStart + newSlotDuration - 1);
-    
-    const newSlots = splitSlot(slots, largestIdx, splitStart, splitEnd);
+
+    const newSlots = splitSlot(slots, addDialog.slotIndex, startMinutes, endMinutes);
     setSlots(newSlots);
+    setAddDialog(null);
   };
 
   const handleSave = () => {
@@ -381,6 +455,70 @@ export function TimeframesEditor() {
             Create
           </Button>
         </div>
+
+        {addDialog && slots[addDialog.slotIndex] && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Neues Zeitfenster</h2>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label htmlFor="slot-picker" className="text-sm font-medium text-gray-700">Zu teilendes Fenster</label>
+                  <select
+                    id="slot-picker"
+                    value={addDialog.slotIndex}
+                    onChange={(e) => handleAddDialogSlotChange(Number(e.target.value))}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none"
+                  >
+                    {slots.map((slot, idx) => (
+                      <option key={`pick-${slot.start}-${slot.end}-${idx}`} value={idx}>
+                        {hhmm(slot.start)} – {hhmm(slot.end)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-600">Start</label>
+                    <Input
+                      value={addDialog.startValue}
+                      onChange={(e) => handleAddDialogInputChange('start', e.target.value)}
+                      placeholder="HH:MM"
+                      className={`text-center ${!addDialog.startValid ? 'border-red-500 focus:border-red-500' : ''}`}
+                    />
+                  </div>
+                  <span className="text-gray-500 text-sm">–</span>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-600">Ende</label>
+                    <Input
+                      value={addDialog.endValue}
+                      onChange={(e) => handleAddDialogInputChange('end', e.target.value)}
+                      placeholder="HH:MM"
+                      className={`text-center ${!addDialog.endValid ? 'border-red-500 focus:border-red-500' : ''}`}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Zugehöriges Fenster: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}. Neue Zeit muss vollständig darin liegen.
+                </p>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={handleAddDialogCancel}>
+                    Abbrechen
+                  </Button>
+                  <Button
+                    onClick={handleAddDialogConfirm}
+                    disabled={!(addDialog.startValid && addDialog.endValid && minutes(addDialog.startValue) <= minutes(addDialog.endValue))}
+                    className="bg-blue-700 hover:bg-blue-800"
+                  >
+                    Erstellen
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Debug info */}
         <div className="mt-8 p-4 bg-gray-100 rounded text-xs font-mono">
