@@ -23,19 +23,19 @@ function hhmm(min: number): string {
 function normalizeAndFill(slots: Slot[]): Slot[] {
   // Sort by start time
   slots.sort((a, b) => a.start - b.start);
-  
-  // Merge adjacent/overlapping slots
+
+  // Merge overlapping slots (but keep adjacent windows separate)
   const merged: Slot[] = [];
   for (const s of slots) {
     if (!merged.length) {
       merged.push({ ...s });
     } else {
       const last = merged[merged.length - 1];
-      if (s.start <= last.end + 1) {
+      if (s.start <= last.end) {
         last.end = Math.max(last.end, s.end);
-      } else {
-        merged.push({ ...s });
+        continue;
       }
+      merged.push({ ...s });
     }
   }
   
@@ -58,7 +58,28 @@ function normalizeAndFill(slots: Slot[]): Slot[] {
 
 function deleteAndMerge(slots: Slot[], idx: number): Slot[] {
   const newSlots = [...slots];
-  newSlots.splice(idx, 1);
+  const removed = newSlots.splice(idx, 1)[0];
+
+  if (!removed) {
+    return normalizeAndFill(newSlots);
+  }
+
+  const prevIdx = idx - 1;
+  const prev = prevIdx >= 0 ? newSlots[prevIdx] : undefined;
+  const next = newSlots[idx];
+
+  if (prev && next) {
+    // Merge neighboring slots into one continuous block
+    const mergedSlot: Slot = { start: prev.start, end: next.end };
+    newSlots.splice(prevIdx, 2, mergedSlot);
+  } else if (prev) {
+    // Extend previous slot to the end of the day
+    prev.end = 1439;
+  } else if (next) {
+    // Extend next slot to the beginning of the day
+    next.start = 0;
+  }
+
   return normalizeAndFill(newSlots);
 }
 
@@ -81,8 +102,8 @@ function applyEdit(
   // Adjust neighbors
   const prev = newSlots[idx - 1];
   const next = newSlots[idx + 1];
-  if (prev) prev.end = s.start - 1;
-  if (next) next.start = s.end + 1;
+  if (prev) prev.end = Math.max(prev.start, s.start - 1);
+  if (next) next.start = Math.min(next.end, s.end + 1);
   
   return normalizeAndFill(newSlots);
 }
@@ -90,39 +111,30 @@ function applyEdit(
 function splitSlot(slots: Slot[], idx: number, splitStart: number, splitEnd: number): Slot[] {
   const newSlots = [...slots];
   const original = newSlots[idx];
-  
-  console.log('splitSlot called:', { original, splitStart, splitEnd });
-  
+
   // Validate split is within bounds and makes sense
-  if (splitStart <= original.start || splitEnd >= original.end || splitStart >= splitEnd) {
-    console.log('Split validation failed:', { 
-      startCheck: splitStart <= original.start,
-      endCheck: splitEnd >= original.end,
-      orderCheck: splitStart >= splitEnd
-    });
+  if (splitStart <= original.start || splitEnd >= original.end || splitStart > splitEnd) {
     return slots; // Invalid split
   }
-  
+
   const result: Slot[] = [];
-  
+
   // Left part (if any)
   if (original.start < splitStart) {
     result.push({ start: original.start, end: splitStart - 1 });
   }
-  
+
   // New slot
   result.push({ start: splitStart, end: splitEnd });
-  
+
   // Right part (if any)
   if (splitEnd < original.end) {
     result.push({ start: splitEnd + 1, end: original.end });
   }
-  
-  console.log('Split result:', result);
-  
+
   // Replace original slot with new parts
   newSlots.splice(idx, 1, ...result);
-  
+
   return normalizeAndFill(newSlots);
 }
 
@@ -185,7 +197,7 @@ export function TimeframesEditor() {
     const newStart = minutes(editingSlot.startValue);
     const newEnd = minutes(editingSlot.endValue);
     
-    if (newStart >= newEnd) return; // Invalid range
+    if (newStart > newEnd) return; // Invalid range
     
     const newSlots = applyEdit(slots, editingSlot.idx, newStart, newEnd);
     setSlots(newSlots);
@@ -214,7 +226,6 @@ export function TimeframesEditor() {
     
     // Only split if slot is at least 3 minutes (so we can make 3 parts: left, middle, right)
     if (slotSize < 3) {
-      console.log('Cannot split: slot too small', { slotSize });
       return;
     }
     
@@ -224,10 +235,7 @@ export function TimeframesEditor() {
     const splitStart = Math.max(slot.start + 1, mid - Math.floor(newSlotDuration / 2));
     const splitEnd = Math.min(slot.end - 1, splitStart + newSlotDuration - 1);
     
-    console.log('Splitting slot:', { slot, slotSize, splitStart, splitEnd, largestIdx, newSlotDuration });
-    
     const newSlots = splitSlot(slots, largestIdx, splitStart, splitEnd);
-    console.log('New slots after split:', newSlots);
     setSlots(newSlots);
   };
 
