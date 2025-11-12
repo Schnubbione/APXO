@@ -249,43 +249,63 @@ export function TimeframesEditor() {
     openAddDialog(largestIdx);
   };
 
-  const handleAddDialogSlotChange = (index: number) => {
-    if (!slots[index]) return;
-    const defaults = getDefaultRangeForSlot(slots[index]);
-    setAddDialog(prev => prev && {
-      slotIndex: index,
-      startValue: hhmm(defaults.start),
-      endValue: hhmm(defaults.end),
-      startValid: true,
-      endValid: true,
-    });
-  };
-
   const handleAddDialogInputChange = (field: 'start' | 'end', value: string) => {
     setAddDialog(prev => {
       if (!prev) return prev;
-      const slot = slots[prev.slotIndex];
-      if (!slot) return prev;
 
-      const isFormatValid = validateTimeInput(value);
-      let isValueValid = false;
-      if (isFormatValid) {
-        const minutesValue = minutes(value);
-        if (field === 'start') {
-          const endMinutes = validateTimeInput(prev.endValue) ? minutes(prev.endValue) : null;
-          isValueValid = minutesValue >= slot.start && minutesValue <= slot.end && (endMinutes === null || minutesValue <= endMinutes);
-        } else {
-          const startMinutes = validateTimeInput(prev.startValue) ? minutes(prev.startValue) : null;
-          isValueValid = minutesValue >= slot.start && minutesValue <= slot.end && (startMinutes === null || minutesValue >= startMinutes);
-        }
-      }
-
-      return {
+      const next = {
         ...prev,
         startValue: field === 'start' ? value : prev.startValue,
         endValue: field === 'end' ? value : prev.endValue,
-        startValid: field === 'start' ? isFormatValid && isValueValid : prev.startValid,
-        endValid: field === 'end' ? isFormatValid && isValueValid : prev.endValid,
+      };
+
+      const startFormatValid = validateTimeInput(next.startValue);
+      const endFormatValid = validateTimeInput(next.endValue);
+      const startMinutes = startFormatValid ? minutes(next.startValue) : null;
+      const endMinutes = endFormatValid ? minutes(next.endValue) : null;
+
+      let slotIndex = prev.slotIndex;
+      let slotBoundsValid = true;
+
+      if (startMinutes !== null || endMinutes !== null) {
+        const candidateIndex = slots.findIndex(slot => {
+          const coversStart = startMinutes === null || (startMinutes >= slot.start && startMinutes <= slot.end);
+          const coversEnd = endMinutes === null || (endMinutes >= slot.start && endMinutes <= slot.end);
+          return coversStart && coversEnd;
+        });
+        if (candidateIndex !== -1) {
+          slotIndex = candidateIndex;
+        } else {
+          slotBoundsValid = false;
+        }
+      }
+
+      const slot = slots[slotIndex];
+      let startValid = startFormatValid;
+      let endValid = endFormatValid;
+
+      if (slot) {
+        if (startMinutes !== null) {
+          startValid = startValid && startMinutes >= slot.start && startMinutes <= slot.end;
+        }
+        if (endMinutes !== null) {
+          endValid = endValid && endMinutes >= slot.start && endMinutes <= slot.end;
+        }
+      } else {
+        startValid = false;
+        endValid = false;
+      }
+
+      if (!slotBoundsValid) {
+        if (field === 'start') startValid = false;
+        if (field === 'end') endValid = false;
+      }
+
+      return {
+        ...next,
+        slotIndex,
+        startValid,
+        endValid,
       };
     });
   };
@@ -461,22 +481,9 @@ export function TimeframesEditor() {
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Neues Zeitfenster</h2>
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <label htmlFor="slot-picker" className="text-sm font-medium text-gray-700">Zu teilendes Fenster</label>
-                  <select
-                    id="slot-picker"
-                    value={addDialog.slotIndex}
-                    onChange={(e) => handleAddDialogSlotChange(Number(e.target.value))}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none"
-                  >
-                    {slots.map((slot, idx) => (
-                      <option key={`pick-${slot.start}-${slot.end}-${idx}`} value={idx}>
-                        {hhmm(slot.start)} – {hhmm(slot.end)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+                <p className="text-sm text-gray-600">
+                  Das neue Zeitfenster wird automatisch innerhalb des größten verfügbaren Fensters angelegt. Zeiten können angepasst werden.
+                </p>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-600">Start</label>
@@ -500,7 +507,7 @@ export function TimeframesEditor() {
                 </div>
 
                 <p className="text-xs text-gray-500">
-                  Zugehöriges Fenster: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}. Neue Zeit muss vollständig darin liegen.
+                  Zielbereich: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}
                 </p>
 
                 <div className="flex justify-end gap-2 pt-2">
