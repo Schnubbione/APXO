@@ -229,8 +229,8 @@ export function TimeframesEditor() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [addDialog, setAddDialog] = useState<{
     slotIndex: number;
-    startValue: string;
-    endValue: string;
+    startValue: string; // digits only (max 4)
+    endValue: string;   // digits only (max 4)
     startValid: boolean;
     endValid: boolean;
   } | null>(null);
@@ -299,12 +299,16 @@ export function TimeframesEditor() {
     const slot = slots[slotIndex];
     if (!slot) return;
     const defaults = getDefaultRangeForSlot(slot);
+    const startDigits = hhmm(defaults.start).replace(':', '');
+    const endDigits = hhmm(defaults.end).replace(':', '');
+    const startParsed = parseFlexibleTime(startDigits);
+    const endParsed = parseFlexibleTime(endDigits);
     setAddDialog({
       slotIndex,
-      startValue: hhmm(defaults.start),
-      endValue: hhmm(defaults.end),
-      startValid: true,
-      endValid: true,
+      startValue: startDigits,
+      endValue: endDigits,
+      startValid: startParsed.isValid,
+      endValid: endParsed.isValid,
     });
   };
 
@@ -325,13 +329,12 @@ export function TimeframesEditor() {
   };
 
   const handleAddDialogInputChange = (field: 'start' | 'end', value: string) => {
-    const sanitized = value.replace(/[^0-9:]/g, '');
-
     setAddDialog(prev => {
       if (!prev) return prev;
 
-      const nextStartRaw = field === 'start' ? sanitized : prev.startValue;
-      const nextEndRaw = field === 'end' ? sanitized : prev.endValue;
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 4);
+      const nextStartRaw = field === 'start' ? digitsOnly : prev.startValue;
+      const nextEndRaw = field === 'end' ? digitsOnly : prev.endValue;
 
       const startParsed = parseFlexibleTime(nextStartRaw);
       const endParsed = parseFlexibleTime(nextEndRaw);
@@ -355,8 +358,8 @@ export function TimeframesEditor() {
 
       return {
         slotIndex,
-        startValue: field === 'start' ? (startParsed.formatted ?? sanitized) : (startParsed.formatted ?? prev.startValue),
-        endValue: field === 'end' ? (endParsed.formatted ?? sanitized) : (endParsed.formatted ?? prev.endValue),
+        startValue: nextStartRaw,
+        endValue: nextEndRaw,
         startValid: startParsed.isValid && startWithinSlot,
         endValid: endParsed.isValid && endWithinSlot,
       };
@@ -457,6 +460,7 @@ export function TimeframesEditor() {
                     type="text"
                     value={editingSlot.startValue}
                     onChange={(e) => handleEditChange('start', e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     placeholder="00:00"
                     className={`text-center ${!editingSlot.startValid ? 'border-red-500' : ''}`}
                     onKeyDown={(e) => {
@@ -469,6 +473,7 @@ export function TimeframesEditor() {
                     type="text"
                     value={editingSlot.endValue}
                     onChange={(e) => handleEditChange('end', e.target.value)}
+                    onFocus={(e) => e.target.select()}
                     placeholder="23:59"
                     className={`text-center ${!editingSlot.endValid ? 'border-red-500' : ''}`}
                     onKeyDown={(e) => {
@@ -553,6 +558,7 @@ export function TimeframesEditor() {
                     <Input
                       value={addDialog.startValue}
                       onChange={(e) => handleAddDialogInputChange('start', e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       placeholder="HH:MM"
                       className={`text-center ${!addDialog.startValid ? 'border-red-500 focus:border-red-500' : ''}`}
                     />
@@ -563,15 +569,22 @@ export function TimeframesEditor() {
                     <Input
                       value={addDialog.endValue}
                       onChange={(e) => handleAddDialogInputChange('end', e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       placeholder="HH:MM"
                       className={`text-center ${!addDialog.endValid ? 'border-red-500 focus:border-red-500' : ''}`}
                     />
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-500">
-                  Zielbereich: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}
-                </p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>Zielbereich: {hhmm(slots[addDialog.slotIndex].start)} – {hhmm(slots[addDialog.slotIndex].end)}</p>
+                  <p>
+                    Berechnete Zeit:{' '}
+                    {addDialogStartParsed?.formatted && addDialogEndParsed?.formatted
+                      ? `${addDialogStartParsed.formatted} – ${addDialogEndParsed.formatted}`
+                      : '—'}
+                  </p>
+                </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={handleAddDialogCancel}>
