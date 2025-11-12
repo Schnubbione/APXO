@@ -91,8 +91,15 @@ function splitSlot(slots: Slot[], idx: number, splitStart: number, splitEnd: num
   const newSlots = [...slots];
   const original = newSlots[idx];
   
-  // Validate split is within bounds
-  if (splitStart < original.start || splitEnd > original.end || splitStart >= splitEnd) {
+  console.log('splitSlot called:', { original, splitStart, splitEnd });
+  
+  // Validate split is within bounds and makes sense
+  if (splitStart <= original.start || splitEnd >= original.end || splitStart >= splitEnd) {
+    console.log('Split validation failed:', { 
+      startCheck: splitStart <= original.start,
+      endCheck: splitEnd >= original.end,
+      orderCheck: splitStart >= splitEnd
+    });
     return slots; // Invalid split
   }
   
@@ -110,6 +117,8 @@ function splitSlot(slots: Slot[], idx: number, splitStart: number, splitEnd: num
   if (splitEnd < original.end) {
     result.push({ start: splitEnd + 1, end: original.end });
   }
+  
+  console.log('Split result:', result);
   
   // Replace original slot with new parts
   newSlots.splice(idx, 1, ...result);
@@ -201,13 +210,23 @@ export function TimeframesEditor() {
     }
     
     const slot = slots[largestIdx];
-    const mid = Math.floor((slot.start + slot.end) / 2);
-    const splitEnd = Math.min(mid + 60, slot.end); // 1 hour or less
+    const slotSize = slot.end - slot.start;
     
-    if (slot.end - slot.start >= 2) { // Only split if >= 2 minutes
-      const newSlots = splitSlot(slots, largestIdx, mid, splitEnd);
-      setSlots(newSlots);
+    // Only split if slot is at least 2 minutes
+    if (slotSize < 2) {
+      console.log('Cannot split: slot too small');
+      return;
     }
+    
+    // Calculate split point - aim for middle, but ensure at least 1 minute on each side
+    const mid = Math.floor((slot.start + slot.end) / 2);
+    const splitStart = mid;
+    const splitEnd = Math.min(mid + Math.floor(slotSize / 2), slot.end - 1);
+    
+    console.log('Splitting slot:', { slot, splitStart, splitEnd, largestIdx });
+    
+    const newSlots = splitSlot(slots, largestIdx, splitStart, splitEnd);
+    setSlots(newSlots);
   };
 
   const handleSave = () => {
