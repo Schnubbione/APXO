@@ -141,6 +141,81 @@ function validateTimeInput(value: string): boolean {
   return mins >= 0 && mins <= 1439;
 }
 
+type ParsedFlexibleTime = {
+  formatted: string | null;
+  minutes: number | null;
+  isValid: boolean;
+};
+
+function parseFlexibleTime(value: string): ParsedFlexibleTime {
+  const trimmed = value.trim();
+  if (!trimmed) return { formatted: null, minutes: null, isValid: false };
+
+  let hours: number | null = null;
+  let minutesValue: number | null = null;
+
+  if (trimmed.includes(':')) {
+    const [rawHours, rawMinutes = ''] = trimmed.split(':');
+    if (/^\d{1,2}$/.test(rawHours) && /^\d{0,2}$/.test(rawMinutes)) {
+      hours = Number(rawHours);
+      if (rawMinutes.length === 0) {
+        minutesValue = 0;
+      } else if (rawMinutes.length === 1) {
+        minutesValue = Number(rawMinutes) * 10;
+      } else {
+        minutesValue = Number(rawMinutes);
+      }
+    }
+  } else {
+    let digits = trimmed.replace(/\D/g, '');
+    if (!digits) return { formatted: null, minutes: null, isValid: false };
+    digits = digits.slice(0, 4);
+
+    if (digits.length === 1) {
+      hours = Number(digits);
+      minutesValue = 0;
+    } else if (digits.length === 2) {
+      hours = Number(digits);
+      minutesValue = 0;
+    } else if (digits.length === 3) {
+      const firstTwo = Number(digits.slice(0, 2));
+      const lastDigit = Number(digits[2]);
+      if (firstTwo <= 23 && lastDigit <= 5) {
+        hours = firstTwo;
+        minutesValue = lastDigit * 10;
+      } else {
+        hours = Number(digits[0]);
+        minutesValue = Number(digits.slice(1));
+      }
+    } else {
+      const firstTwo = Number(digits.slice(0, 2));
+      const lastTwo = Number(digits.slice(2, 4));
+      hours = firstTwo;
+      minutesValue = lastTwo;
+    }
+  }
+
+  if (
+    hours === null ||
+    minutesValue === null ||
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutesValue) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutesValue < 0 ||
+    minutesValue > 59
+  ) {
+    return { formatted: null, minutes: null, isValid: false };
+  }
+
+  const totalMinutes = hours * 60 + minutesValue;
+  return {
+    formatted: hhmm(totalMinutes),
+    minutes: totalMinutes,
+    isValid: true,
+  };
+}
+
 export function TimeframesEditor() {
   const [slots, setSlots] = useState<Slot[]>([{ start: 0, end: 1439 }]);
   const [savedSlots, setSavedSlots] = useState<Slot[]>([{ start: 0, end: 1439 }]);
@@ -250,62 +325,40 @@ export function TimeframesEditor() {
   };
 
   const handleAddDialogInputChange = (field: 'start' | 'end', value: string) => {
+    const sanitized = value.replace(/[^0-9:]/g, '');
+
     setAddDialog(prev => {
       if (!prev) return prev;
 
-      const next = {
-        ...prev,
-        startValue: field === 'start' ? value : prev.startValue,
-        endValue: field === 'end' ? value : prev.endValue,
-      };
+      const nextStartRaw = field === 'start' ? sanitized : prev.startValue;
+      const nextEndRaw = field === 'end' ? sanitized : prev.endValue;
 
-      const startFormatValid = validateTimeInput(next.startValue);
-      const endFormatValid = validateTimeInput(next.endValue);
-      const startMinutes = startFormatValid ? minutes(next.startValue) : null;
-      const endMinutes = endFormatValid ? minutes(next.endValue) : null;
+      const startParsed = parseFlexibleTime(nextStartRaw);
+      const endParsed = parseFlexibleTime(nextEndRaw);
 
       let slotIndex = prev.slotIndex;
-      let slotBoundsValid = true;
 
-      if (startMinutes !== null || endMinutes !== null) {
+      if (startParsed.minutes !== null || endParsed.minutes !== null) {
         const candidateIndex = slots.findIndex(slot => {
-          const coversStart = startMinutes === null || (startMinutes >= slot.start && startMinutes <= slot.end);
-          const coversEnd = endMinutes === null || (endMinutes >= slot.start && endMinutes <= slot.end);
+          const coversStart = startParsed.minutes === null || (startParsed.minutes >= slot.start && startParsed.minutes <= slot.end);
+          const coversEnd = endParsed.minutes === null || (endParsed.minutes >= slot.start && endParsed.minutes <= slot.end);
           return coversStart && coversEnd;
         });
         if (candidateIndex !== -1) {
           slotIndex = candidateIndex;
-        } else {
-          slotBoundsValid = false;
         }
       }
 
       const slot = slots[slotIndex];
-      let startValid = startFormatValid;
-      let endValid = endFormatValid;
-
-      if (slot) {
-        if (startMinutes !== null) {
-          startValid = startValid && startMinutes >= slot.start && startMinutes <= slot.end;
-        }
-        if (endMinutes !== null) {
-          endValid = endValid && endMinutes >= slot.start && endMinutes <= slot.end;
-        }
-      } else {
-        startValid = false;
-        endValid = false;
-      }
-
-      if (!slotBoundsValid) {
-        if (field === 'start') startValid = false;
-        if (field === 'end') endValid = false;
-      }
+      const startWithinSlot = Boolean(slot && startParsed.minutes !== null && startParsed.minutes >= slot.start && startParsed.minutes <= slot.end);
+      const endWithinSlot = Boolean(slot && endParsed.minutes !== null && endParsed.minutes >= slot.start && endParsed.minutes <= slot.end);
 
       return {
-        ...next,
         slotIndex,
-        startValid,
-        endValid,
+        startValue: field === 'start' ? (startParsed.formatted ?? sanitized) : (startParsed.formatted ?? prev.startValue),
+        endValue: field === 'end' ? (endParsed.formatted ?? sanitized) : (endParsed.formatted ?? prev.endValue),
+        startValid: startParsed.isValid && startWithinSlot,
+        endValid: endParsed.isValid && endWithinSlot,
       };
     });
   };
@@ -317,12 +370,12 @@ export function TimeframesEditor() {
     const slot = slots[addDialog.slotIndex];
     if (!slot) return;
 
-    const startValid = addDialog.startValid && validateTimeInput(addDialog.startValue);
-    const endValid = addDialog.endValid && validateTimeInput(addDialog.endValue);
-    if (!startValid || !endValid) return;
+    const startParsed = parseFlexibleTime(addDialog.startValue);
+    const endParsed = parseFlexibleTime(addDialog.endValue);
+    if (!startParsed.isValid || !endParsed.isValid) return;
 
-    const startMinutes = minutes(addDialog.startValue);
-    const endMinutes = minutes(addDialog.endValue);
+    const startMinutes = startParsed.minutes as number;
+    const endMinutes = endParsed.minutes as number;
 
     if (startMinutes < slot.start || endMinutes > slot.end || startMinutes > endMinutes) {
       return;
@@ -332,6 +385,19 @@ export function TimeframesEditor() {
     setSlots(newSlots);
     setAddDialog(null);
   };
+
+  const addDialogStartParsed = addDialog ? parseFlexibleTime(addDialog.startValue) : null;
+  const addDialogEndParsed = addDialog ? parseFlexibleTime(addDialog.endValue) : null;
+  const startMinutesForConfirm = addDialogStartParsed?.minutes ?? null;
+  const endMinutesForConfirm = addDialogEndParsed?.minutes ?? null;
+  const canConfirmAddDialog = Boolean(
+    addDialog &&
+    addDialog.startValid &&
+    addDialog.endValid &&
+    startMinutesForConfirm !== null &&
+    endMinutesForConfirm !== null &&
+    startMinutesForConfirm <= endMinutesForConfirm
+  );
 
   const handleSave = () => {
     setSavedSlots([...slots]);
@@ -481,9 +547,6 @@ export function TimeframesEditor() {
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Neues Zeitfenster</h2>
               <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Das neue Zeitfenster wird automatisch innerhalb des größten verfügbaren Fensters angelegt. Zeiten können angepasst werden.
-                </p>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-600">Start</label>
@@ -516,7 +579,7 @@ export function TimeframesEditor() {
                   </Button>
                   <Button
                     onClick={handleAddDialogConfirm}
-                    disabled={!(addDialog.startValid && addDialog.endValid && minutes(addDialog.startValue) <= minutes(addDialog.endValue))}
+                    disabled={!canConfirmAddDialog}
                     className="bg-blue-700 hover:bg-blue-800"
                   >
                     Erstellen
