@@ -210,22 +210,24 @@ export function TimeframesEditor() {
     }
     
     const slot = slots[largestIdx];
-    const slotSize = slot.end - slot.start;
+    const slotSize = slot.end - slot.start + 1; // +1 because end is inclusive
     
-    // Only split if slot is at least 2 minutes
-    if (slotSize < 2) {
-      console.log('Cannot split: slot too small');
+    // Only split if slot is at least 3 minutes (so we can make 3 parts: left, middle, right)
+    if (slotSize < 3) {
+      console.log('Cannot split: slot too small', { slotSize });
       return;
     }
     
-    // Calculate split point - aim for middle, but ensure at least 1 minute on each side
+    // Calculate split points - create a new slot roughly 1 hour (or 1/3 of the slot) in the middle
+    const newSlotDuration = Math.min(60, Math.floor(slotSize / 3));
     const mid = Math.floor((slot.start + slot.end) / 2);
-    const splitStart = mid;
-    const splitEnd = Math.min(mid + Math.floor(slotSize / 2), slot.end - 1);
+    const splitStart = Math.max(slot.start + 1, mid - Math.floor(newSlotDuration / 2));
+    const splitEnd = Math.min(slot.end - 1, splitStart + newSlotDuration - 1);
     
-    console.log('Splitting slot:', { slot, splitStart, splitEnd, largestIdx });
+    console.log('Splitting slot:', { slot, slotSize, splitStart, splitEnd, largestIdx, newSlotDuration });
     
     const newSlots = splitSlot(slots, largestIdx, splitStart, splitEnd);
+    console.log('New slots after split:', newSlots);
     setSlots(newSlots);
   };
 
@@ -278,7 +280,7 @@ export function TimeframesEditor() {
 
           {slots.map((slot, idx) => (
             <div
-              key={idx}
+              key={`${slot.start}-${slot.end}-${idx}`}
               className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center"
             >
               {editingSlot?.idx === idx ? (
